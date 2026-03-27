@@ -1,0 +1,13 @@
+name: system-updater
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+description: Entorno conda para el Sistema de Actualización Simple de macOS
+
+# Para usar:
+# conda env create -f environment.yml
+# conda activate system-updater
+# python updater_simple.py 

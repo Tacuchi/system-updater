@@ -1,0 +1,47 @@
+{
+  "name": "@tacuchi/updater",
+  "version": "1.0.0",
+  "description": "CLI multiplataforma para actualizar gestores de paquetes del sistema",
+  "type": "module",
+  "bin": {
+    "updater": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.tsx",
+    "build": "tsup",
+    "prepublishOnly": "tsup"
+  },
+  "keywords": [
+    "cli",
+    "updater",
+    "package-manager",
+    "brew",
+    "npm",
+    "pip",
+    "winget",
+    "apt",
+    "tui"
+  ],
+  "author": "tacuchi",
+  "license": "MIT",
+  "dependencies": {
+    "@inkjs/ui": "^2.0.0",
+    "chalk": "^5.4.1",
+    "execa": "^9.6.0",
+    "ink": "^6.8.0",
+    "react": "^19.2.0",
+    "react-devtools-core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
