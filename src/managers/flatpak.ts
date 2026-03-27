@@ -43,4 +43,15 @@ export const flatpak: PackageManager = {
     yield* execStream('flatpak', args);
     return { success: true, upgraded: packages?.length ?? 0, failed: 0, errors: [] };
   },
+
+  async *uninstall(packages: string[]): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    if (!packages.length) {
+      return { success: true, upgraded: 0, failed: 0, errors: [] };
+    }
+    yield { type: 'start', message: 'Desinstalando paquetes Flatpak...' };
+    const args = ['uninstall', '-y', ...packages];
+    yield { type: 'log', message: `flatpak ${args.join(' ')}` };
+    yield* execStream('flatpak', args);
+    return { success: true, upgraded: packages.length, failed: 0, errors: [] };
+  },
 };

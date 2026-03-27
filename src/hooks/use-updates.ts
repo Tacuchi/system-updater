@@ -139,6 +139,88 @@ export function useUpdates() {
     []
   );
 
+  const startUninstall = useCallback(
+    async (manager: PackageManager, packages: string[], sudoMode?: boolean) => {
+      if (!manager.uninstall) return;
+      const id = `${manager.id}:uninstall`;
+
+      setUpdates(prev => {
+        const next = new Map(prev);
+        next.set(id, { managerId: id, status: 'running', percent: 0, logs: [] });
+        return next;
+      });
+
+      logger.log(`Iniciando desinstalación: ${manager.id} [${packages.join(', ')}]`);
+
+      try {
+        const gen = manager.uninstall(packages, sudoMode);
+        let result = await gen.next();
+        let logBuffer: string[] = [];
+        let lastFlush = Date.now();
+
+        const flush = () => {
+          const buffered = logBuffer;
+          logBuffer = [];
+          lastFlush = Date.now();
+          setUpdates(prev => {
+            const next = new Map(prev);
+            const current = next.get(id);
+            if (!current) return prev;
+            next.set(id, { ...current, logs: [...current.logs, ...buffered] });
+            return next;
+          });
+        };
+
+        while (!result.done) {
+          const event = result.value as ProgressEvent;
+          if (event.message) {
+            logBuffer.push(event.message);
+            logger.debug(`[${id}] ${event.message}`);
+          }
+          if (Date.now() - lastFlush >= LOG_FLUSH_INTERVAL || event.type !== 'log') flush();
+          result = await gen.next();
+        }
+        if (logBuffer.length > 0) flush();
+
+        const uninstallResult = result.value;
+        setUpdates(prev => {
+          const next = new Map(prev);
+          const current = next.get(id);
+          if (!current) return prev;
+          next.set(id, {
+            ...current,
+            status: uninstallResult?.success ? 'success' : 'error',
+            percent: 100,
+            result: uninstallResult,
+          });
+          return next;
+        });
+
+        if (uninstallResult?.success) {
+          logger.success(`${manager.id}: ${packages.length} paquete(s) desinstalado(s)`);
+        } else {
+          logger.error(`${manager.id}: error al desinstalar`);
+        }
+      } catch (err) {
+        logger.error(`Error desinstalando ${manager.id}: ${String(err)}`);
+        setUpdates(prev => {
+          const next = new Map(prev);
+          const current = next.get(id);
+          if (current) {
+            next.set(id, {
+              ...current,
+              status: 'error',
+              percent: 0,
+              result: { success: false, upgraded: 0, failed: 1, errors: [String(err)] },
+            });
+          }
+          return next;
+        });
+      }
+    },
+    []
+  );
+
   const clearUpdate = useCallback((managerId: string) => {
     setUpdates(prev => {
       const next = new Map(prev);
@@ -147,5 +229,5 @@ export function useUpdates() {
     });
   }, []);
 
-  return { updates, startUpdate, clearUpdate };
+  return { updates, startUpdate, startUninstall, clearUpdate };
 }

@@ -54,4 +54,16 @@ export const brew: PackageManager = {
 
     return { success: true, upgraded: packages?.length ?? 0, failed: 0, errors: [] };
   },
+
+  async *uninstall(packages: string[]): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    if (!packages.length) {
+      return { success: true, upgraded: 0, failed: 0, errors: [] };
+    }
+    yield { type: 'start', message: 'Desinstalando paquetes Homebrew...' };
+    for (const pkg of packages) {
+      yield { type: 'log', message: `brew uninstall ${pkg}` };
+      yield* execStream('brew', ['uninstall', pkg]);
+    }
+    return { success: true, upgraded: packages.length, failed: 0, errors: [] };
+  },
 };

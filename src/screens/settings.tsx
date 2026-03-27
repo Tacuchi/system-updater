@@ -57,12 +57,11 @@ export function Settings() {
       <Box flexDirection="row" flexGrow={1} gap={2}>
         <Box
           flexDirection="column"
-          width={20}
+          width={16}
           backgroundColor={colors.surfaceContainerLowest}
           paddingX={1}
-          paddingY={1}
+          paddingY={0}
         >
-          <Text color={colors.onSurfaceVariant} dimColor>NAVEGACIÓN</Text>
           {SECTIONS.map((section, i) => (
             <Box
               key={section}
@@ -74,13 +73,6 @@ export function Settings() {
               </Text>
             </Box>
           ))}
-
-          <Box marginTop={2} flexDirection="column">
-            <Text color={colors.outlineVariant} dimColor>● ESTADO</Text>
-            <Text color={colors.onSurfaceVariant} dimColor>
-              {s.statusSynced}
-            </Text>
-          </Box>
         </Box>
 
         <Box flexDirection="column" flexGrow={1} gap={2}>

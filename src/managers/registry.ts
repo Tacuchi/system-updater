@@ -11,6 +11,12 @@ import { dnf } from './dnf.js';
 import { pacman } from './pacman.js';
 import { flatpak } from './flatpak.js';
 import { snap } from './snap.js';
+import { flutter } from './flutter.js';
+import { angular } from './angular.js';
+import { cargo } from './cargo.js';
+import { goLang } from './go-lang.js';
+import { composer } from './composer.js';
+import { choco } from './choco.js';
 
 export interface DetectedManager {
   manager: PackageManager;
@@ -30,6 +36,12 @@ const ALL_MANAGERS: PackageManager[] = [
   pacman,
   flatpak,
   snap,
+  flutter,
+  angular,
+  cargo,
+  goLang,
+  composer,
+  choco,
 ];
 
 export async function detectManagers(): Promise<DetectedManager[]> {

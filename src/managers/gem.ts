@@ -15,15 +15,29 @@ export const gem: PackageManager = {
   async listOutdated(): Promise<OutdatedPackage[]> {
     const result = await execCommand('gem', ['outdated'], 30_000);
     if (result.exitCode !== 0) return [];
+
+    // Obtener gems realmente instaladas por el usuario en GEM_HOME activo
+    // Excluye: default gems (embebidas en runtime) y bundled gems (no en GEM_HOME)
+    const filterResult = await execCommand(
+      'ruby',
+      ['-e', 'puts Gem::Specification.select{|s| !s.default_gem? && s.base_dir == Gem.dir}.map(&:name).join("\n")'],
+      5000,
+    );
+    const userGems = new Set(
+      filterResult.stdout.split('\n').map(l => l.trim()).filter(Boolean)
+    );
+
     return result.stdout
       .split('\n')
       .filter(Boolean)
       .map(line => {
-        // Formato: "nombre (current < new)"
         const match = line.match(/^(\S+)\s+\(([^<]+)<\s+([^)]+)\)/);
         if (!match) return null;
+        const name = match[1] ?? '';
+        // Solo incluir gems instaladas por el usuario en el GEM_HOME activo
+        if (!userGems.has(name)) return null;
         return {
-          name: match[1] ?? '',
+          name,
           currentVersion: match[2]?.trim() ?? '?',
           newVersion: match[3]?.trim() ?? '?',
         };
@@ -35,7 +49,10 @@ export const gem: PackageManager = {
     const useSudo = sudoMode ?? false;
     yield { type: 'start', message: `Actualizando gems...${useSudo ? ' (sudo)' : ''}` };
 
-    const baseArgs = useSudo ? ['update'] : ['update', '--user-install'];
+    // Si GEM_HOME está configurado (RVM/rbenv), gem ya escribe en user-space
+    // --user-install apunta a ~/.gem/ que es un directorio diferente y causa fallos
+    const hasCustomGemHome = !!process.env['GEM_HOME'];
+    const baseArgs = useSudo ? ['update'] : hasCustomGemHome ? ['update'] : ['update', '--user-install'];
     const args = packages && packages.length > 0
       ? [...baseArgs, ...packages]
       : baseArgs;
@@ -72,5 +89,18 @@ export const gem: PackageManager = {
       failed: failedPkgs.length,
       errors,
     };
+  },
+
+  async *uninstall(packages: string[], sudoMode?: boolean): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    if (!packages.length) {
+      return { success: true, upgraded: 0, failed: 0, errors: [] };
+    }
+    const useSudo = sudoMode ?? false;
+    yield { type: 'start', message: `Desinstalando gems...${useSudo ? ' (sudo)' : ''}` };
+    const args = ['uninstall', '-aIx', ...packages];
+    const prefix = useSudo ? 'sudo ' : '';
+    yield { type: 'log', message: `${prefix}gem ${args.join(' ')}` };
+    yield* execStream('gem', args, 300_000, useSudo);
+    return { success: true, upgraded: packages.length, failed: 0, errors: [] };
   },
 };

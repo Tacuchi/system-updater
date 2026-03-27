@@ -138,6 +138,12 @@ export const es = {
     pacman: 'Pacman / Arch',
     flatpak: 'Flatpak',
     snap: 'Snap',
+    flutter: 'Flutter SDK',
+    angular: 'Angular CLI',
+    cargo: 'Rust / Cargo',
+    go: 'Go SDK',
+    composer: 'Composer / PHP',
+    choco: 'Chocolatey',
   },
   // Verbosidad
   verbosity: {

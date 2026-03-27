@@ -48,4 +48,17 @@ export const winget: PackageManager = {
     yield* execStream('winget', args);
     return { success: true, upgraded: packages?.length ?? 0, failed: 0, errors: [] };
   },
+
+  async *uninstall(packages: string[]): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    if (!packages.length) {
+      return { success: true, upgraded: 0, failed: 0, errors: [] };
+    }
+    yield { type: 'start', message: 'Desinstalando paquetes con winget...' };
+    for (const pkg of packages) {
+      const args = ['uninstall', '--accept-source-agreements', '--accept-package-agreements', '--name', pkg];
+      yield { type: 'log', message: `winget ${args.join(' ')}` };
+      yield* execStream('winget', args);
+    }
+    return { success: true, upgraded: packages.length, failed: 0, errors: [] };
+  },
 };

@@ -25,21 +25,23 @@ export function Dashboard() {
   }
 
   return (
-    <Box flexDirection="column" paddingX={2} paddingY={1} flexGrow={1}>
-      {/* Header compacto */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom={1}>
+    <Box flexDirection="column" paddingX={1} flexGrow={1}>
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
         <Box gap={2} alignItems="center">
-          <Text bold color={colors.onSurface}>{d.title}</Text>
           <StatusPill variant={isScanning ? 'active' : totalUpdates > 0 ? 'warning' : 'success'}>
             {isScanning ? d.scanning : totalUpdates > 0 ? `${totalUpdates} ${d.available}` : d.active}
           </StatusPill>
+          <Text color={colors.onSurfaceVariant} dimColor>
+            {d.uptime}: {systemInfo.uptime} {box.dot} {d.lastScan}: {formatLastScan(lastScan)}
+          </Text>
         </Box>
-        <Text color={colors.onSurfaceVariant} dimColor>
-          {systemInfo.os} {box.dot} {d.uptime}: {systemInfo.uptime} {box.dot} {d.lastScan}: {formatLastScan(lastScan)}
-        </Text>
+        {!detecting && totalUpdates > 0 && (
+          <Text color={colors.primaryContainer} backgroundColor={colors.primary} bold>
+            {' '}ENTER {box.arrow} PAQUETES{' '}
+          </Text>
+        )}
       </Box>
 
-      {/* Lista de gestores — directo al punto */}
       {detecting ? (
         <Box paddingY={1}>
           <Text color={colors.primary}>{d.scanning}</Text>
@@ -49,20 +51,12 @@ export function Dashboard() {
           <Text color={colors.onSurfaceVariant}>{d.noManagers}</Text>
         </Box>
       ) : (
-        <Box flexDirection="column" gap={0}>
-          {/* Encabezado de tabla */}
-          <Box paddingBottom={1} borderBottom={false}>
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
             <Text color={colors.outlineVariant}>
-              {'  '}
-              {padR('GESTOR', 20)}
-              {padR('VERSION', 16)}
-              {padR('ACTUALIZACIONES', 18)}
-              {'ESTADO'}
+              {'  '}{padR('GESTOR', 18)}{padR('VER', 12)}{padR('UPD', 6)}{'ESTADO'}
             </Text>
           </Box>
-          <Text color={colors.outlineVariant} dimColor>
-            {'  '}{'─'.repeat(70)}
-          </Text>
 
           {managers.map(({ manager, outdated, scanning }) => {
             const id = manager.manager.id;
@@ -72,28 +66,21 @@ export function Dashboard() {
             const isAdmin = manager.manager.requiresAdmin;
 
             return (
-              <Box key={id} flexDirection="row" paddingY={0}>
+              <Box key={id} flexDirection="row">
                 <Text color={colors.tertiary}>{count > 0 ? box.bullet : ' '} </Text>
-                <Text color={colors.onSurface} bold={count > 0}>
-                  {padR(name, 20)}
-                </Text>
-                <Text color={colors.onSurfaceVariant}>
-                  {padR(version, 16)}
-                </Text>
+                <Text color={colors.onSurface} bold={count > 0}>{padR(name, 18)}</Text>
+                <Text color={colors.onSurfaceVariant}>{padR(version, 12)}</Text>
                 <Text color={count > 0 ? colors.secondary : colors.onSurfaceVariant} bold={count > 0}>
-                  {padR(
-                    scanning ? '...' : count > 0 ? String(count) : '—',
-                    18
-                  )}
+                  {padR(scanning ? '..' : count > 0 ? String(count) : '—', 6)}
                 </Text>
                 {scanning ? (
                   <Text color={colors.primary}>{d.scanning}</Text>
                 ) : isAdmin ? (
                   <Text color={colors.onSurfaceVariant} dimColor>ADMIN</Text>
                 ) : count > 0 ? (
-                  <StatusPill variant="warning">{count} disponibles</StatusPill>
+                  <StatusPill variant="warning">{count}</StatusPill>
                 ) : (
-                  <StatusPill variant="success">{box.check}</StatusPill>
+                  <Text color={colors.tertiary}>{box.check}</Text>
                 )}
               </Box>
             );
@@ -101,27 +88,14 @@ export function Dashboard() {
         </Box>
       )}
 
-      {/* Resumen + acción directa */}
       {!detecting && managers.length > 0 && (
-        <Box flexDirection="column" marginTop={2} gap={1}>
-          <Text color={colors.outlineVariant} dimColor>
-            {'─'.repeat(70)}
+        <Box marginTop={1} gap={2}>
+          <Text color={colors.onSurfaceVariant}>
+            {managers.length} {box.dot}
           </Text>
-          <Box flexDirection="row" justifyContent="space-between" alignItems="center">
-            <Box gap={2}>
-              <Text color={colors.onSurface}>
-                {managers.length} gestores {box.dot}{' '}
-              </Text>
-              <Text color={totalUpdates > 0 ? colors.secondary : colors.tertiary} bold>
-                {totalUpdates} actualizaciones
-              </Text>
-            </Box>
-            {totalUpdates > 0 && (
-              <Text color={colors.primaryContainer} backgroundColor={colors.primary} bold>
-                {' '}ENTER → VER PAQUETES{' '}
-              </Text>
-            )}
-          </Box>
+          <Text color={totalUpdates > 0 ? colors.secondary : colors.tertiary} bold>
+            {totalUpdates} actualizaciones
+          </Text>
         </Box>
       )}
     </Box>

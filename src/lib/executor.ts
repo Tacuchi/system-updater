@@ -9,13 +9,34 @@ export interface ExecResult {
   exitCode: number;
 }
 
-/** Prepara comando con sudo si es necesario */
+/**
+ * Ajusta el comando según el contexto de permisos:
+ * - sudo=true + ya somos root → ejecutar directo (ya tenemos permisos)
+ * - sudo=true + no root → prefixar con sudo -n
+ * - sudo=false + somos root (por re-exec) → de-escalar al usuario original
+ *   para que detect/listOutdated vean el entorno correcto del usuario
+ * - sudo=false + no root → ejecutar directo
+ */
 function withSudo(cmd: string, args: string[], sudo: boolean): [string, string[]] {
-  if (!sudo || process.platform === 'win32') return [cmd, args];
-  // Si ya somos root (re-exec con sudo), no necesitamos prefixar
-  if (process.getuid?.() === 0) return [cmd, args];
-  // Fallback: usar -n (non-interactive) para no colgar esperando password
-  return ['sudo', ['-n', cmd, ...args]];
+  if (process.platform === 'win32') return [cmd, args];
+
+  const isRoot = process.getuid?.() === 0;
+  const originalUser = process.env['SUDO_USER'];
+
+  if (sudo) {
+    if (isRoot) return [cmd, args];
+    return ['sudo', ['-n', cmd, ...args]];
+  }
+
+  // De-escalar: si corremos como root por re-exec, ejecutar como el usuario original
+  // para que brew, gem, pip, etc. vean su entorno real.
+  // -i: simula login completo (carga .zshrc/.bashrc → inicializa RVM, NVM, pyenv, etc.)
+  // -u: ejecuta como el usuario original
+  if (isRoot && originalUser) {
+    return ['sudo', ['-iu', originalUser, cmd, ...args]];
+  }
+
+  return [cmd, args];
 }
 
 /** Ejecuta un comando y devuelve stdout/stderr completo */

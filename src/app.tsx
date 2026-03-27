@@ -31,6 +31,7 @@ interface AppContextValue {
   rescan: () => void;
   updates: Map<string, UpdateProgress>;
   startUpdate: (manager: PackageManager, packages?: string[], sudoMode?: boolean) => Promise<void>;
+  startUninstall: (manager: PackageManager, packages: string[], sudoMode?: boolean) => Promise<void>;
   clearUpdate: (id: string) => void;
   systemInfo: SystemInfo;
   config: UserConfig;
@@ -87,7 +88,7 @@ export default function App({ sudoMode = false }: { sudoMode?: boolean }) {
   }, []);
 
   const { managers, detecting, lastScan, rescan } = useManagers(config);
-  const { updates, startUpdate, clearUpdate } = useUpdates();
+  const { updates, startUpdate, startUninstall, clearUpdate } = useUpdates();
   const systemInfo = useSystemInfo();
 
   function setConfig(c: UserConfig) {
@@ -113,6 +114,7 @@ export default function App({ sudoMode = false }: { sudoMode?: boolean }) {
     rescan,
     updates,
     startUpdate,
+    startUninstall,
     clearUpdate,
     systemInfo,
     config,
@@ -133,8 +135,8 @@ export default function App({ sudoMode = false }: { sudoMode?: boolean }) {
     packages: [
       { key: 'Q', label: 'SALIR' },
       { key: 'A', label: 'TODOS' },
-      { key: 'N', label: 'NINGUNO' },
       { key: 'U', label: 'ACTUALIZAR', active: true },
+      { key: 'X', label: 'DESINSTALAR' },
       { key: 'ESC', label: 'VOLVER' },
     ],
     active: [
@@ -157,9 +159,7 @@ export default function App({ sudoMode = false }: { sudoMode?: boolean }) {
     <AppContext.Provider value={ctx}>
       <Box
         flexDirection="column"
-        width={terminalWidth}
-        height={terminalHeight}
-        backgroundColor={colors.surface}
+        width={Math.min(terminalWidth, 100)}
       >
         <NavBar
           currentScreen={screen}

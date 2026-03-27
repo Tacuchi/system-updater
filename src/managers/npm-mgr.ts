@@ -45,4 +45,15 @@ export const npmMgr: PackageManager = {
     yield* execStream('npm', args);
     return { success: true, upgraded: packages?.length ?? 0, failed: 0, errors: [] };
   },
+
+  async *uninstall(packages: string[]): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    if (!packages.length) {
+      return { success: true, upgraded: 0, failed: 0, errors: [] };
+    }
+    yield { type: 'start', message: 'Desinstalando paquetes npm globales...' };
+    const args = ['uninstall', '-g', ...packages];
+    yield { type: 'log', message: `npm ${args.join(' ')}` };
+    yield* execStream('npm', args);
+    return { success: true, upgraded: packages.length, failed: 0, errors: [] };
+  },
 };

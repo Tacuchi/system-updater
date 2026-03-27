@@ -5,34 +5,61 @@ import type { LogEntry } from '../components/log-stream.js';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
-let logFilePath: string | null = null;
-let logStream: fs.WriteStream | null = null;
+let configLogPath: string | null = null;
+let localLogPath: string | null = null;
+let configStream: fs.WriteStream | null = null;
+let localStream: fs.WriteStream | null = null;
 
 const inMemoryLog: LogEntry[] = [];
 let entryCounter = 0;
 
-export function initLogger(): string {
-  const logsDir = path.join(getConfigDir(), 'logs');
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
-  }
+function createStream(dir: string, filename: string): { stream: fs.WriteStream; filePath: string } {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const filePath = path.join(dir, filename);
+  const stream = fs.createWriteStream(filePath, { flags: 'a', encoding: 'utf-8' });
+  return { stream, filePath };
+}
 
+export function initLogger(): string {
   const now = new Date();
   const stamp = now.toISOString().replace(/[T:]/g, '_').split('.')[0]?.replace(/-/g, '');
   const filename = `system_updater_${stamp}.log`;
-  logFilePath = path.join(logsDir, filename);
 
-  logStream = fs.createWriteStream(logFilePath, { flags: 'a', encoding: 'utf-8' });
+  // Log en directorio de config del usuario (~/.tacuchi-updater/logs/)
+  const configLogsDir = path.join(getConfigDir(), 'logs');
+  const config = createStream(configLogsDir, filename);
+  configStream = config.stream;
+  configLogPath = config.filePath;
+
+  // Log local en ./logs/ del proyecto (para debug en desarrollo)
+  const localLogsDir = path.join(process.cwd(), 'logs');
+  try {
+    const local = createStream(localLogsDir, filename);
+    localStream = local.stream;
+    localLogPath = local.filePath;
+    // Si falla al escribir (ej: root creó el dir y ahora corremos como user), no crashear
+    localStream.on('error', () => {
+      localStream = null;
+      localLogPath = null;
+    });
+  } catch {
+    // Si no se puede crear el directorio/archivo, continuar solo con config
+  }
+
   writeRaw('INFO', 'Logger iniciado — @tacuchi/updater');
-  return logFilePath;
+  writeRaw('INFO', `Log config: ${configLogPath}`);
+  if (localLogPath) writeRaw('INFO', `Log local:  ${localLogPath}`);
+  writeRaw('INFO', `PID: ${process.pid} | UID: ${process.getuid?.() ?? 'N/A'} | SUDO_USER: ${process.env['SUDO_USER'] ?? 'N/A'}`);
+  writeRaw('INFO', `Platform: ${process.platform} | Node: ${process.version}`);
+  return localLogPath ?? configLogPath;
 }
 
 function writeRaw(level: LogLevel, message: string): void {
-  if (!logStream) return;
   const now = new Date();
   const timestamp = now.toISOString().replace('T', ' ').split('.')[0];
   const line = `${timestamp} [${level.padEnd(5)}] SystemUpdater - ${message}\n`;
-  logStream.write(line);
+  configStream?.write(line);
+  localStream?.write(line);
 }
 
 function addToMemory(level: LogEntry['level'], message: string): void {
@@ -73,10 +100,12 @@ export function getLogEntries(): LogEntry[] {
 }
 
 export function getLogFilePath(): string | null {
-  return logFilePath;
+  return localLogPath ?? configLogPath;
 }
 
 export function closeLogger(): void {
-  logStream?.end();
-  logStream = null;
+  configStream?.end();
+  localStream?.end();
+  configStream = null;
+  localStream = null;
 }

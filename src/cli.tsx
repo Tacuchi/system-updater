@@ -30,6 +30,11 @@ if (args.includes('--version') || args.includes('-v')) {
   process.exit(0);
 }
 
+// En Windows, sudo no aplica — informar al usuario
+if (sudoRequested && process.platform === 'win32') {
+  console.log('\x1b[33m⟩ En Windows, ejecuta la terminal como Administrador en vez de usar --sudo\x1b[0m');
+}
+
 // Re-lanzar el proceso completo bajo sudo si fue solicitado y no somos root.
 // Esto resuelve el problema de tty_tickets en macOS: el prompt de password
 // aparece ANTES de que Ink tome el terminal, y todos los subprocesos
@@ -59,7 +64,7 @@ if (sudoRequested && !isRoot && process.platform !== 'win32') {
 
 const sudoMode = isRoot || sudoRequested;
 
-const { unmount } = render(<App sudoMode={sudoMode} />, { fullscreen: true });
+const { unmount } = render(<App sudoMode={sudoMode} />);
 
 process.on('SIGINT', () => {
   unmount();

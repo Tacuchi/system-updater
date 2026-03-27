@@ -44,18 +44,38 @@ export const pip: PackageManager = {
     const cmd = getPipCmd();
     yield { type: 'start', message: 'Actualizando pip...' };
 
-    // Actualizar pip mismo
-    yield { type: 'log', message: `${cmd} install --user --upgrade pip` };
-    yield* execStream(cmd, ['install', '--user', '--upgrade', 'pip']);
+    // Detectar si es un entorno gestionado externamente (PEP 668 / Homebrew Python)
+    const testResult = await execCommand(cmd, ['install', '--user', '--dry-run', 'pip'], 5000);
+    const isExternallyManaged = (testResult.stdout + testResult.stderr).includes('externally-managed');
+    const extraFlags = isExternallyManaged ? ['--break-system-packages'] : [];
+
+    if (isExternallyManaged) {
+      yield { type: 'log', message: 'Entorno PEP 668 detectado, usando --break-system-packages' };
+    }
 
     // Actualizar paquetes específicos o todos los desactualizados
     if (packages && packages.length > 0) {
       for (const pkg of packages) {
-        yield { type: 'log', message: `${cmd} install --user --upgrade ${pkg}` };
-        yield* execStream(cmd, ['install', '--user', '--upgrade', pkg]);
+        const args = ['install', '--user', '--upgrade', ...extraFlags, pkg];
+        yield { type: 'log', message: `${cmd} ${args.join(' ')}` };
+        yield* execStream(cmd, args);
       }
     }
 
     return { success: true, upgraded: packages?.length ?? 0, failed: 0, errors: [] };
+  },
+
+  async *uninstall(packages: string[]): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    const cmd = getPipCmd();
+    if (!packages.length) {
+      return { success: true, upgraded: 0, failed: 0, errors: [] };
+    }
+    yield { type: 'start', message: 'Desinstalando paquetes pip...' };
+    for (const pkg of packages) {
+      const args = ['uninstall', '-y', pkg];
+      yield { type: 'log', message: `${cmd} ${args.join(' ')}` };
+      yield* execStream(cmd, args);
+    }
+    return { success: true, upgraded: packages.length, failed: 0, errors: [] };
   },
 };

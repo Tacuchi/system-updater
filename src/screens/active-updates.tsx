@@ -86,16 +86,19 @@ export function ActiveUpdates() {
   }
 
   return (
-    <Box flexDirection="column" paddingX={2} paddingY={1} flexGrow={1}>
-      <Box flexDirection="row" justifyContent="space-between" marginBottom={1}>
-        <Text bold color={colors.onSurface}>{a.title}</Text>
-        <Box gap={2}>
-          {allDone && (
-            <Text color={colors.tertiary} bold>{a.allDone}</Text>
-          )}
-          {!allDone && (
-            <Text color={colors.tertiary}>{a.syncing}</Text>
-          )}
+    <Box flexDirection="column" paddingX={1} flexGrow={1}>
+      <Box flexDirection="row" justifyContent="space-between">
+        <Box gap={2} alignItems="center">
+          <Text bold color={colors.onSurface}>{a.title}</Text>
+          {allDone
+            ? <Text color={colors.tertiary} bold>{a.allDone}</Text>
+            : <Text color={colors.tertiary}>{a.syncing}</Text>
+          }
+        </Box>
+        <Box gap={3}>
+          <Text color={colors.primary}>{a.active}: {String(activeCount).padStart(2, '0')}</Text>
+          <Text color={colors.tertiary}>{a.success}: {String(successCount).padStart(2, '0')}</Text>
+          <Text color={colors.error}>{a.errors}: {String(errorCount).padStart(2, '0')}</Text>
         </Box>
       </Box>
 
@@ -163,20 +166,6 @@ export function ActiveUpdates() {
         </Box>
       </Box>
 
-      <Box flexDirection="row" gap={4} marginTop={1} justifyContent="center">
-        {[
-          { label: a.active, value: activeCount, color: colors.primary },
-          { label: a.success, value: successCount, color: colors.tertiary },
-          { label: a.errors, value: errorCount, color: colors.error },
-        ].map(({ label, value, color }) => (
-          <Box key={label} flexDirection="column" alignItems="center">
-            <Text color={colors.onSurfaceVariant} dimColor>{label}</Text>
-            <Text color={color} bold>
-              {String(value).padStart(2, '0')}
-            </Text>
-          </Box>
-        ))}
-      </Box>
     </Box>
   );
 }

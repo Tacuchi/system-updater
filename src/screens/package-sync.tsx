@@ -7,7 +7,7 @@ import { t } from '../i18n/index.js';
 import type { TableRow } from '../components/data-table.js';
 
 export function PackageSync() {
-  const { managers, startUpdate, setScreen, sudoMode } = useApp();
+  const { managers, startUpdate, startUninstall, setScreen, sudoMode } = useApp();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [cursor, setCursor] = useState(0);
   const ps = t('packageSync');
@@ -48,20 +48,36 @@ export function PackageSync() {
     });
   }
 
-  async function startSelected() {
-    const toUpdate = rows.filter(r => selectedIds.has(r.id));
-    if (toUpdate.length === 0) return;
-
+  function groupSelectedByManager() {
+    const toProcess = rows.filter(r => selectedIds.has(r.id));
+    if (toProcess.length === 0) return null;
     const byManager = new Map<string, string[]>();
-    for (const row of toUpdate) {
+    for (const row of toProcess) {
       if (!byManager.has(row.manager)) byManager.set(row.manager, []);
       byManager.get(row.manager)!.push(row.package);
     }
+    return byManager;
+  }
 
+  async function startSelected() {
+    const byManager = groupSelectedByManager();
+    if (!byManager) return;
     setScreen('active');
     for (const [managerId, packages] of byManager) {
       const ms = managers.find(m => m.manager.manager.id === managerId);
       if (ms) startUpdate(ms.manager.manager, packages, sudoMode);
+    }
+  }
+
+  async function uninstallSelected() {
+    const byManager = groupSelectedByManager();
+    if (!byManager) return;
+    setScreen('active');
+    for (const [managerId, packages] of byManager) {
+      const ms = managers.find(m => m.manager.manager.id === managerId);
+      if (ms?.manager.manager.uninstall) {
+        startUninstall(ms.manager.manager, packages, sudoMode);
+      }
     }
   }
 
@@ -75,8 +91,9 @@ export function PackageSync() {
     // Seleccionar/deseleccionar todos
     if (input === 'a' || input === 'A') selectAll();
     if (input === 'n' || input === 'N') deselectAll();
-    // Iniciar actualización
+    // Iniciar actualización o desinstalación
     if ((input === 'u' || input === 'U') && selectedCount > 0) startSelected();
+    if ((input === 'x' || input === 'X') && selectedCount > 0) uninstallSelected();
     if (key.return && selectedCount > 0) startSelected();
     // Volver
     if (key.escape) setScreen('dashboard');
@@ -92,56 +109,38 @@ export function PackageSync() {
   }
 
   return (
-    <Box flexDirection="column" paddingX={2} paddingY={1} flexGrow={1}>
-      {/* Header */}
-      <Box flexDirection="row" justifyContent="space-between" alignItems="center" marginBottom={1}>
+    <Box flexDirection="column" paddingX={1} flexGrow={1}>
+      <Box flexDirection="row" justifyContent="space-between" alignItems="center">
         <Box gap={2} alignItems="center">
           <Text bold color={colors.onSurface}>{ps.title}</Text>
-          <Text color={colors.onSurfaceVariant}>
-            {totalUpdates} {ps.eligible}
-          </Text>
-        </Box>
-        <Box gap={2} alignItems="center">
-          <Text color={colors.secondary} bold>
-            {selectedCount}/{totalUpdates} seleccionados
-          </Text>
+          <Text color={colors.secondary} bold>{selectedCount}/{totalUpdates}</Text>
           {selectedCount > 0 && (
-            <Text color={colors.onPrimary} backgroundColor={colors.primaryContainer} bold>
-              {' '}U → ACTUALIZAR{' '}
-            </Text>
+            <>
+              <Text color={colors.onPrimary} backgroundColor={colors.primaryContainer} bold>
+                {' '}U {box.arrow} ACTUALIZAR{' '}
+              </Text>
+              <Text color={colors.onError} backgroundColor={colors.errorContainer} bold>
+                {' '}X {box.arrow} DESINSTALAR{' '}
+              </Text>
+            </>
           )}
         </Box>
-      </Box>
-
-      {/* Acciones rápidas */}
-      <Box gap={3} marginBottom={1}>
-        <Text color={allSelected ? colors.onSurfaceVariant : colors.primary}>
-          [A] Seleccionar todos
-        </Text>
-        <Text color={selectedCount === 0 ? colors.onSurfaceVariant : colors.primary}>
-          [N] Deseleccionar
-        </Text>
         <Text color={colors.onSurfaceVariant} dimColor>
-          [ESPACIO] Toggle {box.dot} [↑↓] Navegar
+          [A] todos {box.dot} [N] ninguno {box.dot} [ESPACIO] toggle
         </Text>
       </Box>
 
-      {/* Encabezados de tabla */}
-      <Box>
-        <Text color={colors.outlineVariant} bold>
+      <Box marginTop={1}>
+        <Text color={colors.outlineVariant}>
           {'  '}
-          {padR(ps.colSel as string, 5)}
-          {padR(ps.colManager as string, 12)}
-          {padR(ps.colPackage as string, 22)}
-          {padR(ps.colVersion as string, 14)}
-          {padR(ps.colNew as string, 14)}
+          {padR(ps.colSel as string, 4)}
+          {padR(ps.colManager as string, 10)}
+          {padR(ps.colPackage as string, 20)}
+          {padR(ps.colVersion as string, 12)}
+          {padR(ps.colNew as string, 12)}
         </Text>
       </Box>
-      <Text color={colors.outlineVariant} dimColor>
-        {'  '}{'─'.repeat(70)}
-      </Text>
 
-      {/* Filas */}
       <Box flexDirection="column" flexGrow={1} overflow="hidden">
         {rows.map((row, i) => {
           const isCursor = i === cursor;
@@ -154,41 +153,18 @@ export function PackageSync() {
                 {isCursor ? box.bullet : ' '}{' '}
               </Text>
               <Text color={isSelected ? colors.tertiary : colors.onSurfaceVariant}>
-                {padR(isSelected ? '[x]' : '[ ]', 5)}
+                {padR(isSelected ? '[x]' : '[ ]', 4)}
               </Text>
-              <Text color={colors.onSurfaceVariant}>
-                {padR(row.manager, 12)}
-              </Text>
-              <Text color={colors.onSurface} bold={isSelected}>
-                {padR(row.package, 22)}
-              </Text>
-              <Text color={colors.onSurfaceVariant}>
-                {padR(row.currentVersion, 14)}
-              </Text>
-              <Text color={colors.tertiary}>
-                {padR(`${box.arrow} ${row.newVersion}`, 14)}
-              </Text>
+              <Text color={colors.onSurfaceVariant}>{padR(row.manager, 10)}</Text>
+              <Text color={colors.onSurface} bold={isSelected}>{padR(row.package, 20)}</Text>
+              <Text color={colors.onSurfaceVariant}>{padR(row.currentVersion, 12)}</Text>
+              <Text color={colors.tertiary}>{padR(`${box.arrow} ${row.newVersion}`, 12)}</Text>
               {row.requiresAdmin && (
-                <StatusPill variant="muted">ADMIN</StatusPill>
+                <StatusPill variant="muted">ADM</StatusPill>
               )}
             </Box>
           );
         })}
-      </Box>
-
-      {/* Barra de confirmación */}
-      <Box marginTop={1} flexDirection="row" justifyContent="center">
-        <Box
-          borderStyle="single"
-          borderColor={selectedCount > 0 ? colors.tertiary : colors.outlineVariant}
-          paddingX={2}
-        >
-          <Text color={selectedCount > 0 ? colors.tertiary : colors.onSurfaceVariant}>
-            {selectedCount > 0
-              ? `${box.bullet} ${selectedCount} seleccionados — [U] o [ENTER] para actualizar`
-              : `${box.bullet} Selecciona paquetes con [ESPACIO] o [A] para todos`}
-          </Text>
-        </Box>
       </Box>
     </Box>
   );
