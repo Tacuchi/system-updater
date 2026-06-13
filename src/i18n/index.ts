@@ -35,4 +35,11 @@ export function t(section: string, key?: string): unknown {
   return (sec as Record<string, unknown>)[key];
 }
 
+/** Look up a manager's display name by its dynamic id (falls back to the id). */
+export function managerName(id: string): string {
+  const dict = translations[currentLang] ?? es;
+  const names = dict.managers as Record<string, string>;
+  return names[id] ?? id;
+}
+
 export type { Translations };

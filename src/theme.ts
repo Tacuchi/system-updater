@@ -43,6 +43,17 @@ export const colors = {
   outline: '#6f6d70',
 } as const;
 
+// Paleta SEMÁNTICA — el flujo lineal usa solo estos 5 roles para reducir el
+// ruido visual (antes se mezclaban primary/secondary/tertiary sin lógica clara).
+export const semantic = {
+  action: colors.primary, // foco / acción primaria (púrpura)
+  success: colors.tertiary, // verde
+  error: colors.error, // rojo
+  warning: colors.secondary, // rosa (admin / skipped / atención)
+  text: colors.onSurface,
+  muted: colors.onSurfaceVariant,
+} as const;
+
 // Caracteres Unicode para bordes (estilo "Ghost Border")
 export const box = {
   topLeft: '┌',

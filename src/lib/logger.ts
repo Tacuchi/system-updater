@@ -1,10 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 import { getConfigDir } from './config.js';
-import type { LogEntry } from '../components/log-stream.js';
 import type { CommandRecord, UpgradeResult } from '../managers/types.js';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+
+export interface LogEntry {
+  id: string;
+  timestamp: string;
+  level: 'info' | 'debug' | 'warn' | 'error' | 'success';
+  message: string;
+}
 
 let configLogPath: string | null = null;
 let localLogPath: string | null = null;
