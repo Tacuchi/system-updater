@@ -154,8 +154,15 @@ export function useAppMachine(sudoMode: boolean): MachineValue {
       if (e.phase === 'queued') {
         enqueue({ type: 'MGR_QUEUED', id });
       } else if (e.phase === 'upgrading') {
-        if (e.event && (e.event.percent !== undefined || e.event.package)) {
-          enqueue({ type: 'MGR_PROGRESS', id, percent: e.event.percent, currentPackage: e.event.package });
+        if (e.event && (e.event.percent !== undefined || e.event.package || e.event.message)) {
+          // Show the latest output line as the live "action" (drives motion
+          // without an independent spinner timer).
+          enqueue({
+            type: 'MGR_PROGRESS',
+            id,
+            percent: e.event.percent,
+            currentPackage: e.event.package ?? e.event.message,
+          });
         } else if (!e.event) {
           enqueue({ type: 'MGR_RUNNING', id });
         }

@@ -1,31 +1,56 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Spinner } from '@inkjs/ui';
 import { useMachine } from '../hooks/use-app-machine.js';
 import { StepHeader } from '../components/step-header.js';
-import { ManagerRow } from '../components/manager-row.js';
-import { semantic } from '../theme.js';
-import { t } from '../i18n/index.js';
+import { StatusGlyph } from '../components/status-glyph.js';
+import { semantic, colors } from '../theme.js';
+import { t, managerName } from '../i18n/index.js';
 
 export function DetectScreen() {
   const { state } = useMachine();
   const scanning = state.phase === 'scanning';
 
+  const done = state.order.filter(id => {
+    const s = state.managers[id]?.status;
+    return s === 'outdated' || s === 'uptodate';
+  }).length;
+
   return (
     <Box flexDirection="column">
       <StepHeader phase={state.phase} />
       <Box marginBottom={1}>
-        <Spinner />
-        <Text color={semantic.text}> {scanning ? t('ui', 'scanning') : t('ui', 'detecting')}</Text>
+        <Text color={semantic.text}>
+          {scanning ? t('ui', 'scanning') : t('ui', 'detecting')}
+        </Text>
+        {scanning && (
+          <Text color={semantic.muted}>
+            {' '}
+            ({done}/{state.order.length})
+          </Text>
+        )}
       </Box>
-      {scanning && (
-        <Box flexDirection="column">
-          {state.order.map(id => {
-            const e = state.managers[id];
-            return e ? <ManagerRow key={id} entry={e} /> : null;
-          })}
-        </Box>
-      )}
+      {scanning &&
+        state.order.map(id => {
+          const e = state.managers[id];
+          if (!e) return null;
+          return (
+            <Box key={id}>
+              <Box width={2}>
+                <StatusGlyph status={e.status} />
+              </Box>
+              <Box width={18}>
+                <Text color={e.status === 'outdated' ? semantic.text : semantic.muted}>{managerName(id)}</Text>
+              </Box>
+              {e.status === 'outdated' ? (
+                <Text color={semantic.warning}>{e.outdated.length} ›</Text>
+              ) : e.status === 'uptodate' ? (
+                <Text color={colors.outline}>—</Text>
+              ) : (
+                <Text color={semantic.muted}>…</Text>
+              )}
+            </Box>
+          );
+        })}
     </Box>
   );
 }
