@@ -130,7 +130,6 @@ export const flutter: ManagerDescriptor = {
         after && latest && after !== latest ? [{ name: PACKAGE_NAME }] : [];
 
       const result = reconcile(packages, before, { stillOutdated }, commands);
-      logger.logResult(result);
       return result;
     },
   },

@@ -99,7 +99,6 @@ export const bun: ManagerDescriptor = {
         .map(name => ({ name }));
 
       const result = reconcile(packages, before, { stillOutdated }, commands);
-      logger.logResult(result);
       return result;
     },
   },

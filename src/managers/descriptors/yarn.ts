@@ -125,7 +125,6 @@ export const yarn: ManagerDescriptor = {
           manualCommand: BERRY_MANUAL,
           managerId: 'yarn',
         };
-        logger.logResult(result);
         return result;
       }
 
@@ -151,7 +150,6 @@ export const yarn: ManagerDescriptor = {
       yield { type: 'phase', phase: 'verifying', message: 'Verificando resultado...' };
       const after = await listClassicOutdated();
       const result = reconcile(packages, before, { stillOutdated: after.map(p => ({ name: p.name })) }, commands);
-      logger.logResult(result);
       return result;
     },
   },

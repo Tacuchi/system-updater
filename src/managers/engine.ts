@@ -101,7 +101,11 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
 
       if (d.escapeHatch?.upgrade) {
         const r = yield* d.escapeHatch.upgrade(packages, c);
-        return { managerId: d.id, startedAt, finishedAt: Date.now(), ...r };
+        // The engine owns the verdict log so managerId is always present
+        // (escape hatches build their result via reconcile(), which has no id).
+        const result: UpgradeResult = { managerId: d.id, startedAt, finishedAt: Date.now(), ...r };
+        logger.logResult(result);
+        return result;
       }
 
       const manual = d.manualCommand?.(c) ?? '';

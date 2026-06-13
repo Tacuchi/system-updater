@@ -129,7 +129,6 @@ export const pipx: ManagerDescriptor = {
         .map(p => ({ name: p.name }));
 
       const result = reconcile(packages, before, { stillOutdated }, commands);
-      logger.logResult(result);
       return result;
     },
   },

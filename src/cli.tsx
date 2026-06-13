@@ -32,7 +32,7 @@ if (args.includes('--version') || args.includes('-v')) {
 
 // En Windows, sudo no aplica — informar al usuario
 if (sudoRequested && process.platform === 'win32') {
-  console.log('\x1b[33m⟩ En Windows, ejecuta la terminal como Administrador en vez de usar --sudo\x1b[0m');
+  console.log('\x1b[33m» En Windows, ejecuta la terminal como Administrador en vez de usar --sudo\x1b[0m');
 }
 
 // Re-lanzar el proceso completo bajo sudo si fue solicitado y no somos root.
@@ -40,7 +40,7 @@ if (sudoRequested && process.platform === 'win32') {
 // aparece ANTES de que Ink tome el terminal, y todos los subprocesos
 // corren como root sin necesitar sudo individualmente.
 if (sudoRequested && !isRoot && process.platform !== 'win32') {
-  console.log('\x1b[35m⟩ Modo SUDO: ingresa tu contraseña para continuar...\x1b[0m');
+  console.log('\x1b[35m» Modo SUDO: ingresa tu contraseña para continuar...\x1b[0m');
   try {
     const scriptPath = process.argv[1] ?? '';
     const isDevMode = scriptPath.endsWith('.tsx') || scriptPath.endsWith('.ts');

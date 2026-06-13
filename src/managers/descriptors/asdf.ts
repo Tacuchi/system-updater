@@ -159,7 +159,6 @@ export const asdf: ManagerDescriptor = {
       if (!before.length) {
         // Nothing detected as outdated → honest no-op.
         const result = reconcile(packages, before, { stillOutdated: [] }, commands);
-        logger.logResult(result);
         return result;
       }
 
@@ -183,7 +182,6 @@ export const asdf: ManagerDescriptor = {
           toVersion: p.newVersion,
         })),
       };
-      logger.logResult(result);
       return result;
     },
   },

@@ -122,7 +122,6 @@ export const pnpm: ManagerDescriptor = {
       yield { type: 'phase', phase: 'verifying', message: 'Verificando resultado...' };
       const after = await listOutdated();
       const result = reconcile(packages, before, { stillOutdated: after.map(p => ({ name: p.name })) }, commands);
-      logger.logResult(result);
       return result;
     },
   },
