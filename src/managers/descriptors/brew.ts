@@ -28,6 +28,8 @@ export const brew: ManagerDescriptor = {
   platforms: ['darwin'],
   requiresAdmin: false,
   kind: 'direct',
+  // Casks (e.g. docker-desktop) download + replace whole apps; 20 min headroom.
+  defaultTimeoutMs: 1_200_000,
   detectCmd: { cmd: 'brew', args: ['--version'], timeout: 3000 },
   parseVersion: stdout => stdout.split('\n')[0]?.replace('Homebrew ', '').trim(),
   listOutdatedCmd: () => ({ cmd: 'brew', args: ['outdated', '--json=v2'] }),

@@ -31,7 +31,10 @@ const defaultDeps: ExecDeps = { execCommand: realExecCommand, runStream: realRun
 
 const DETECT_TIMEOUT = 5_000;
 const LIST_TIMEOUT = 30_000;
-const UPGRADE_TIMEOUT = 300_000;
+// 10 min default — big upgrades (casks, llvm, OS toolchains) routinely exceed 5
+// min. Esc still cancels instantly (the AbortSignal is wired to the child), and
+// per-manager overrides live in config.timeoutsMs.
+const UPGRADE_TIMEOUT = 600_000;
 
 function skippedResult(managerId: string, manualCommand: string): UpgradeResult {
   return {
@@ -53,10 +56,11 @@ function skippedResult(managerId: string, manualCommand: string): UpgradeResult 
  * descriptor.escapeHatch.
  */
 export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: ExecDeps = defaultDeps): PackageManager {
-  const ctx = (sudoMode: boolean): ManagerCtx => ({
+  const ctx = (sudoMode: boolean, signal?: AbortSignal): ManagerCtx => ({
     platform: process.platform,
     sudoMode,
     meta: {},
+    signal,
   });
 
   const upgradeTimeout = cfg.timeoutsMs[d.id] ?? d.defaultTimeoutMs ?? UPGRADE_TIMEOUT;
@@ -95,8 +99,12 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
       return d.parseOutdated(res.stdout, res.stderr, c);
     },
 
-    async *upgrade(packages?: string[], sudoMode?: boolean): AsyncGenerator<ProgressEvent, UpgradeResult> {
-      const c = ctx(sudoMode ?? false);
+    async *upgrade(
+      packages?: string[],
+      sudoMode?: boolean,
+      signal?: AbortSignal,
+    ): AsyncGenerator<ProgressEvent, UpgradeResult> {
+      const c = ctx(sudoMode ?? false, signal);
       const startedAt = Date.now();
 
       if (d.escapeHatch?.upgrade) {
@@ -129,7 +137,7 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
         const rec = yield* deps.runStream(
           spec.cmd,
           spec.args,
-          { timeoutMs: spec.timeout ?? upgradeTimeout, sudo: sudoFor(spec, c) },
+          { timeoutMs: spec.timeout ?? upgradeTimeout, sudo: sudoFor(spec, c), signal: c.signal },
           pp,
         );
         commands.push(rec);

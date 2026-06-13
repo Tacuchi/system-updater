@@ -61,7 +61,7 @@ export const angular: ManagerDescriptor = {
   // Upgrade is a single bulk `npm install -g @angular/cli@latest`.
   escapeHatch: {
     listOutdated,
-    async *upgrade(packages: string[] | undefined, _ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
       yield { type: 'phase', phase: 'upgrading', message: 'Actualizando Angular CLI...' };
 
       const before = await listOutdated();
@@ -71,7 +71,7 @@ export const angular: ManagerDescriptor = {
       if (target.length) {
         const args = ['install', '-g', `${PACKAGE}@latest`];
         yield { type: 'log', message: `npm ${args.join(' ')}` };
-        const rec = yield* runStream('npm', args, { timeoutMs: 300_000, sudo: false });
+        const rec = yield* runStream('npm', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
         commands.push(rec);
         logger.logCommand(rec);
       }

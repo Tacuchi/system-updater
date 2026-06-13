@@ -116,7 +116,7 @@ export const flutter: ManagerDescriptor = {
         // --force: upgrade even if the checkout has local changes.
         const args = ['upgrade', '--force'];
         yield { type: 'log', message: `flutter ${args.join(' ')}` };
-        const rec = yield* runStream('flutter', args, { timeoutMs: 600_000, sudo: false });
+        const rec = yield* runStream('flutter', args, { timeoutMs: 600_000, sudo: false, signal: ctx.signal });
         commands.push(rec);
         logger.logCommand(rec);
       }

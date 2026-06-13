@@ -131,6 +131,23 @@ describe('fromDescriptor', () => {
     expect(result.manualCommand).toBe('sudo foo upgrade');
   });
 
+  it('threads the AbortSignal into runStream so a run is cancellable (Esc)', async () => {
+    const ac = new AbortController();
+    let captured: AbortSignal | undefined;
+    const deps: ExecDeps = {
+      async execCommand() {
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+      async *runStream(_cmd, _args, opts) {
+        captured = opts.signal;
+        return { cmd: 'x', exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+      },
+    };
+    const mgr = fromDescriptor(fooDescriptor, cfg, deps);
+    await drain(mgr.upgrade(['a'], false, ac.signal));
+    expect(captured).toBe(ac.signal);
+  });
+
   it('admin managers without sudo mode return the manual command', async () => {
     const adm: ManagerDescriptor = {
       ...fooDescriptor,

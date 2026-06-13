@@ -63,7 +63,7 @@ export const bun: ManagerDescriptor = {
     async listOutdated(): Promise<OutdatedPackage[]> {
       return [];
     },
-    async *upgrade(packages: string[] | undefined, _ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
       yield { type: 'phase', phase: 'upgrading', message: 'Actualizando bun...' };
 
       const beforeMap = await installed();
@@ -74,7 +74,7 @@ export const bun: ManagerDescriptor = {
       const args =
         packages && packages.length ? ['update', '-g', ...packages] : ['update', '-g'];
       yield { type: 'log', message: `bun ${args.join(' ')}` };
-      const rec = yield* runStream('bun', args, { timeoutMs: 300_000, sudo: false });
+      const rec = yield* runStream('bun', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
       commands.push(rec);
       logger.logCommand(rec);
 

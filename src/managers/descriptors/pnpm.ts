@@ -102,7 +102,7 @@ export const pnpm: ManagerDescriptor = {
   // `pnpm update -g` (or `pnpm update -g <names>` for a subset).
   escapeHatch: {
     listOutdated,
-    async *upgrade(packages: string[] | undefined, _ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
       yield { type: 'phase', phase: 'upgrading', message: 'Actualizando pnpm...' };
 
       const before = await listOutdated();
@@ -114,7 +114,7 @@ export const pnpm: ManagerDescriptor = {
         // (`update -g`) pnpm updates every global package at once.
         const args = packages && packages.length ? ['update', '-g', ...packages] : ['update', '-g'];
         yield { type: 'log', message: `pnpm ${args.join(' ')}` };
-        const rec = yield* runStream('pnpm', args, { timeoutMs: 300_000, sudo: false });
+        const rec = yield* runStream('pnpm', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
         commands.push(rec);
         logger.logCommand(rec);
       }

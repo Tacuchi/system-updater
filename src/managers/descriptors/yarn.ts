@@ -106,7 +106,7 @@ export const yarn: ManagerDescriptor = {
   // success: berry returns [] for listing and a noop + manualCommand on upgrade.
   escapeHatch: {
     listOutdated,
-    async *upgrade(packages: string[] | undefined, _ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
       const line = await yarnLine();
 
       if (line === 'berry') {
@@ -142,7 +142,7 @@ export const yarn: ManagerDescriptor = {
             ? ['global', 'upgrade', ...packages]
             : ['global', 'upgrade'];
         yield { type: 'log', message: `yarn ${args.join(' ')}` };
-        const rec = yield* runStream('yarn', args, { timeoutMs: 300_000, sudo: false });
+        const rec = yield* runStream('yarn', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
         commands.push(rec);
         logger.logCommand(rec);
       }

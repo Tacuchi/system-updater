@@ -62,7 +62,7 @@ async function runTask(task: EngineTask, opts: EngineOptions): Promise<UpgradeRe
     const gen =
       task.op === 'uninstall' && task.manager.uninstall
         ? task.manager.uninstall(task.packages ?? [], opts.sudoMode)
-        : task.manager.upgrade(task.packages, opts.sudoMode);
+        : task.manager.upgrade(task.packages, opts.sudoMode, opts.signal);
 
     let next = await gen.next();
     while (!next.done) {

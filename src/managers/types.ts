@@ -103,7 +103,7 @@ export interface PackageManager {
 
   detect(): Promise<ManagerDetection>;
   listOutdated(): Promise<OutdatedPackage[]>;
-  upgrade(packages?: string[], sudoMode?: boolean): AsyncGenerator<ProgressEvent, UpgradeResult>;
+  upgrade(packages?: string[], sudoMode?: boolean, signal?: AbortSignal): AsyncGenerator<ProgressEvent, UpgradeResult>;
   uninstall?(packages: string[], sudoMode?: boolean): AsyncGenerator<ProgressEvent, UpgradeResult>;
   /** Engine calls this after upgrade to compute real success. Default = listOutdated(). */
   verify?(requested: string[] | undefined): Promise<VerifySnapshot>;

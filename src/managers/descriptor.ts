@@ -16,6 +16,8 @@ export interface ManagerCtx {
   sudoMode: boolean;
   version?: string;
   meta: Record<string, unknown>;
+  /** Abort signal — wire into runStream so the user can cancel (Esc). */
+  signal?: AbortSignal;
 }
 
 /**

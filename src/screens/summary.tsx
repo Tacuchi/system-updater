@@ -16,7 +16,7 @@ export function SummaryScreen() {
   let upgraded = 0;
   let failed = 0;
   let skipped = 0;
-  const failures: { manager: string; message: string; kind?: string }[] = [];
+  const failures: { manager: string; package?: string; message: string; kind?: string }[] = [];
   const manuals: { manager: string; command: string }[] = [];
 
   for (const id of state.run.queue) {
@@ -31,7 +31,7 @@ export function SummaryScreen() {
     if (r) {
       upgraded += r.upgraded;
       failed += r.failed;
-      for (const f of r.failures) failures.push({ manager: id, message: f.message, kind: f.kind });
+      for (const f of r.failures) failures.push({ manager: id, package: f.package, message: f.message, kind: f.kind });
     }
   }
 
@@ -57,10 +57,17 @@ export function SummaryScreen() {
         <Box flexDirection="column" marginBottom={1}>
           {failures.slice(0, 8).map((f, i) => (
             <Text key={i} color={semantic.error} wrap="truncate-end">
-              ✗ {managerName(f.manager)}: {f.message}
-              {f.kind ? <Text color={semantic.muted}> [{f.kind}]</Text> : null}
+              ✗ {managerName(f.manager)}
+              {f.package ? <Text color={semantic.text}> {f.package}</Text> : null}
+              {f.kind ? <Text color={semantic.muted}> · {f.kind}</Text> : null}
             </Text>
           ))}
+          {failures.some(f => f.kind === 'TIMEOUT') && (
+            <Text color={semantic.warning}>
+              ⓘ Un TIMEOUT suele indicar un paquete que pide interacción (ej. un cask que requiere cerrar la app o
+              sudo). Actualízalo manualmente en una terminal.
+            </Text>
+          )}
         </Box>
       )}
 

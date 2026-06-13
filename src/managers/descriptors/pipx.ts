@@ -100,7 +100,7 @@ export const pipx: ManagerDescriptor = {
   // version means that package was upgraded (reconcile derives the verdict).
   escapeHatch: {
     listOutdated,
-    async *upgrade(packages: string[] | undefined, _ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
       yield { type: 'phase', phase: 'upgrading', message: 'Actualizando pipx...' };
 
       const beforeSnap = await snapshot();
@@ -115,7 +115,7 @@ export const pipx: ManagerDescriptor = {
         // Single bulk command — pipx upgrades every managed application at once.
         const args = ['upgrade-all'];
         yield { type: 'log', message: `pipx ${args.join(' ')}` };
-        const rec = yield* runStream('pipx', args, { timeoutMs: 300_000, sudo: false });
+        const rec = yield* runStream('pipx', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
         commands.push(rec);
         logger.logCommand(rec);
       }

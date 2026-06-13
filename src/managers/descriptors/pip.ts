@@ -56,7 +56,7 @@ export const pip: ManagerDescriptor = {
   // (the old code looped one `pip install` per package — the main slowness).
   escapeHatch: {
     listOutdated,
-    async *upgrade(packages: string[] | undefined, _ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
+    async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
       const cmd = pipCmd();
       yield { type: 'phase', phase: 'upgrading', message: 'Actualizando pip...' };
       const flags = await pep668Flags();
@@ -69,7 +69,7 @@ export const pip: ManagerDescriptor = {
       if (target.length) {
         const args = ['install', '--user', '--upgrade', ...flags, ...target];
         yield { type: 'log', message: `${cmd} ${args.join(' ')}` };
-        const rec = yield* runStream(cmd, args, { timeoutMs: 300_000, sudo: false });
+        const rec = yield* runStream(cmd, args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
         commands.push(rec);
         logger.logCommand(rec);
       }
