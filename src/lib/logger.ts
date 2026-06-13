@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getConfigDir } from './config.js';
 import type { LogEntry } from '../components/log-stream.js';
+import type { CommandRecord, UpgradeResult } from '../managers/types.js';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
@@ -93,6 +94,33 @@ export function error(message: string): void {
 export function success(message: string): void {
   writeRaw('INFO', `[OK] ${message}`);
   addToMemory('success', message);
+}
+
+/**
+ * Log a shell command with its exit code, duration and output tails. This is
+ * the command-level observability that was previously missing entirely — it
+ * makes "why did this fail" answerable from the log file alone.
+ */
+export function logCommand(rec: CommandRecord): void {
+  const status = rec.timedOut ? 'TIMEOUT' : `exit=${rec.exitCode ?? 'null'}`;
+  writeRaw('DEBUG', `$ ${rec.cmd} → ${status} (${rec.durationMs}ms)`);
+  if (rec.stdoutTail.trim()) writeRaw('DEBUG', `  stdout: ${rec.stdoutTail.trim()}`);
+  if ((rec.exitCode ?? 0) !== 0 && rec.stderrTail.trim()) {
+    writeRaw('WARN', `  stderr: ${rec.stderrTail.trim()}`);
+  }
+  addToMemory('debug', `$ ${rec.cmd} (${status})`);
+}
+
+/** Log the classified outcome of a manager upgrade. */
+export function logResult(r: UpgradeResult): void {
+  const id = r.managerId ?? '?';
+  const ok = r.status === 'success' || r.status === 'noop';
+  const level: LogLevel = ok ? 'INFO' : r.status === 'partial' ? 'WARN' : 'ERROR';
+  const reason = r.reason ? ` reason=${r.reason}` : '';
+  writeRaw(level, `${id}: status=${r.status} upgraded=${r.upgraded} failed=${r.failed}${reason}`);
+  for (const e of r.errors) writeRaw(level, `  ${id}: ${e}`);
+  const memLevel: LogEntry['level'] = ok ? 'info' : r.status === 'partial' ? 'warn' : 'error';
+  addToMemory(memLevel, `${id}: ${r.status} (${r.upgraded} ok, ${r.failed} fail)`);
 }
 
 export function getLogEntries(): LogEntry[] {

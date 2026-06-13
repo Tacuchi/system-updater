@@ -24,7 +24,7 @@ export function useManagers(config: UserConfig) {
     logger.log('Detectando gestores de paquetes...');
 
     try {
-      const detected = await detectManagers();
+      const detected = await detectManagers(configRef.current);
       logger.log(`${detected.length} gestor(es) detectados`);
 
       const initial = detected.map(m => ({

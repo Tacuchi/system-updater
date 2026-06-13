@@ -78,7 +78,7 @@ export function ManagerCard({ name, description, updateCount, status, version, w
       <Text color={colors.onSurfaceVariant} dimColor>
         {description}
       </Text>
-      <Box marginTop={1} flexDirection="row" alignItems="baseline" gap={1}>
+      <Box marginTop={1} flexDirection="row" alignItems="flex-end" gap={1}>
         <Text color={statusColor} bold>
           {updateCount}
         </Text>

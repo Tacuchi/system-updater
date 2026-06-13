@@ -154,4 +154,7 @@ export const es = {
   },
 } as const;
 
-export type Translations = typeof es;
+// Widen leaf string literals to `string` so other locales (en.ts) can supply
+// their own values while keeping the exact same key structure.
+type DeepString<T> = { [K in keyof T]: T[K] extends string ? string : DeepString<T[K]> };
+export type Translations = DeepString<typeof es>;

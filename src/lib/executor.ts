@@ -1,5 +1,6 @@
 import { execa, ExecaError } from 'execa';
 import type { ProgressEvent } from '../managers/types.js';
+import { runStream, withSudo } from './exec/run.js';
 
 const DEFAULT_TIMEOUT = 300_000; // 5 minutos
 
@@ -9,37 +10,12 @@ export interface ExecResult {
   exitCode: number;
 }
 
+export { withSudo };
+
 /**
- * Ajusta el comando según el contexto de permisos:
- * - sudo=true + ya somos root → ejecutar directo (ya tenemos permisos)
- * - sudo=true + no root → prefixar con sudo -n
- * - sudo=false + somos root (por re-exec) → de-escalar al usuario original
- *   para que detect/listOutdated vean el entorno correcto del usuario
- * - sudo=false + no root → ejecutar directo
+ * Ejecuta un comando y devuelve stdout/stderr completo (sin truncar) — usado
+ * por detect()/listOutdated() donde la salida completa (p.ej. JSON) importa.
  */
-function withSudo(cmd: string, args: string[], sudo: boolean): [string, string[]] {
-  if (process.platform === 'win32') return [cmd, args];
-
-  const isRoot = process.getuid?.() === 0;
-  const originalUser = process.env['SUDO_USER'];
-
-  if (sudo) {
-    if (isRoot) return [cmd, args];
-    return ['sudo', ['-n', cmd, ...args]];
-  }
-
-  // De-escalar: si corremos como root por re-exec, ejecutar como el usuario original
-  // para que brew, gem, pip, etc. vean su entorno real.
-  // -i: simula login completo (carga .zshrc/.bashrc → inicializa RVM, NVM, pyenv, etc.)
-  // -u: ejecuta como el usuario original
-  if (isRoot && originalUser) {
-    return ['sudo', ['-iu', originalUser, cmd, ...args]];
-  }
-
-  return [cmd, args];
-}
-
-/** Ejecuta un comando y devuelve stdout/stderr completo */
 export async function execCommand(
   cmd: string,
   args: string[],
@@ -70,43 +46,31 @@ export async function execCommand(
   }
 }
 
-/** Ejecuta un comando con streaming de salida como AsyncGenerator */
+/**
+ * Wrapper de back-compat sobre runStream: transmite la salida en vivo como
+ * ProgressEvents y, al terminar, emite un único 'complete' o 'error' decidido
+ * por el EXIT CODE (no por substring-matching). Los managers legacy siguen
+ * funcionando hasta que migren a descriptores.
+ */
 export async function* execStream(
   cmd: string,
   args: string[],
   timeout = DEFAULT_TIMEOUT,
   sudo = false,
 ): AsyncGenerator<ProgressEvent, void> {
-  const [finalCmd, finalArgs] = withSudo(cmd, args, sudo);
-  const child = execa(finalCmd, finalArgs, {
-    timeout,
-    reject: false,
-    stdout: 'pipe',
-    stderr: 'pipe',
-    all: true,
-  });
-
-  // Leer stdout + stderr intercalado para mostrar errores en tiempo real
-  if (child.all) {
-    for await (const chunk of child.all) {
-      const lines = String(chunk).split('\n').filter(Boolean);
-      for (const line of lines) {
-        const isError = line.toLowerCase().includes('error')
-          || line.toLowerCase().includes('permission denied')
-          || line.toLowerCase().includes('errno');
-        yield { type: isError ? 'error' : 'log', message: line };
-      }
-    }
+  const gen = runStream(cmd, args, { timeoutMs: timeout, sudo });
+  let next = await gen.next();
+  while (!next.done) {
+    yield next.value;
+    next = await gen.next();
   }
-
-  const result = await child;
-  if ((result.exitCode ?? 0) !== 0) {
-    const stderrMsg = result.stderr?.trim();
-    if (stderrMsg) {
-      yield { type: 'error', message: stderrMsg };
-    } else {
-      yield { type: 'error', message: `Exit code: ${result.exitCode}` };
-    }
+  const rec = next.value;
+  const failed = rec.timedOut || (rec.exitCode ?? 0) !== 0;
+  if (failed) {
+    const msg = rec.timedOut
+      ? `Timeout tras ${Math.round(rec.durationMs / 1000)}s`
+      : rec.stderrTail.trim() || `Exit code: ${rec.exitCode}`;
+    yield { type: 'error', message: msg };
   } else {
     yield { type: 'complete', message: 'OK', percent: 100 };
   }

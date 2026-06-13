@@ -1,64 +1,54 @@
 import type { PackageManager, ManagerDetection } from './types.js';
-import { brew } from './brew.js';
-import { pip } from './pip.js';
-import { npmMgr } from './npm-mgr.js';
-import { conda } from './conda.js';
-import { gem } from './gem.js';
-import { softwareupdate } from './softwareupdate.js';
-import { winget } from './winget.js';
-import { apt } from './apt.js';
-import { dnf } from './dnf.js';
-import { pacman } from './pacman.js';
-import { flatpak } from './flatpak.js';
-import { snap } from './snap.js';
-import { flutter } from './flutter.js';
-import { angular } from './angular.js';
-import { cargo } from './cargo.js';
-import { goLang } from './go-lang.js';
-import { composer } from './composer.js';
-import { choco } from './choco.js';
+import type { ManagerDescriptor } from './descriptor.js';
+import { fromDescriptor } from './engine.js';
+import { ALL_DESCRIPTORS } from './descriptors/index.js';
+import type { EngineTask } from '../lib/exec/engine.js';
+import type { UserConfig } from '../lib/config.js';
+import { isManagerEnabled } from '../lib/config.js';
 
 export interface DetectedManager {
   manager: PackageManager;
   detection: ManagerDetection;
 }
 
-const ALL_MANAGERS: PackageManager[] = [
-  brew,
-  pip,
-  npmMgr,
-  conda,
-  gem,
-  softwareupdate,
-  winget,
-  apt,
-  dnf,
-  pacman,
-  flatpak,
-  snap,
-  flutter,
-  angular,
-  cargo,
-  goLang,
-  composer,
-  choco,
-];
-
-export async function detectManagers(): Promise<DetectedManager[]> {
+/** Build live PackageManagers from the descriptors compatible with this OS. */
+export function buildManagers(config: UserConfig): PackageManager[] {
   const platform = process.platform;
-  const compatible = ALL_MANAGERS.filter(m => m.platforms.includes(platform));
+  return ALL_DESCRIPTORS.filter(d => d.platforms.includes(platform)).map(d => fromDescriptor(d, config));
+}
+
+export function getDescriptors(): ManagerDescriptor[] {
+  const platform = process.platform;
+  return ALL_DESCRIPTORS.filter(d => d.platforms.includes(platform));
+}
+
+/** Detect which managers are actually installed (in parallel). */
+export async function detectManagers(config: UserConfig): Promise<DetectedManager[]> {
+  const managers = buildManagers(config);
 
   const results = await Promise.allSettled(
-    compatible.map(async m => ({
-      manager: m,
-      detection: await m.detect(),
-    }))
+    managers.map(async m => ({ manager: m, detection: await m.detect() })),
   );
 
   return results
     .filter(
       (r): r is PromiseFulfilledResult<DetectedManager> =>
-        r.status === 'fulfilled' && r.value.detection.available
+        r.status === 'fulfilled' && r.value.detection.available,
     )
     .map(r => r.value);
+}
+
+/** Build the engine task list for the enabled subset of detected managers. */
+export function buildTasks(
+  detected: DetectedManager[],
+  config: UserConfig,
+  packagesByManager?: Map<string, string[]>,
+): EngineTask[] {
+  return detected
+    .filter(dm => isManagerEnabled(config, dm.manager.id))
+    .map(dm => ({
+      manager: dm.manager,
+      op: 'upgrade' as const,
+      packages: packagesByManager?.get(dm.manager.id),
+    }));
 }
