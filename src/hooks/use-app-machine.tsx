@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
 import { appReducer, initialState } from '../state/app-reducer.js';
 import type { AppState, ManagerResult, UiFailure, PackageItem } from '../state/types.js';
+import { parseSelectionKey } from '../state/types.js';
 import type { Action } from '../state/actions.js';
 import { detectManagers } from '../managers/registry.js';
 import type { DetectedManager } from '../managers/registry.js';
@@ -54,11 +55,6 @@ export function useMachine(): MachineValue {
   const ctx = useContext(MachineContext);
   if (!ctx) throw new Error('useMachine must be used inside <MachineProvider>');
   return ctx;
-}
-
-function keyParts(key: string): [string, string] {
-  const i = key.indexOf(' ');
-  return [key.slice(0, i), key.slice(i + 1)];
 }
 
 export function useAppMachine(sudoMode: boolean): MachineValue {
@@ -118,7 +114,7 @@ export function useAppMachine(sudoMode: boolean): MachineValue {
     const config = configRef.current;
     const packagesByManager = new Map<string, string[]>();
     for (const key of state.selection) {
-      const [id, pkg] = keyParts(key);
+      const [id, pkg] = parseSelectionKey(key);
       const list = packagesByManager.get(id) ?? [];
       list.push(pkg);
       packagesByManager.set(id, list);
@@ -133,24 +129,44 @@ export function useAppMachine(sudoMode: boolean): MachineValue {
     abortRef.current = ac;
     const logRef = getLogFilePath() ?? undefined;
 
+    // Coalesce engine events into ONE batched dispatch per frame (~30fps) so a
+    // multi-manager run renders a handful of times per second, not once per
+    // streamed line. The reducer applies a BATCH as a single transition.
+    let pending: Action[] = [];
+    let scheduled = false;
+    const flush = () => {
+      scheduled = false;
+      if (pending.length === 0) return;
+      const actions = pending;
+      pending = [];
+      dispatch(actions.length === 1 ? actions[0]! : { type: 'BATCH', actions });
+    };
+    const enqueue = (a: Action) => {
+      pending.push(a);
+      if (!scheduled) {
+        scheduled = true;
+        setTimeout(flush, 33);
+      }
+    };
+
     const onEvent = (e: EngineProgress) => {
       const { managerId: id } = e;
       if (e.phase === 'queued') {
-        dispatch({ type: 'MGR_QUEUED', id });
+        enqueue({ type: 'MGR_QUEUED', id });
       } else if (e.phase === 'upgrading') {
         if (e.event && (e.event.percent !== undefined || e.event.package)) {
-          dispatch({ type: 'MGR_PROGRESS', id, percent: e.event.percent, currentPackage: e.event.package });
+          enqueue({ type: 'MGR_PROGRESS', id, percent: e.event.percent, currentPackage: e.event.package });
         } else if (!e.event) {
-          dispatch({ type: 'MGR_RUNNING', id });
+          enqueue({ type: 'MGR_RUNNING', id });
         }
       } else if (e.phase === 'done' && e.result) {
         const r = e.result;
         if (r.status === 'noop' && r.manualCommand) {
-          dispatch({ type: 'MGR_SKIPPED', id, manualCommand: r.manualCommand });
+          enqueue({ type: 'MGR_SKIPPED', id, manualCommand: r.manualCommand });
         } else if (r.success || r.status === 'success' || r.status === 'partial') {
-          dispatch({ type: 'MGR_DONE', id, result: toManagerResult(r, logRef) });
+          enqueue({ type: 'MGR_DONE', id, result: toManagerResult(r, logRef) });
         } else {
-          dispatch({ type: 'MGR_FAILED', id, result: toManagerResult(r, logRef) });
+          enqueue({ type: 'MGR_FAILED', id, result: toManagerResult(r, logRef) });
         }
       }
     };
@@ -162,6 +178,7 @@ export function useAppMachine(sudoMode: boolean): MachineValue {
       timeoutsMs: config.timeoutsMs,
       onEvent,
     }).finally(() => {
+      flush(); // drain any buffered events before settling
       dispatch({ type: 'RUN_DONE' });
       abortRef.current = null;
     });

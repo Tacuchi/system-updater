@@ -3,6 +3,7 @@ import { Box, Text, useInput } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic } from '../theme.js';
+import { parseSelectionKey } from '../state/types.js';
 import { t, managerName } from '../i18n/index.js';
 
 export function ConfirmScreen() {
@@ -11,7 +12,7 @@ export function ConfirmScreen() {
   // group selected package keys by manager id
   const byManager = new Map<string, number>();
   for (const key of state.selection) {
-    const id = key.slice(0, key.indexOf(' '));
+    const [id] = parseSelectionKey(key);
     byManager.set(id, (byManager.get(id) ?? 0) + 1);
   }
 
