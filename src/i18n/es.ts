@@ -201,6 +201,7 @@ export const es = {
     selectHint: 'Espacio marcar · A todos · N ninguno · Enter continuar · S ajustes · Q salir',
     confirmHint: 'Enter actualizar · Esc volver · Q salir',
     updatingHint: 'Esc cancelar',
+    passwordNote: 'Si aparece "Password:" abajo, es un gestor (p.ej. un cask de brew): escríbela y Enter.',
     summaryHint: 'R re-escanear · Q salir',
     elapsed: 'transcurrido',
     cancel: 'Cancelando...',

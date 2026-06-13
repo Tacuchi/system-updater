@@ -191,6 +191,7 @@ export const en: Translations = {
     selectHint: 'Space toggle · A all · N none · Enter continue · S settings · Q quit',
     confirmHint: 'Enter update · Esc back · Q quit',
     updatingHint: 'Esc cancel',
+    passwordNote: 'If a "Password:" prompt appears below, it is a manager (e.g. a brew cask): type it and Enter.',
     summaryHint: 'R rescan · Q quit',
     elapsed: 'elapsed',
     cancel: 'Cancelling...',

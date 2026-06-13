@@ -154,15 +154,14 @@ export function useAppMachine(sudoMode: boolean): MachineValue {
       if (e.phase === 'queued') {
         enqueue({ type: 'MGR_QUEUED', id });
       } else if (e.phase === 'upgrading') {
-        if (e.event && (e.event.percent !== undefined || e.event.package || e.event.message)) {
-          // Show the latest output line as the live "action" (drives motion
-          // without an independent spinner timer).
-          enqueue({
-            type: 'MGR_PROGRESS',
-            id,
-            percent: e.event.percent,
-            currentPackage: e.event.package ?? e.event.message,
-          });
+        // ONLY redraw on a real percent change — never on every output line. A
+        // per-line redraw storm collides with subprocess writes to the TTY
+        // (e.g. a brew cask's nested `sudo` "Password:" prompt, which has no
+        // newline and shifts the cursor), corrupting Ink and stacking frames.
+        // While a manager just runs, the screen stays still and any prompt shows
+        // cleanly below it.
+        if (e.event?.percent !== undefined) {
+          enqueue({ type: 'MGR_PROGRESS', id, percent: e.event.percent });
         } else if (!e.event) {
           enqueue({ type: 'MGR_RUNNING', id });
         }

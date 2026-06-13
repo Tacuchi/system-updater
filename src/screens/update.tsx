@@ -16,7 +16,7 @@ function clip(s: string, n: number): string {
  * latest output line, driven by real progress events (no spinner timer). */
 function Row({ e, width }: { e: ManagerEntry; width: number }) {
   let detail = '';
-  if (e.status === 'running') detail = `${e.percent > 0 ? `${e.percent}%  ` : ''}${e.currentPackage ?? ''}`;
+  if (e.status === 'running') detail = e.percent > 0 ? `${e.percent}%` : '';
   else if (e.status === 'skipped') detail = e.manualCommand ?? 'manual';
   else if (e.status === 'failed') detail = e.result?.failures[0]?.message ?? '';
 
@@ -67,8 +67,9 @@ export function UpdateScreen() {
         return e ? <Row key={id} e={e} width={width} /> : null;
       })}
 
-      <Box marginTop={1}>
+      <Box marginTop={1} flexDirection="column">
         <Text color={semantic.muted}>{t('ui', 'updatingHint')}</Text>
+        <Text color={semantic.muted}>{t('ui', 'passwordNote')}</Text>
       </Box>
     </Box>
   );
