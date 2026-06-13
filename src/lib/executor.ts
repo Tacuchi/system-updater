@@ -29,10 +29,13 @@ export async function execCommand(
       reject: false,
       all: false,
     });
+    // execa resolves a failed spawn (ENOENT) / signal kill with exitCode
+    // undefined; coercing that to 0 would make a MISSING binary look like a
+    // successful detection. Treat any failure without a numeric code as non-zero.
     return {
       stdout: result.stdout,
       stderr: result.stderr,
-      exitCode: result.exitCode ?? 0,
+      exitCode: result.exitCode ?? (result.failed ? 127 : 0),
     };
   } catch (err) {
     if (err instanceof ExecaError) {

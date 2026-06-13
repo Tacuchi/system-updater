@@ -1,38 +1,54 @@
 import { describe, it, expect } from 'vitest';
-import { parseRustupCheck } from './cargo.js';
+import { parseCargoInstallUpdateList } from './cargo.js';
 
-describe('parseRustupCheck', () => {
-  it('parses a toolchain with an available update', () => {
-    const stdout =
-      'stable-aarch64-apple-darwin - Update available : 1.77.0 (abcdef 2024-01-01) -> 1.78.0 (123456 2024-05-01)';
-    expect(parseRustupCheck(stdout)).toEqual([
-      { name: 'stable-aarch64-apple-darwin', currentVersion: '1.77.0', newVersion: '1.78.0' },
+describe('parseCargoInstallUpdateList', () => {
+  it('parses only rows that need an update, skipping the header and up-to-date rows', () => {
+    const stdout = [
+      'Package  Installed  Latest   Needs update',
+      'racer    2.0.0      2.0.1    Yes',
+      'rustfmt  0.9.0      0.9.0    No',
+      'ripgrep  13.0.0     14.1.0   Yes',
+    ].join('\n');
+    expect(parseCargoInstallUpdateList(stdout)).toEqual([
+      { name: 'racer', currentVersion: '2.0.0', newVersion: '2.0.1' },
+      { name: 'ripgrep', currentVersion: '13.0.0', newVersion: '14.1.0' },
     ]);
   });
 
-  it('parses multiple toolchains and the rustup line, skipping up-to-date entries', () => {
+  it('is case-insensitive on the "Yes" column', () => {
+    const stdout = ['Package  Installed  Latest  Needs update', 'racer    2.0.0      2.0.1   YES'].join('\n');
+    expect(parseCargoInstallUpdateList(stdout)).toEqual([
+      { name: 'racer', currentVersion: '2.0.0', newVersion: '2.0.1' },
+    ]);
+  });
+
+  it('strips a leading "v" version prefix when present', () => {
+    const stdout = ['Package  Installed  Latest  Needs update', 'racer    v2.0.0     v2.0.1  Yes'].join('\n');
+    expect(parseCargoInstallUpdateList(stdout)).toEqual([
+      { name: 'racer', currentVersion: '2.0.0', newVersion: '2.0.1' },
+    ]);
+  });
+
+  it('ignores blank lines, trailing notes and malformed rows', () => {
     const stdout = [
-      'stable-aarch64-apple-darwin - Update available : 1.77.0 (abcdef) -> 1.78.0 (123456)',
-      'nightly-aarch64-apple-darwin - Up to date : 1.80.0-nightly (deadbeef 2024-05-02)',
-      'beta-aarch64-apple-darwin - Update available : 1.79.0 (cafe) -> 1.79.1 (face)',
-      'rustup - Update available : 1.26.0 -> 1.27.0',
+      'Package  Installed  Latest  Needs update',
+      '',
+      'racer    2.0.0      2.0.1   Yes',
+      'garbage',
+      '',
+      'Note: Use --filter to update only specific packages.',
     ].join('\n');
-    expect(parseRustupCheck(stdout)).toEqual([
-      { name: 'stable-aarch64-apple-darwin', currentVersion: '1.77.0', newVersion: '1.78.0' },
-      { name: 'beta-aarch64-apple-darwin', currentVersion: '1.79.0', newVersion: '1.79.1' },
-      { name: 'rustup', currentVersion: '1.26.0', newVersion: '1.27.0' },
+    expect(parseCargoInstallUpdateList(stdout)).toEqual([
+      { name: 'racer', currentVersion: '2.0.0', newVersion: '2.0.1' },
     ]);
   });
 
   it('returns [] when everything is up to date', () => {
-    const stdout = [
-      'stable-aarch64-apple-darwin - Up to date : 1.78.0 (123456 2024-05-01)',
-      'rustup - Up to date : 1.27.0',
-    ].join('\n');
-    expect(parseRustupCheck(stdout)).toEqual([]);
+    const stdout = ['Package  Installed  Latest  Needs update', 'rustfmt  0.9.0      0.9.0   No'].join('\n');
+    expect(parseCargoInstallUpdateList(stdout)).toEqual([]);
   });
 
   it('returns [] on empty output', () => {
-    expect(parseRustupCheck('')).toEqual([]);
+    expect(parseCargoInstallUpdateList('')).toEqual([]);
   });
 });
