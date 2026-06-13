@@ -94,4 +94,32 @@ Use high-contrast pills for status.
 Combine `display-sm` typography with a `label-sm` monospace timestamp. Underline the entire header with a single `outline-variant` line at 10% opacity. This creates an editorial "Masthead" feel for a technical application.
 
 ### The "Diagnostic" Sidebar
+
+---
+
+## 8. v2 — Linear-Flow Application (Rewrite)
+
+The creative north star above is the aesthetic vision; this section is how the **shipping TUI** applies it. The app is no longer a 4-tab dashboard — it is a single **linear flow** with explicit phases, so the user always knows where they are and when work is done.
+
+### Operative semantic palette (`theme.ts` → `semantic`)
+To cut visual noise, screens use **five roles only**, not the raw token set:
+- `action` = `primary` #c9bfff — focus / current step / primary action
+- `success` = `tertiary` #31e368 — done / up-to-date
+- `error` = `error` #ffb4ab — failures
+- `warning` = `secondary` #ffade0 — admin / skipped / attention
+- `text` / `muted` — foreground and secondary copy
+
+### Linear flow & screen map
+`Detect → Select → Confirm → Update → Summary` (Settings is an overlay). A `StepHeader` shows `▆ ▁ ▁ ▁  Paso N/4 · <label>`.
+- **Detect**: animated `Spinner` + live per-manager scan list with status glyphs.
+- **Select**: packages grouped by manager, cursor (`❯`) + `[✓]/[ ]` checkboxes, `current → new` versions.
+- **Confirm**: the exact plan (managers + counts; admin→manual warning) shown *before* anything runs.
+- **Update**: per-manager `ProgressBar` (or spinner when indeterminate) + an isolated live `LogPane` + live `✓/✗/⊘` counts.
+- **Summary**: an unmistakable `✓ COMPLETADO` / `✗ COMPLETADO CON ERRORES` banner, per-failure reason `[KIND]`, manual commands for skipped managers, and the log file path.
+
+### Status glyphs (`status-glyph.tsx` — single source of truth)
+`○` pending · `⟳`(spinner) scanning/running · `›` outdated · `✓` uptodate/done · `·` queued · `✗` failed · `⊘` skipped. Each maps to exactly one semantic colour. **Never** render a frozen `0%` bar — indeterminate work shows a spinner.
+
+### Motion
+Use `@inkjs/ui` `Spinner` for indeterminate work and `ProgressBar` when a real `percent` is known. Progress events are coalesced to ~30fps (one batched render per frame) so a multi-manager run never flickers.
 Use `surface-container-lowest` for a sidebar that feels "recessed" into the screen. Populated with `JetBrains Mono` at `body-sm` size, it serves as a high-density stream of metadata or logs.

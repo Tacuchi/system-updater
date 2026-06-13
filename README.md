@@ -1,69 +1,48 @@
-# Sistema de Actualización Simple para macOS
+# @tacuchi/updater
 
-Sistema de actualización directo y realista para gestores de paquetes en macOS con logging profesional.
-
-## Uso Rápido
+TUI multiplataforma para actualizar **todos** los gestores de paquetes de tu sistema desde un solo flujo. macOS · Linux · Windows. Sin permisos de administrador (salvo los gestores que los exigen).
 
 ```bash
-# Ejecutar el script
-python3 updater_simple.py
-
-# Con conda (opcional)
-conda activate system-updater
-python updater_simple.py
+npx @tacuchi/updater          # ejecutar sin instalar
+npx @tacuchi/updater --sudo   # incluir gestores que requieren admin (apt, dnf, pacman, snap, choco)
 ```
 
-## Archivos del Proyecto
+## Qué hace
 
-- **`updater_simple.py`** - Script principal
-- **`USO_SIMPLE.md`** - Documentación completa
-- **`ejemplos_directos.txt`** - Ejemplos de uso rápidos
-- **`environment.yml`** - Configuración de conda (opcional)
-- **`logs/`** - Carpeta de logs automáticos
+Un flujo lineal claro: **Detectar → Seleccionar → Confirmar → Actualizar → Resumen**.
 
-## Qué Hace
+- Detecta automáticamente los gestores instalados y busca actualizaciones en paralelo.
+- Verás spinners mientras trabaja y un resumen inequívoco al terminar (qué se actualizó, qué falló y **por qué**, con la ruta del log).
+- Verificación real: cada actualización se confirma re-listando paquetes desactualizados — un fallo nunca se reporta como éxito.
 
-**Actualiza completamente (sin errores):**
-- Homebrew
-- pip
-- macOS (lista actualizaciones)
+## Gestores soportados (27)
 
-**Solo verifica (evita errores de permisos):**
-- npm (lista paquetes desactualizados)
-- conda (muestra información)
-- gem (lista paquetes desactualizados)
+- **Sistema**: brew, softwareupdate, apt, dnf, pacman
+- **Lenguajes/runtimes**: npm, pnpm, yarn, bun, pip, pipx, conda, gem, composer, angular
+- **Apps/tiendas**: winget, choco, flatpak, snap, mas, scoop
+- **SDK/toolchains**: rustup, cargo, mise, asdf, flutter, go
 
-## Logging Automático
+Los gestores que requieren admin (apt, dnf, pacman, snap, choco) se actualizan con `--sudo`; sin permisos muestran el comando manual en vez de fallar en silencio.
 
-Cada ejecución crea un log detallado en `logs/system_updater_YYYYMMDD_HHMMSS.log` con:
-- Comandos ejecutados
-- Resultados completos
-- Errores detallados
-- Información de debugging
-
-## Comandos Manuales Post-Verificación
+## Desarrollo
 
 ```bash
-# npm (después de ver qué está desactualizado)
-sudo chown -R $(whoami) ~/.nvm && npm update -g
-
-# conda (después de ver información)
-conda update --all
-
-# gem (después de ver qué está desactualizado)
-gem update --user-install
+npm install
+npm run dev        # ejecutar sin compilar (tsx)
+npm test           # vitest
+npm run typecheck  # tsc --noEmit
+npm run build      # tsup → dist/cli.js
 ```
 
-## Configuración de Conda (Opcional)
+La arquitectura (motor de ejecución, modelo de descriptores, máquina de estados) está documentada en [`CLAUDE.md`](./CLAUDE.md) y el sistema de diseño en [`docs/DESIGN.md`](./docs/DESIGN.md).
 
-```bash
-# Crear entorno
-conda env create -f environment.yml
+## Config y logs
 
-# Activar
-conda activate system-updater
-```
+- Config: `~/.tacuchi-updater/config.json` (idioma, gestores habilitados, concurrencia, timeouts).
+- Logs: `~/.tacuchi-updater/logs/` — registra cada comando ejecutado con su salida para diagnosticar fallos.
 
----
+El script Python original se conserva en `legacy/updater_simple.py` como referencia histórica.
 
-Script simple, consola limpia, logs completos. 
+## Licencia
+
+MIT
