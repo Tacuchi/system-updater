@@ -8,7 +8,7 @@ import { parseSelectionKey } from '../state/types.js';
 import { t, managerName } from '../i18n/index.js';
 
 export function ConfirmScreen() {
-  const { state, startRun, goSelect, sudoMode } = useMachine();
+  const { state, startRun, goSelect, sudoMode, relaunch } = useMachine();
 
   // group selected package keys by manager id
   const byManager = new Map<string, number>();
@@ -17,8 +17,14 @@ export function ConfirmScreen() {
     byManager.set(id, (byManager.get(id) ?? 0) + 1);
   }
 
+  // Windows: admin managers (choco) would be skipped without elevation. Offer a
+  // one-UAC relaunch instead of forcing the user to restart the terminal as admin.
+  const needsElevation =
+    process.platform === 'win32' && !sudoMode && [...byManager.keys()].some(id => state.managers[id]?.requiresAdmin);
+
   useSafeInput((input, key) => {
-    if (key.return || input === 'y' || input === 'Y') startRun();
+    if ((input === 'e' || input === 'E') && needsElevation) relaunch();
+    else if (key.return || input === 'y' || input === 'Y') startRun();
     else if (key.escape) goSelect();
   });
 
@@ -49,6 +55,9 @@ export function ConfirmScreen() {
         })}
       </Box>
       <Text color={semantic.muted}>{t('ui', 'confirmHint')}</Text>
+      {needsElevation && (
+        <Text color={semantic.warning}>E · relanzar como Administrador (1 UAC) para los gestores que lo requieren</Text>
+      )}
     </Box>
   );
 }

@@ -14,6 +14,9 @@ import { loadConfig, saveConfig, isManagerEnabled } from '../lib/config.js';
 import { initLogger, getLogFilePath } from '../lib/logger.js';
 import * as logger from '../lib/logger.js';
 import { setLanguage } from '../i18n/index.js';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { relaunchElevated, elevatedSummaryPath } from '../lib/elevation.js';
 
 /** Pure: project an engine UpgradeResult onto the UI ManagerResult shape. */
 export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResult {
@@ -33,6 +36,36 @@ export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResul
   };
 }
 
+export interface RunSummary {
+  upgraded: number;
+  failed: number;
+  skipped: number;
+  managers: { id: string; status: string; upgraded: number; failed: number }[];
+}
+
+/** Pure: aggregate a finished run into a serializable summary (hand-off file). */
+export function summarizeRun(state: AppState): RunSummary {
+  let upgraded = 0;
+  let failed = 0;
+  let skipped = 0;
+  const managers: RunSummary['managers'] = [];
+  for (const id of state.run.queue) {
+    const e = state.managers[id];
+    if (!e) continue;
+    if (e.status === 'skipped') {
+      skipped++;
+      managers.push({ id, status: 'skipped', upgraded: 0, failed: 0 });
+      continue;
+    }
+    const u = e.result?.upgraded ?? 0;
+    const f = e.result?.failed ?? 0;
+    upgraded += u;
+    failed += f;
+    managers.push({ id, status: e.status, upgraded: u, failed: f });
+  }
+  return { upgraded, failed, skipped, managers };
+}
+
 export interface MachineValue {
   state: AppState;
   sudoMode: boolean;
@@ -43,6 +76,7 @@ export interface MachineValue {
   goSelect: () => void;
   startRun: () => void;
   cancelRun: () => void;
+  relaunch: () => void;
   rescan: () => void;
   openSettings: () => void;
   closeSettings: () => void;
@@ -246,6 +280,37 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     finishNonInteractive,
   ]);
 
+  // Best-effort hand-off: persist the finished run's summary to %LOCALAPPDATA% so a
+  // non-elevated parent can (optionally) read what an elevated child did. win32-only.
+  // GATED (#5): validate the round-trip on real Windows.
+  useEffect(() => {
+    if (state.phase !== 'summary' || process.platform !== 'win32') return;
+    try {
+      const p = elevatedSummaryPath();
+      mkdirSync(dirname(p), { recursive: true });
+      writeFileSync(p, JSON.stringify({ ...summarizeRun(state), at: Date.now() }, null, 2), 'utf-8');
+    } catch {
+      /* hand-off is best-effort */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
+
+  // Relaunch the whole TUI elevated (one UAC) and cede control. Offered in Confirm
+  // when admin managers would be skipped for lack of elevation (win32).
+  const relaunch = useCallback(() => {
+    void (async () => {
+      const ok = await relaunchElevated();
+      if (ok) {
+        process.exitCode = 0;
+        exit(); // cede control to the elevated console
+        if (!process.env['VITEST']) {
+          const t = setTimeout(() => process.exit(0), 100);
+          t.unref?.();
+        }
+      }
+    })();
+  }, [exit]);
+
   // persist config whenever it changes via the reducer
   const persist = useCallback((next: Action) => {
     dispatch(next);
@@ -276,6 +341,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     goSelect: useCallback(() => persist({ type: 'GOTO_SELECT' }), [persist]),
     startRun,
     cancelRun,
+    relaunch,
     rescan,
     openSettings: useCallback(() => persist({ type: 'OPEN_SETTINGS' }), [persist]),
     closeSettings: useCallback(() => persist({ type: 'CLOSE_SETTINGS' }), [persist]),
