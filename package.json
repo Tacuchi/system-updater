@@ -36,14 +36,18 @@
   "dependencies": {
     "@inkjs/ui": "^2.0.0",
     "chalk": "^5.4.1",
+    "env-paths": "^4.0.0",
     "execa": "^9.6.0",
+    "iconv-lite": "^0.7.2",
     "ink": "^6.8.0",
+    "is-admin": "^4.0.0",
     "react": "^19.2.0",
-    "react-devtools-core": "^6.1.2"
+    "tree-kill": "^1.2.2"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "ink-testing-library": "^4.0.0",
+    "react-devtools-core": "^7.0.1",
     "tsup": "^8.4.0",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",

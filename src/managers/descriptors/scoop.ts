@@ -40,29 +40,36 @@ export function parseScoopOutdated(stdout: string): OutdatedPackage[] {
   return packages;
 }
 
+// scoop installs three shims in %USERPROFILE%\scoop\shims: `scoop` (extensionless),
+// `scoop.ps1` and `scoop.cmd`. execa runs with shell:false, and cross-spawn only
+// resolves names that PATHEXT knows about — the extensionless shim is invisible and
+// `scoop.ps1` would be *opened* by cmd.exe, not executed. So every spawn targets
+// `scoop.cmd` explicitly. (This descriptor is win32-only, so no platform branch is
+// needed.) `manualCommand` stays `scoop ...` — the user types it in a shell where
+// the bare shim resolves.
 export const scoop: ManagerDescriptor = {
   id: 'scoop',
   group: 'apps',
   platforms: ['win32'],
   requiresAdmin: false,
   kind: 'direct',
-  detectCmd: { cmd: 'scoop', args: ['--version'], timeout: 3000 },
+  detectCmd: { cmd: 'scoop.cmd', args: ['--version'], timeout: 3000 },
   parseVersion: stdout => {
     // `scoop --version` prints lines like "Current Scoop version:\nv0.3.1 ...".
     const m = stdout.match(/v?\d+\.\d+(?:\.\d+)?/);
     return m?.[0];
   },
-  listOutdatedCmd: () => ({ cmd: 'scoop', args: ['status'] }),
+  listOutdatedCmd: () => ({ cmd: 'scoop.cmd', args: ['status'] }),
   parseOutdated: stdout => parseScoopOutdated(stdout),
   // `scoop update` (no app) refreshes scoop itself + all buckets so the
   // following `scoop update *` / `scoop update <names>` sees the latest
   // manifests.
-  preUpgradeCmds: () => [{ cmd: 'scoop', args: ['update'] }],
+  preUpgradeCmds: () => [{ cmd: 'scoop.cmd', args: ['update'] }],
   // Single bulk command: `scoop update *` upgrades every app, otherwise one
   // invocation carrying every selected app name.
   upgradeCmd: pkgs =>
     pkgs && pkgs.length
-      ? { cmd: 'scoop', args: ['update', ...pkgs] }
-      : { cmd: 'scoop', args: ['update', '*'] },
+      ? { cmd: 'scoop.cmd', args: ['update', ...pkgs] }
+      : { cmd: 'scoop.cmd', args: ['update', '*'] },
   manualCommand: () => 'scoop update *',
 };

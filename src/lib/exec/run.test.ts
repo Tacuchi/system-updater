@@ -68,3 +68,24 @@ describe('runStream', () => {
     expect(events.some(e => e.percent === 42)).toBe(true);
   });
 });
+
+describe('spawn safety — shell:false invariant', () => {
+  // execa is always called with array-form args and no `shell` option (defaults to
+  // false). If a shell ever crept in, these metacharacters would be interpreted
+  // (split/piped/backgrounded) instead of arriving as one literal argv entry. The
+  // assertion is the same on every platform: the child receives the string verbatim.
+  const PAYLOAD = 'a && b || c | d ; e & f';
+
+  it('passes shell metacharacters to argv literally (runExec)', async () => {
+    const rec = await runExec(NODE, ['-e', 'process.stdout.write(process.argv[1])', PAYLOAD], opts);
+    expect(rec.exitCode).toBe(0);
+    expect(rec.stdoutTail).toBe(PAYLOAD);
+  });
+
+  it('passes shell metacharacters to argv literally (runStream)', async () => {
+    const gen = runStream(NODE, ['-e', 'process.stdout.write(process.argv[1])', PAYLOAD], opts);
+    let next = await gen.next();
+    while (!next.done) next = await gen.next();
+    expect(next.value.stdoutTail).toBe(PAYLOAD);
+  });
+});
