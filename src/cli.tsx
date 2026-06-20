@@ -19,6 +19,8 @@ if (args.includes('--help') || args.includes('-h')) {
   Flags:
     -s, --sudo           Permite actualizar gestores que requieren admin
                          (softwareupdate, apt, dnf, pacman, snap)
+    -y, --yes, --all     Modo no-interactivo: actualiza todo sin teclado
+                         (automático cuando stdin no es un TTY / CI / pipe)
     -h, --help           Mostrar ayuda
     -v, --version        Mostrar versión
   `);
@@ -64,7 +66,13 @@ if (sudoRequested && !isRoot && process.platform !== 'win32') {
 
 const sudoMode = isRoot || sudoRequested;
 
-const { unmount } = render(<App sudoMode={sudoMode} />);
+// Non-interactive: no usable TTY (piped stdin, Git Bash/MinTTY, CI) or an explicit
+// --yes/--all. The app then drives Detect→Update→Summary without keypresses instead
+// of crashing on raw-mode (see useSafeInput + the non-interactive driver).
+const nonInteractive =
+  !process.stdin.isTTY || args.includes('--yes') || args.includes('-y') || args.includes('--all');
+
+const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteractive} />);
 
 process.on('SIGINT', () => {
   unmount();

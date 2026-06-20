@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Text, useInput, useApp as useInkApp } from 'ink';
+import { Box, Text, useApp as useInkApp } from 'ink';
 import { useAppMachine, MachineProvider, useMachine } from './hooks/use-app-machine.js';
+import { useSafeInput } from './hooks/use-safe-input.js';
 import { DetectScreen } from './screens/detect.js';
 import { SelectScreen } from './screens/select.js';
 import { ConfirmScreen } from './screens/confirm.js';
@@ -46,7 +47,7 @@ function Shell({ sudoMode }: { sudoMode: boolean }) {
   const { exit } = useInkApp();
   // Global quit only. Phase-specific keys live in each screen so handlers never
   // collide (only the active screen is mounted).
-  useInput((input) => {
+  useSafeInput((input) => {
     if (input === 'q' || input === 'Q') {
       exit();
       process.exit(0);
@@ -60,8 +61,14 @@ function Shell({ sudoMode }: { sudoMode: boolean }) {
   );
 }
 
-export default function App({ sudoMode = false }: { sudoMode?: boolean }) {
-  const machine = useAppMachine(sudoMode);
+export default function App({
+  sudoMode = false,
+  nonInteractive = false,
+}: {
+  sudoMode?: boolean;
+  nonInteractive?: boolean;
+}) {
+  const machine = useAppMachine(sudoMode, nonInteractive);
   return (
     <MachineProvider value={machine}>
       <Shell sudoMode={sudoMode} />

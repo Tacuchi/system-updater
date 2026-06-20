@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
+import { useApp } from 'ink';
 import { appReducer, initialState } from '../state/app-reducer.js';
 import type { AppState, ManagerResult, UiFailure, PackageItem } from '../state/types.js';
 import { parseSelectionKey } from '../state/types.js';
@@ -57,7 +58,7 @@ export function useMachine(): MachineValue {
   return ctx;
 }
 
-export function useAppMachine(sudoMode: boolean): MachineValue {
+export function useAppMachine(sudoMode: boolean, nonInteractive = false): MachineValue {
   const configRef = useRef<UserConfig>(loadConfig());
   const [state, dispatch] = useReducer(appReducer, undefined, () =>
     initialState(configRef.current, sudoMode),
@@ -199,6 +200,51 @@ export function useAppMachine(sudoMode: boolean): MachineValue {
     dispatch({ type: 'RESCAN' });
     void boot();
   }, [boot]);
+
+  // ---- non-interactive driver (no TTY / --yes / --all) ----
+  // Drive the linear flow to completion without keypresses, then exit with a
+  // meaningful code. This is also what keeps a piped/Git-Bash run (where raw mode
+  // is unsupported and useSafeInput is inert) from hanging on the select screen.
+  const { exit } = useApp();
+  const exitedRef = useRef(false);
+  const finishNonInteractive = useCallback(
+    (code: number) => {
+      if (exitedRef.current) return;
+      exitedRef.current = true;
+      process.exitCode = code;
+      exit(); // unmount Ink, restoring the terminal
+      // Backstop hard-exit in case a stray handle keeps the loop alive. Skipped
+      // under vitest so the test runner is never killed.
+      if (!process.env['VITEST']) {
+        const t = setTimeout(() => process.exit(code), 100);
+        t.unref?.();
+      }
+    },
+    [exit],
+  );
+
+  useEffect(() => {
+    if (!nonInteractive) return;
+    if (state.phase === 'select') {
+      const hasOutdated = state.order.some(id => (state.managers[id]?.outdated.length ?? 0) > 0);
+      if (!hasOutdated) finishNonInteractive(0);
+      else if (state.selection.size === 0) dispatch({ type: 'SELECT_ALL' });
+      else dispatch({ type: 'GOTO_CONFIRM' });
+    } else if (state.phase === 'confirm') {
+      startRun();
+    } else if (state.phase === 'summary') {
+      finishNonInteractive(state.run.failedCount > 0 ? 1 : 0);
+    }
+  }, [
+    nonInteractive,
+    state.phase,
+    state.selection.size,
+    state.run.failedCount,
+    state.order,
+    state.managers,
+    startRun,
+    finishNonInteractive,
+  ]);
 
   // persist config whenever it changes via the reducer
   const persist = useCallback((next: Action) => {

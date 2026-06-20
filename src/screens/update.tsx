@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
+import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { StatusGlyph, statusColor } from '../components/status-glyph.js';
 import { semantic } from '../theme.js';
@@ -41,7 +42,7 @@ function Row({ e, width }: { e: ManagerEntry; width: number }) {
 export function UpdateScreen() {
   const { state, cancelRun } = useMachine();
 
-  useInput((_input, key) => {
+  useSafeInput((_input, key) => {
     if (key.escape) cancelRun();
   });
 

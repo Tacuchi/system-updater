@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
+import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic, colors } from '../theme.js';
 import { isManagerEnabled } from '../lib/config.js';
@@ -12,7 +13,7 @@ export function SettingsScreen() {
   const [cursor, setCursor] = useState(0);
   const clamped = Math.min(cursor, Math.max(0, ids.length - 1));
 
-  useInput((input, key) => {
+  useSafeInput((input, key) => {
     if (key.escape) closeSettings();
     else if (key.downArrow || input === 'j') setCursor(c => Math.min(ids.length - 1, c + 1));
     else if (key.upArrow || input === 'k') setCursor(c => Math.max(0, c - 1));

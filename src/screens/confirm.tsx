@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
+import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic } from '../theme.js';
 import { parseSelectionKey } from '../state/types.js';
@@ -16,7 +17,7 @@ export function ConfirmScreen() {
     byManager.set(id, (byManager.get(id) ?? 0) + 1);
   }
 
-  useInput((input, key) => {
+  useSafeInput((input, key) => {
     if (key.return || input === 'y' || input === 'Y') startRun();
     else if (key.escape) goSelect();
   });

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
+import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic } from '../theme.js';
 import { getLogFilePath } from '../lib/logger.js';
@@ -9,7 +10,7 @@ import { t, managerName } from '../i18n/index.js';
 export function SummaryScreen() {
   const { state, rescan } = useMachine();
 
-  useInput((input) => {
+  useSafeInput((input) => {
     if (input === 'r' || input === 'R') rescan();
   });
 
