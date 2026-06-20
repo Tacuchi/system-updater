@@ -1,6 +1,7 @@
 import { execa, ExecaError } from 'execa';
 import type { ProgressEvent } from '../managers/types.js';
 import { runStream, withSudo } from './exec/run.js';
+import { decodeSmart } from './exec/decode.js';
 
 const DEFAULT_TIMEOUT = 300_000; // 5 minutos
 
@@ -24,24 +25,27 @@ export async function execCommand(
 ): Promise<ExecResult> {
   const [finalCmd, finalArgs] = withSudo(cmd, args, sudo);
   try {
+    // Capture raw bytes (encoding:'buffer') and sniff-decode — Windows tools emit
+    // UTF-16LE (winget) / OEM (cmd-hosted choco/scoop), not UTF-8.
     const result = await execa(finalCmd, finalArgs, {
       timeout,
       reject: false,
       all: false,
+      encoding: 'buffer',
     });
     // execa resolves a failed spawn (ENOENT) / signal kill with exitCode
     // undefined; coercing that to 0 would make a MISSING binary look like a
     // successful detection. Treat any failure without a numeric code as non-zero.
     return {
-      stdout: result.stdout,
-      stderr: result.stderr,
+      stdout: decodeSmart(result.stdout as Buffer),
+      stderr: decodeSmart(result.stderr as Buffer),
       exitCode: result.exitCode ?? (result.failed ? 127 : 0),
     };
   } catch (err) {
     if (err instanceof ExecaError) {
       return {
-        stdout: err.stdout ?? '',
-        stderr: err.stderr ?? String(err.message),
+        stdout: decodeSmart(err.stdout as Buffer | undefined),
+        stderr: decodeSmart(err.stderr as Buffer | undefined) || String(err.message),
         exitCode: err.exitCode ?? 1,
       };
     }

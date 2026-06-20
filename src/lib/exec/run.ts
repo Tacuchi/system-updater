@@ -1,6 +1,7 @@
 import { execa } from 'execa';
 import type { CommandRecord, ProgressEvent } from '../../managers/types.js';
 import type { PercentParser } from './percent.js';
+import { decodeSmart, StreamDecoder } from './decode.js';
 
 const DEFAULT_TAIL_BYTES = 16384;
 
@@ -53,6 +54,8 @@ function execaOptions(opts: RunOptions, all: boolean) {
     env: opts.env,
     cancelSignal: opts.signal,
     all,
+    // Capture raw bytes; we sniff-decode (UTF-8 / UTF-16LE / OEM) ourselves.
+    encoding: 'buffer' as const,
   };
 }
 
@@ -67,8 +70,8 @@ export async function runExec(cmd: string, args: string[], opts: RunOptions): Pr
     exitCode: result.exitCode ?? null,
     durationMs: Date.now() - started,
     timedOut: result.timedOut ?? false,
-    stdoutTail: tail(String(result.stdout ?? ''), tailBytes),
-    stderrTail: tail(String(result.stderr ?? ''), tailBytes),
+    stdoutTail: tail(decodeSmart(result.stdout as Buffer | undefined), tailBytes),
+    stderrTail: tail(decodeSmart(result.stderr as Buffer | undefined), tailBytes),
   };
 }
 
@@ -91,17 +94,31 @@ export async function* runStream(
   const child = execa(finalCmd, finalArgs, { ...execaOptions(opts, true), stdout: 'pipe', stderr: 'pipe' });
 
   if (child.all) {
+    // Sniff-decode the merged byte stream incrementally (handles UTF-16 units
+    // split across chunks) and buffer partial lines until a newline arrives.
+    const decoder = new StreamDecoder();
+    let lineBuf = '';
+    const emit = function* (raw: string): Generator<ProgressEvent> {
+      const line = raw.replace(/\r$/, '');
+      if (!line) return;
+      const percent = percentParser?.(line);
+      if (percent !== undefined) {
+        yield { type: 'progress', message: line, percent };
+      } else {
+        yield { type: 'log', message: line, severity: WARN_RE.test(line) ? 'warn' : 'info' };
+      }
+    };
     for await (const chunk of child.all) {
-      const lines = String(chunk).split('\n').filter(Boolean);
-      for (const line of lines) {
-        const percent = percentParser?.(line);
-        if (percent !== undefined) {
-          yield { type: 'progress', message: line, percent };
-        } else {
-          yield { type: 'log', message: line, severity: WARN_RE.test(line) ? 'warn' : 'info' };
-        }
+      lineBuf += decoder.write(chunk as Buffer);
+      let nl: number;
+      while ((nl = lineBuf.indexOf('\n')) >= 0) {
+        const raw = lineBuf.slice(0, nl);
+        lineBuf = lineBuf.slice(nl + 1);
+        yield* emit(raw);
       }
     }
+    lineBuf += decoder.end();
+    if (lineBuf) yield* emit(lineBuf);
   }
 
   const result = await child;
@@ -110,7 +127,7 @@ export async function* runStream(
     exitCode: result.exitCode ?? null,
     durationMs: Date.now() - started,
     timedOut: result.timedOut ?? false,
-    stdoutTail: tail(String(result.stdout ?? ''), tailBytes),
-    stderrTail: tail(String(result.stderr ?? ''), tailBytes),
+    stdoutTail: tail(decodeSmart(result.stdout as Buffer | undefined), tailBytes),
+    stderrTail: tail(decodeSmart(result.stderr as Buffer | undefined), tailBytes),
   };
 }
