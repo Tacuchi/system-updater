@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink';
 import { execaSync } from 'execa';
 import App from './app.js';
+import { isElevated } from './lib/elevation.js';
 
 const args = process.argv.slice(2);
 const sudoRequested = args.includes('--sudo') || args.includes('-s');
@@ -32,11 +33,6 @@ if (args.includes('--version') || args.includes('-v')) {
   process.exit(0);
 }
 
-// En Windows, sudo no aplica — informar al usuario
-if (sudoRequested && process.platform === 'win32') {
-  console.log('\x1b[33m» En Windows, ejecuta la terminal como Administrador en vez de usar --sudo\x1b[0m');
-}
-
 // Re-lanzar el proceso completo bajo sudo si fue solicitado y no somos root.
 // Esto resuelve el problema de tty_tickets en macOS: el prompt de password
 // aparece ANTES de que Ink tome el terminal, y todos los subprocesos
@@ -64,7 +60,17 @@ if (sudoRequested && !isRoot && process.platform !== 'win32') {
   }
 }
 
-const sudoMode = isRoot || sudoRequested;
+// Detect real elevation. On Windows this is an Administrator console (is-admin) —
+// NOT --sudo, which cannot elevate there. Detecting it is what makes choco run when
+// elevated instead of being skipped unconditionally (bug #1). On unix, elevated ==
+// root (post re-exec), with --sudo still allowing a passwordless `sudo -n` attempt.
+const elevated = await isElevated();
+if (process.platform === 'win32' && sudoRequested && !elevated) {
+  console.log(
+    '\x1b[33m» En Windows --sudo no eleva. Abrí la terminal como Administrador (se detecta automáticamente).\x1b[0m',
+  );
+}
+const sudoMode = process.platform === 'win32' ? elevated : isRoot || sudoRequested;
 
 // Non-interactive: no usable TTY (piped stdin, Git Bash/MinTTY, CI) or an explicit
 // --yes/--all. The app then drives Detect→Update→Summary without keypresses instead

@@ -39,7 +39,11 @@ export function ConfirmScreen() {
                 </Text>
               </Box>
               <Text color={semantic.muted}>{count} paquete(s)</Text>
-              {willSkip && <Text color={semantic.warning}> · requiere sudo → manual</Text>}
+              {willSkip && (
+                <Text color={semantic.warning}>
+                  {process.platform === 'win32' ? ' · requiere admin → manual' : ' · requiere sudo → manual'}
+                </Text>
+              )}
             </Box>
           );
         })}
