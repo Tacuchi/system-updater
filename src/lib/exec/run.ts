@@ -2,6 +2,7 @@ import { execa } from 'execa';
 import type { CommandRecord, ProgressEvent } from '../../managers/types.js';
 import type { PercentParser } from './percent.js';
 import { decodeSmart, StreamDecoder } from './decode.js';
+import { killTree } from './kill-tree.js';
 
 const DEFAULT_TAIL_BYTES = 16384;
 
@@ -59,12 +60,26 @@ function execaOptions(opts: RunOptions, all: boolean) {
   };
 }
 
+/**
+ * On abort, kill the child's WHOLE tree (not just the direct child, which is all
+ * execa's cancelSignal does). This is what stops a cancelled winget/choco upgrade
+ * from orphaning msiexec/installer grandchildren on Windows (bug #2).
+ */
+function attachTreeKill(signal: AbortSignal | undefined, child: { pid?: number }): void {
+  if (!signal) return;
+  const onAbort = (): void => killTree(child.pid);
+  if (signal.aborted) onAbort();
+  else signal.addEventListener('abort', onAbort, { once: true });
+}
+
 /** Run a command to completion, capturing a structured CommandRecord. */
 export async function runExec(cmd: string, args: string[], opts: RunOptions): Promise<CommandRecord> {
   const [finalCmd, finalArgs] = withSudo(cmd, args, opts.sudo);
   const tailBytes = opts.tailBytes ?? DEFAULT_TAIL_BYTES;
   const started = Date.now();
-  const result = await execa(finalCmd, finalArgs, execaOptions(opts, false));
+  const subprocess = execa(finalCmd, finalArgs, execaOptions(opts, false));
+  attachTreeKill(opts.signal, subprocess);
+  const result = await subprocess;
   return {
     cmd: [finalCmd, ...finalArgs].join(' '),
     exitCode: result.exitCode ?? null,
@@ -92,6 +107,7 @@ export async function* runStream(
   const tailBytes = opts.tailBytes ?? DEFAULT_TAIL_BYTES;
   const started = Date.now();
   const child = execa(finalCmd, finalArgs, { ...execaOptions(opts, true), stdout: 'pipe', stderr: 'pipe' });
+  attachTreeKill(opts.signal, child);
 
   if (child.all) {
     // Sniff-decode the merged byte stream incrementally (handles UTF-16 units

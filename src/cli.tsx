@@ -3,6 +3,7 @@ import { render } from 'ink';
 import { execaSync } from 'execa';
 import App from './app.js';
 import { isElevated } from './lib/elevation.js';
+import { fireProcessCancel } from './lib/cancellation.js';
 
 const args = process.argv.slice(2);
 const sudoRequested = args.includes('--sudo') || args.includes('-s');
@@ -80,12 +81,19 @@ const nonInteractive =
 
 const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteractive} />);
 
-process.on('SIGINT', () => {
-  unmount();
-  process.exit(0);
-});
+// Cancel the active run (abort → tree-kill the child process tree) BEFORE unmounting,
+// so Ctrl+C / Ctrl+Break never orphan a winget/choco install tree (bug #2). A short
+// grace period lets tree-kill (taskkill /T /F on Windows) actually run.
+const onSignal =
+  (code: number): (() => void) =>
+  () => {
+    fireProcessCancel();
+    setTimeout(() => {
+      unmount();
+      process.exit(code);
+    }, 200);
+  };
 
-process.on('SIGTERM', () => {
-  unmount();
-  process.exit(0);
-});
+process.on('SIGINT', onSignal(130));
+process.on('SIGTERM', onSignal(143));
+process.on('SIGBREAK', onSignal(130)); // Windows Ctrl+Break

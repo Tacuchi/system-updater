@@ -17,6 +17,7 @@ import { setLanguage } from '../i18n/index.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { relaunchElevated, elevatedSummaryPath } from '../lib/elevation.js';
+import { onProcessCancel } from '../lib/cancellation.js';
 
 /** Pure: project an engine UpgradeResult onto the UI ManagerResult shape. */
 export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResult {
@@ -143,6 +144,11 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     setLanguage(configRef.current.language);
     void boot();
   }, [boot]);
+
+  // Bridge OS signals (SIGINT/SIGBREAK, fired from cli.tsx) to the engine's
+  // AbortController so Ctrl+C / Ctrl+Break cancel the run (→ tree-kill children),
+  // not just unmount Ink. Works regardless of raw-mode (non-interactive too).
+  useEffect(() => onProcessCancel(() => abortRef.current?.abort()), []);
 
   // ---- run upgrades through the engine ----
   const startRun = useCallback(() => {
