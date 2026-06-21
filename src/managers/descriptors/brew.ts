@@ -1,5 +1,9 @@
 import type { ManagerDescriptor } from '../descriptor.js';
 import type { OutdatedPackage } from '../types.js';
+import { makeFractionParser } from '../../lib/exec/percent.js';
+
+// `brew upgrade` prints "==> Upgrading N/M formulae" as it walks the queue.
+const brewUpgradePercent = makeFractionParser(/Upgrading (\d+)\/(\d+)/);
 
 interface BrewOutdatedEntry {
   name: string;
@@ -37,4 +41,5 @@ export const brew: ManagerDescriptor = {
   preUpgradeCmds: () => [{ cmd: 'brew', args: ['update'] }],
   upgradeCmd: pkgs => ({ cmd: 'brew', args: pkgs && pkgs.length ? ['upgrade', ...pkgs] : ['upgrade'] }),
   postUpgradeCmds: () => [{ cmd: 'brew', args: ['cleanup'] }],
+  percentParser: line => brewUpgradePercent(line),
 };

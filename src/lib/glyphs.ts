@@ -91,3 +91,15 @@ const ASCII_GLYPHS: Glyphs = {
 
 export const ASCII = shouldUseAscii(process.env, process.platform);
 export const g: Glyphs = ASCII ? ASCII_GLYPHS : UNICODE;
+
+// Animation gate: skip the spinner's timer when glyphs are ASCII (legacy console)
+// or stdout is not a TTY (pipe/CI/redirect) — a setInterval would otherwise spam
+// frames into a pipe and a braille frame would render as `?` on a legacy console.
+export const NO_ANIM = ASCII || !process.stdout.isTTY;
+
+// Single-cell-wide spinner frames so animating never changes a row's column
+// width or height (the constant-height invariant of the Update screen). Unicode
+// braille degrades to a simple ASCII cycle.
+const SPINNER_UNICODE = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const SPINNER_ASCII = ['|', '/', '-', '\\'];
+export const spinnerFrames: string[] = ASCII ? SPINNER_ASCII : SPINNER_UNICODE;

@@ -3,7 +3,7 @@ import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
 import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
-import { StatusGlyph, statusColor } from '../components/status-glyph.js';
+import { StatusGlyph, RunningGlyph, statusColor } from '../components/status-glyph.js';
 import { semantic } from '../theme.js';
 import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
@@ -25,7 +25,7 @@ function Row({ e, width }: { e: ManagerEntry; width: number }) {
   return (
     <Box>
       <Box width={2}>
-        <StatusGlyph status={e.status} />
+        {e.status === 'running' ? <RunningGlyph /> : <StatusGlyph status={e.status} />}
       </Box>
       <Box width={16}>
         <Text color={semantic.text} bold={e.status === 'running'}>

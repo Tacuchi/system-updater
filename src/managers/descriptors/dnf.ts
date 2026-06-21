@@ -1,5 +1,10 @@
 import type { ManagerDescriptor } from '../descriptor.js';
 import type { OutdatedPackage } from '../types.js';
+import { makeFractionParser } from '../../lib/exec/percent.js';
+
+// dnf prints "Verifying : N/M" during the transaction (best-effort; only streams
+// under sudoMode). Other phases fall back to the spinner.
+const dnfVerifyPercent = makeFractionParser(/Verifying\s*:\s*(\d+)\/(\d+)/);
 
 /**
  * Parse `dnf check-update` output. Pure + testable.
@@ -45,4 +50,5 @@ export const dnf: ManagerDescriptor = {
   // shows manualCommand otherwise.
   upgradeCmd: () => ({ cmd: 'dnf', args: ['upgrade', '-y'] }),
   manualCommand: () => 'sudo dnf upgrade',
+  percentParser: line => dnfVerifyPercent(line),
 };

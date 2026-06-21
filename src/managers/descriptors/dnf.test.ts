@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { parseDnfOutdated } from './dnf.js';
+import { parseDnfOutdated, dnf } from './dnf.js';
+
+const ctx = { platform: 'linux' as NodeJS.Platform, sudoMode: true, meta: {} };
 
 describe('parseDnfOutdated', () => {
   it('parses name.arch + new version columns, stripping arch', () => {
@@ -44,5 +46,16 @@ describe('parseDnfOutdated', () => {
   it('returns [] for empty stdout (exit 0, nothing to do)', () => {
     expect(parseDnfOutdated('')).toEqual([]);
     expect(parseDnfOutdated('\n\n')).toEqual([]);
+  });
+});
+
+describe('dnf.percentParser', () => {
+  it('reads "Verifying : N/M" as a percentage', () => {
+    expect(dnf.percentParser?.('  Verifying        : 2/4', ctx)).toBe(50);
+    expect(dnf.percentParser?.('  Verifying : 4/4', ctx)).toBe(100);
+  });
+
+  it('returns undefined on other transaction lines', () => {
+    expect(dnf.percentParser?.('  Upgrading       : bash-5.2.21-3.fc40.x86_64', ctx)).toBeUndefined();
   });
 });

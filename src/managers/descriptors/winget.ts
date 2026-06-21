@@ -98,9 +98,17 @@ export const winget: ManagerDescriptor = {
       };
 
       if (!targets.length) {
+        // Bulk "--all": no per-package loop → no countable %, the spinner carries it.
         yield* run(['upgrade', '--all', '--include-unknown', '--include-pinned', ...UPGRADE_FLAGS]);
       } else {
-        for (const id of targets) yield* run(['upgrade', '--exact', '--id', id, '--include-unknown', ...UPGRADE_FLAGS]);
+        // winget upgrades one package per invocation; the loop index IS the
+        // progress. Emit a real % after each package completes (X of N done).
+        const n = targets.length;
+        for (let i = 0; i < n; i++) {
+          const id = targets[i]!;
+          yield* run(['upgrade', '--exact', '--id', id, '--include-unknown', ...UPGRADE_FLAGS]);
+          yield { type: 'progress', message: `(${i + 1}/${n}) ${id}`, percent: Math.round(((i + 1) / n) * 100) };
+        }
       }
 
       yield { type: 'phase', phase: 'verifying', message: 'Verificando resultado...' };
