@@ -16,6 +16,34 @@ export function pipCmd(): string {
   return process.platform === 'win32' ? 'pip' : 'pip3';
 }
 
+/**
+ * Build the pip invocation for an UPGRADE: prefer `python -m pip`, fall back to
+ * the bare `pip`/`pip3` shim when no interpreter is found.
+ *
+ * pip refuses to upgrade ITSELF when launched through the `pip`/`pip.exe` shim —
+ * it prints "To modify pip, please run: <python> -m pip install ..." and exits 1.
+ * On Windows the running `pip.exe` is file-locked, so a bulk `pip install
+ * --upgrade <pkgs incl. pip>` aborts the WHOLE batch and every package gets
+ * reported as COMMAND_FAILED, even the ones unrelated to pip. Running pip as a
+ * module makes the interpreter (not the shim) the live process, so pip can
+ * replace its own files — exactly what pip's own error message recommends.
+ */
+export function pipInvocation(python: string | null): { cmd: string; baseArgs: string[] } {
+  return python ? { cmd: python, baseArgs: ['-m', 'pip'] } : { cmd: pipCmd(), baseArgs: [] };
+}
+
+/** Resolve, once per session, a Python interpreter able to run `python -m pip`. */
+async function pythonModuleCmd(): Promise<string | null> {
+  return once('pip:python', async () => {
+    const candidates = process.platform === 'win32' ? ['python', 'py', 'python3'] : ['python3', 'python'];
+    for (const c of candidates) {
+      const probe = await execCommand(c, ['-m', 'pip', '--version'], 5000);
+      if (probe.exitCode === 0) return c;
+    }
+    return null;
+  });
+}
+
 /** Parse `pip list --outdated --format=json`. Pure + testable. */
 export function parsePipOutdated(stdout: string): OutdatedPackage[] {
   try {
@@ -57,17 +85,20 @@ export const pip: ManagerDescriptor = {
   escapeHatch: {
     listOutdated,
     async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
-      const cmd = pipCmd();
       yield { type: 'phase', phase: 'upgrading', message: 'Actualizando pip...' };
       const flags = await pep668Flags();
       if (flags.length) yield { type: 'log', message: 'Entorno PEP 668: usando --break-system-packages' };
+
+      // Upgrade via `python -m pip` so pip can self-upgrade without the shim
+      // self-modification refusal that otherwise fails the whole batch.
+      const { cmd, baseArgs } = pipInvocation(await pythonModuleCmd());
 
       const before = await listOutdated();
       const target = packages && packages.length ? packages : before.map(p => p.name);
       const commands: CommandRecord[] = [];
 
       if (target.length) {
-        const args = ['install', '--user', '--upgrade', ...flags, ...target];
+        const args = [...baseArgs, 'install', '--user', '--upgrade', ...flags, ...target];
         yield { type: 'log', message: `${cmd} ${args.join(' ')}` };
         const rec = yield* runStream(cmd, args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
         commands.push(rec);
