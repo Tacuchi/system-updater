@@ -35,6 +35,15 @@ export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResul
     failures,
     manualCommand: r.manualCommand,
     reboot: r.reboot,
+    // Keep the per-package detail + engine timings the Summary needs (previously discarded).
+    packages: r.packages?.map(p => ({
+      name: p.name,
+      outcome: p.outcome,
+      fromVersion: p.fromVersion,
+      toVersion: p.toVersion,
+    })),
+    startedAt: r.startedAt,
+    finishedAt: r.finishedAt,
   };
 }
 

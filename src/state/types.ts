@@ -1,4 +1,4 @@
-import type { ManagerGroup, RebootState } from '../managers/types.js';
+import type { ManagerGroup, PackageOutcome, RebootState } from '../managers/types.js';
 import type { UserConfig } from '../lib/config.js';
 import type { Language } from '../i18n/index.js';
 
@@ -38,6 +38,14 @@ export interface UiFailure {
   logRef?: string;
 }
 
+/** Per-package outcome surfaced to the UI/Summary (version delta included). */
+export interface ManagerPackageResult {
+  name: string;
+  outcome: PackageOutcome;
+  fromVersion?: string;
+  toVersion?: string;
+}
+
 export interface ManagerResult {
   status: 'success' | 'partial' | 'failed' | 'cancelled' | 'noop';
   upgraded: number;
@@ -46,6 +54,11 @@ export interface ManagerResult {
   failures: UiFailure[];
   manualCommand?: string;
   reboot?: RebootState;
+  /** Per-package detail (name + version delta), kept for the Summary table. */
+  packages?: ManagerPackageResult[];
+  /** Engine-authored timestamps (ms). Source of truth for per-manager duration. */
+  startedAt?: number;
+  finishedAt?: number;
 }
 
 export interface ManagerEntry {
