@@ -48,4 +48,13 @@ describe('classifyCommand', () => {
   it('treats a killed process (null exit, no timeout) as COMMAND_FAILED', () => {
     expect(classifyCommand(rec({ exitCode: null, timedOut: false }))).toBe('COMMAND_FAILED');
   });
+
+  it('treats Windows reboot / nothing-to-do exit codes as success when whitelisted', () => {
+    // choco: 3010 = reboot required, 1641 = reboot initiated
+    expect(classifyCommand(rec({ exitCode: 3010 }), [0, 1605, 1614, 1641, 3010])).toBeNull();
+    expect(classifyCommand(rec({ exitCode: 1641 }), [0, 1605, 1614, 1641, 3010])).toBeNull();
+    // winget "nothing to upgrade" HRESULT 0x8A15002B in signed int32 form
+    const wingetNoop = 0x8a15002b - 0x1_0000_0000;
+    expect(classifyCommand(rec({ exitCode: wingetNoop }), [0, 0x8a15002b, wingetNoop])).toBeNull();
+  });
 });

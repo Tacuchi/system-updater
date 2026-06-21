@@ -44,6 +44,10 @@ export interface ManagerDescriptor {
   parseOutdated?: (stdout: string, stderr: string, ctx: ManagerCtx) => OutdatedPackage[];
   listOkExitCodes?: number[];
 
+  /** Non-zero exit codes that still mean success for the UPGRADE command, e.g.
+   *  choco's reboot codes {1641,3010}. Threaded into reconcile()'s classification. */
+  successExitCodes?: number[];
+
   /** Build the single bulk upgrade command (no per-package loops). */
   upgradeCmd?: (packages: string[] | undefined, ctx: ManagerCtx) => CommandSpec;
   preUpgradeCmds?: (ctx: ManagerCtx) => CommandSpec[];

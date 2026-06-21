@@ -11,8 +11,8 @@ import { classifyCommand } from './classify.js';
 // Most-specific-first ordering when several commands failed in different ways.
 const KIND_PRIORITY: FailureKind[] = ['NO_PASSWORDLESS_SUDO', 'TIMEOUT', 'NETWORK', 'COMMAND_FAILED'];
 
-function dominantFailureKind(commands: CommandRecord[]): FailureKind | null {
-  const kinds = commands.map(c => classifyCommand(c)).filter((k): k is FailureKind => k !== null);
+function dominantFailureKind(commands: CommandRecord[], successExitCodes?: number[]): FailureKind | null {
+  const kinds = commands.map(c => classifyCommand(c, successExitCodes)).filter((k): k is FailureKind => k !== null);
   for (const k of KIND_PRIORITY) {
     if (kinds.includes(k)) return k;
   }
@@ -30,12 +30,13 @@ export function reconcile(
   before: OutdatedPackage[],
   after: VerifySnapshot,
   commands: CommandRecord[],
+  successExitCodes?: number[],
 ): UpgradeResult {
   const beforeByName = new Map(before.map(p => [p.name, p]));
   const targetNames = requested ?? before.map(p => p.name);
   const targets = [...new Set(targetNames)];
   const stillOutdated = new Set(after.stillOutdated.map(p => p.name));
-  const cmdKind = dominantFailureKind(commands);
+  const cmdKind = dominantFailureKind(commands, successExitCodes);
 
   const packages: PackageResult[] = targets.map(name => {
     const b = beforeByName.get(name);

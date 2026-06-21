@@ -6,6 +6,14 @@ import { reconcile } from '../../lib/result/verify.js';
 import * as logger from '../../lib/logger.js';
 
 const ACCEPT = ['--accept-source-agreements', '--accept-package-agreements'];
+// Non-interactive upgrade flags. `--source winget` avoids the msstore agreement
+// gate; `--silent`/`--disable-interactivity` suppress prompts. NOTE: winget has NO
+// `--no-progress` flag — the spinner is suppressed via the winget *setting*
+// visual.progressBar=disabled (gated; not auto-applied to the user's config here).
+const UPGRADE_FLAGS = ['--silent', '--disable-interactivity', '--source', 'winget', ...ACCEPT];
+// "Nothing to upgrade" HRESULTs (0x8A15002B / 0x8A15004F) in both unsigned and
+// signed int32 forms, since Node may surface either as the process exit code.
+const WINGET_OK_CODES = [0, 0x8a15002b, 0x8a15004f, 0x8a15002b - 0x1_0000_0000, 0x8a15004f - 0x1_0000_0000];
 
 /**
  * Parse `winget list --upgrade-available` by COLUMN OFFSET, not whitespace.
@@ -50,7 +58,11 @@ export function parseWingetOutdated(stdout: string): OutdatedPackage[] {
 }
 
 async function listWinget(): Promise<OutdatedPackage[]> {
-  const res = await execCommand('winget', ['list', '--upgrade-available', '--accept-source-agreements'], 60_000);
+  const res = await execCommand(
+    'winget',
+    ['list', '--upgrade-available', '--include-unknown', '--accept-source-agreements'],
+    60_000,
+  );
   return parseWingetOutdated(res.stdout);
 }
 
@@ -62,7 +74,10 @@ export const winget: ManagerDescriptor = {
   kind: 'direct',
   detectCmd: { cmd: 'winget', args: ['--version'], timeout: 3000 },
   parseVersion: stdout => stdout.trim() || undefined,
-  listOutdatedCmd: () => ({ cmd: 'winget', args: ['list', '--upgrade-available', '--accept-source-agreements'] }),
+  listOutdatedCmd: () => ({
+    cmd: 'winget',
+    args: ['list', '--upgrade-available', '--include-unknown', '--accept-source-agreements'],
+  }),
   parseOutdated: stdout => parseWingetOutdated(stdout),
   // Escape hatch: winget upgrades ONE package per invocation (no multi-target),
   // so a single bulk `--id A --id B` silently fails. Loop one `winget upgrade
@@ -83,14 +98,14 @@ export const winget: ManagerDescriptor = {
       };
 
       if (!targets.length) {
-        yield* run(['upgrade', '--all', ...ACCEPT]);
+        yield* run(['upgrade', '--all', '--include-unknown', '--include-pinned', ...UPGRADE_FLAGS]);
       } else {
-        for (const id of targets) yield* run(['upgrade', '--exact', '--id', id, ...ACCEPT]);
+        for (const id of targets) yield* run(['upgrade', '--exact', '--id', id, '--include-unknown', ...UPGRADE_FLAGS]);
       }
 
       yield { type: 'phase', phase: 'verifying', message: 'Verificando resultado...' };
       const after = await listWinget();
-      return reconcile(packages, before, { stillOutdated: after.map(p => ({ name: p.name })) }, commands);
+      return reconcile(packages, before, { stillOutdated: after.map(p => ({ name: p.name })) }, commands, WINGET_OK_CODES);
     },
   },
 };

@@ -36,6 +36,10 @@ export const choco: ManagerDescriptor = {
   platforms: ['win32'],
   requiresAdmin: true,
   kind: 'direct',
+  // Chocolatey "success" is not just 0: 1641 = reboot initiated, 3010 = reboot
+  // required, 1605/1614 = already-(un)installed. Without these, a reboot-pending
+  // upgrade would be misclassified as COMMAND_FAILED.
+  successExitCodes: [0, 1605, 1614, 1641, 3010],
   detectCmd: { cmd: 'choco', args: ['--version'], timeout: 3000 },
   parseVersion: stdout => stdout.trim() || undefined,
   listOutdatedCmd: () => ({ cmd: 'choco', args: ['outdated', '--limit-output'] }),

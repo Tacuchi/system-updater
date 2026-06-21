@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseChocoOutdated } from './choco.js';
+import { parseChocoOutdated, choco } from './choco.js';
+
+describe('choco descriptor', () => {
+  it('whitelists choco reboot / already-(un)installed exit codes as success', () => {
+    expect(choco.successExitCodes).toEqual([0, 1605, 1614, 1641, 3010]);
+  });
+});
 
 describe('parseChocoOutdated', () => {
   it('parses pipe-delimited limit-output lines into outdated packages', () => {

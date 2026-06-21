@@ -164,7 +164,7 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
         managerId: d.id,
         startedAt,
         finishedAt: Date.now(),
-        ...reconcile(packages, before, after, commands),
+        ...reconcile(packages, before, after, commands, d.successExitCodes),
       };
       logger.logResult(result);
       return result;
