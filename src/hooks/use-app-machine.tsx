@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
 import { useApp } from 'ink';
 import { appReducer, initialState } from '../state/app-reducer.js';
-import type { AppState, ManagerResult, UiFailure, PackageItem } from '../state/types.js';
+import type { AppState, ManagerResult, ManagerPackageResult, UiFailure, PackageItem } from '../state/types.js';
 import { parseSelectionKey } from '../state/types.js';
 import type { Action } from '../state/actions.js';
 import { detectManagers } from '../managers/registry.js';
@@ -47,19 +47,34 @@ export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResul
   };
 }
 
+export interface RunSummaryManager {
+  id: string;
+  status: string;
+  upgraded: number;
+  failed: number;
+  /** Real per-manager duration (ms), from the engine-authored result timings. */
+  durationMs?: number;
+  /** Per-package detail (name + version delta) for the Summary table. */
+  packages?: ManagerPackageResult[];
+}
+
 export interface RunSummary {
   upgraded: number;
   failed: number;
   skipped: number;
-  managers: { id: string; status: string; upgraded: number; failed: number }[];
+  managers: RunSummaryManager[];
 }
 
-/** Pure: aggregate a finished run into a serializable summary (hand-off file). */
+/**
+ * Pure: aggregate a finished run into a serializable summary. Feeds both the
+ * Summary screen (per-manager rows) and the run-summary log block. Duration
+ * comes from the engine result timings (the reducer stays pure).
+ */
 export function summarizeRun(state: AppState): RunSummary {
   let upgraded = 0;
   let failed = 0;
   let skipped = 0;
-  const managers: RunSummary['managers'] = [];
+  const managers: RunSummaryManager[] = [];
   for (const id of state.run.queue) {
     const e = state.managers[id];
     if (!e) continue;
@@ -68,11 +83,14 @@ export function summarizeRun(state: AppState): RunSummary {
       managers.push({ id, status: 'skipped', upgraded: 0, failed: 0 });
       continue;
     }
-    const u = e.result?.upgraded ?? 0;
-    const f = e.result?.failed ?? 0;
+    const r = e.result;
+    const u = r?.upgraded ?? 0;
+    const f = r?.failed ?? 0;
     upgraded += u;
     failed += f;
-    managers.push({ id, status: e.status, upgraded: u, failed: f });
+    const durationMs =
+      r?.startedAt !== undefined && r?.finishedAt !== undefined ? r.finishedAt - r.startedAt : undefined;
+    managers.push({ id, status: e.status, upgraded: u, failed: f, durationMs, packages: r?.packages });
   }
   return { upgraded, failed, skipped, managers };
 }
@@ -308,6 +326,15 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     } catch {
       /* hand-off is best-effort */
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
+
+  // On run completion, append a plain-text run-summary block to the log file so
+  // the end-of-execution detail (per-manager status + duration + totals) is
+  // reconstructable from the log alone. Best-effort; fires once per summary.
+  useEffect(() => {
+    if (state.phase !== 'summary') return;
+    logger.logRunSummary(summarizeRun(state));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase]);
 

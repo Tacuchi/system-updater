@@ -37,4 +37,30 @@ describe('summarizeRun', () => {
       managers: [{ id: 'brew', status: 'done', upgraded: 1, failed: 0 }],
     });
   });
+
+  it('derives per-manager duration from engine timings and carries packages', () => {
+    const state = make(
+      {
+        brew: {
+          status: 'done',
+          result: {
+            upgraded: 1,
+            failed: 0,
+            startedAt: 1_000,
+            finishedAt: 3_200,
+            packages: [{ name: 'git', outcome: 'upgraded', fromVersion: '2.40', toVersion: '2.44' }],
+          },
+        },
+      },
+      ['brew'],
+    );
+    const m = summarizeRun(state).managers[0]!;
+    expect(m.durationMs).toBe(2_200);
+    expect(m.packages?.[0]).toMatchObject({ name: 'git', fromVersion: '2.40', toVersion: '2.44' });
+  });
+
+  it('leaves duration undefined when result timings are absent', () => {
+    const state = make({ brew: { status: 'done', result: { upgraded: 1, failed: 0 } } }, ['brew']);
+    expect(summarizeRun(state).managers[0]!.durationMs).toBeUndefined();
+  });
 });

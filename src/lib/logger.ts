@@ -111,17 +111,60 @@ export function logCommand(rec: CommandRecord): void {
   addToMemory('debug', `$ ${rec.cmd} (${status})`);
 }
 
-/** Log the classified outcome of a manager upgrade. */
+/**
+ * Pure: format a manager's result into plain-text log lines — the status verdict,
+ * its real duration, and a line per package (name + version delta + outcome).
+ * Exported so it's testable without touching the file stream.
+ */
+export function formatResultLines(r: UpgradeResult): string[] {
+  const id = r.managerId ?? '?';
+  const reason = r.reason ? ` reason=${r.reason}` : '';
+  const reboot = r.reboot ? ` reboot=${r.reboot}` : '';
+  const lines = [`${id}: status=${r.status} upgraded=${r.upgraded} failed=${r.failed}${reason}${reboot}`];
+  if (r.startedAt !== undefined && r.finishedAt !== undefined) {
+    lines.push(`  ${id}: duration=${r.finishedAt - r.startedAt}ms`);
+  }
+  for (const p of r.packages ?? []) {
+    const ver = p.fromVersion || p.toVersion ? ` ${p.fromVersion ?? '?'}->${p.toVersion ?? '?'}` : '';
+    lines.push(`  ${id}: ${p.name}${ver} [${p.outcome}]`);
+  }
+  return lines;
+}
+
+/** Log the classified outcome of a manager upgrade (verdict + duration + packages). */
 export function logResult(r: UpgradeResult): void {
   const id = r.managerId ?? '?';
   const ok = r.status === 'success' || r.status === 'noop';
   const level: LogLevel = ok ? 'INFO' : r.status === 'partial' ? 'WARN' : 'ERROR';
-  const reason = r.reason ? ` reason=${r.reason}` : '';
-  const reboot = r.reboot ? ` reboot=${r.reboot}` : '';
-  writeRaw(level, `${id}: status=${r.status} upgraded=${r.upgraded} failed=${r.failed}${reason}${reboot}`);
+  for (const line of formatResultLines(r)) writeRaw(level, line);
   for (const e of r.errors) writeRaw(level, `  ${id}: ${e}`);
   const memLevel: LogEntry['level'] = ok ? 'info' : r.status === 'partial' ? 'warn' : 'error';
   addToMemory(memLevel, `${id}: ${r.status} (${r.upgraded} ok, ${r.failed} fail)`);
+}
+
+/** Minimal shape of a run summary the logger needs (a superset is accepted). */
+export interface RunSummaryLog {
+  upgraded: number;
+  failed: number;
+  skipped: number;
+  managers: { id: string; status: string; upgraded: number; failed: number; durationMs?: number }[];
+}
+
+/** Pure: format the end-of-run summary block (plain text, no JSON). Testable. */
+export function formatRunSummary(s: RunSummaryLog): string[] {
+  const lines = ['──── Resumen del run ────'];
+  for (const m of s.managers) {
+    const dur = m.durationMs !== undefined ? ` ${m.durationMs}ms` : '';
+    lines.push(`  ${m.id}: ${m.status} (${m.upgraded} ok, ${m.failed} fail)${dur}`);
+  }
+  lines.push(`Total: ${s.upgraded} upgraded · ${s.failed} failed · ${s.skipped} skipped`);
+  return lines;
+}
+
+/** Append the run-summary block to the log file (and one concise memory entry). */
+export function logRunSummary(s: RunSummaryLog): void {
+  for (const line of formatRunSummary(s)) writeRaw('INFO', line);
+  addToMemory('info', `Resumen: ${s.upgraded} ok · ${s.failed} fail · ${s.skipped} skip`);
 }
 
 export function getLogEntries(): LogEntry[] {
