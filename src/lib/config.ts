@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import envPaths from 'env-paths';
 import type { Language } from '../i18n/index.js';
 
 export type Verbosity = 'debug' | 'info' | 'warn' | 'error';
@@ -58,15 +59,46 @@ export function normalizeConfig(parsed: Partial<UserConfig>): UserConfig {
   };
 }
 
+const APP = 'tacuchi-updater';
+
+/**
+ * Config dir. Windows uses %APPDATA% (via env-paths) instead of a dotfile in the
+ * home dir; macOS/Linux KEEP the legacy `~/.tacuchi-updater` so their behavior is
+ * unchanged.
+ */
 export function getConfigDir(): string {
+  if (process.platform === 'win32') return envPaths(APP, { suffix: '' }).config;
   return path.join(os.homedir(), '.tacuchi-updater');
+}
+
+/** Log dir. Windows uses %LOCALAPPDATA% (non-roamed → no OneDrive churn). */
+export function getLogDir(): string {
+  if (process.platform === 'win32') return envPaths(APP, { suffix: '' }).log;
+  return path.join(getConfigDir(), 'logs');
 }
 
 export function getConfigPath(): string {
   return path.join(getConfigDir(), 'config.json');
 }
 
+/** Best-effort one-time migration of the legacy dotdir config to %APPDATA% (win32). */
+function migrateLegacyConfig(): void {
+  if (process.platform !== 'win32') return;
+  try {
+    const target = getConfigPath();
+    if (fs.existsSync(target)) return;
+    const legacy = path.join(os.homedir(), '.tacuchi-updater', 'config.json');
+    if (!fs.existsSync(legacy)) return;
+    const dir = getConfigDir();
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(legacy, target);
+  } catch {
+    /* migration is best-effort */
+  }
+}
+
 export function loadConfig(): UserConfig {
+  migrateLegacyConfig();
   const configPath = getConfigPath();
   try {
     if (!fs.existsSync(configPath)) return { ...DEFAULTS };
@@ -83,9 +115,28 @@ export function saveConfig(config: UserConfig): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  const tmp = getConfigPath() + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(config, null, 2), 'utf-8');
-  fs.renameSync(tmp, getConfigPath());
+  const target = getConfigPath();
+  const tmp = target + '.tmp';
+  const data = JSON.stringify(config, null, 2);
+  try {
+    // Atomic write: temp + rename.
+    fs.writeFileSync(tmp, data, 'utf-8');
+    fs.renameSync(tmp, target);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    // Windows: AV / OneDrive / a concurrent reader can lock the rename (EPERM/EBUSY).
+    // Fall back to a direct (non-atomic) write so the change is not lost.
+    if (code === 'EPERM' || code === 'EBUSY' || code === 'EEXIST') {
+      fs.writeFileSync(target, data, 'utf-8');
+      try {
+        fs.unlinkSync(tmp);
+      } catch {
+        /* ignore stray temp */
+      }
+    } else {
+      throw err;
+    }
+  }
 }
 
 export function isManagerEnabled(config: UserConfig, managerId: string): boolean {

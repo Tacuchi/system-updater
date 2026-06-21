@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getConfigDir } from './config.js';
+import { getLogDir } from './config.js';
 import type { CommandRecord, UpgradeResult } from '../managers/types.js';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
@@ -12,10 +12,8 @@ export interface LogEntry {
   message: string;
 }
 
-let configLogPath: string | null = null;
-let localLogPath: string | null = null;
-let configStream: fs.WriteStream | null = null;
-let localStream: fs.WriteStream | null = null;
+let logFilePath: string | null = null;
+let logStream: fs.WriteStream | null = null;
 
 const inMemoryLog: LogEntry[] = [];
 let entryCounter = 0;
@@ -32,41 +30,37 @@ export function initLogger(): string {
   const stamp = now.toISOString().replace(/[T:]/g, '_').split('.')[0]?.replace(/-/g, '');
   const filename = `system_updater_${stamp}.log`;
 
-  // Log en directorio de config del usuario (~/.tacuchi-updater/logs/)
-  const configLogsDir = path.join(getConfigDir(), 'logs');
-  const config = createStream(configLogsDir, filename);
-  configStream = config.stream;
-  configLogPath = config.filePath;
-
-  // Log local en ./logs/ del proyecto (para debug en desarrollo)
-  const localLogsDir = path.join(process.cwd(), 'logs');
+  // Single sink in the user's log dir (win32: %LOCALAPPDATA%, unix: ~/.tacuchi-updater/logs).
+  // The previous second sink under process.cwd()/logs polluted whatever directory the
+  // CLI was launched from and could EPERM; it has been removed.
   try {
-    const local = createStream(localLogsDir, filename);
-    localStream = local.stream;
-    localLogPath = local.filePath;
-    // Si falla al escribir (ej: root creó el dir y ahora corremos como user), no crashear
-    localStream.on('error', () => {
-      localStream = null;
-      localLogPath = null;
+    const { stream, filePath } = createStream(getLogDir(), filename);
+    logStream = stream;
+    logFilePath = filePath;
+    logStream.on('error', () => {
+      logStream = null;
     });
   } catch {
-    // Si no se puede crear el directorio/archivo, continuar solo con config
+    // Logging is best-effort; never crash the app because a log file can't be opened.
+    logStream = null;
+    logFilePath = null;
   }
 
   writeRaw('INFO', 'Logger iniciado — @tacuchi/updater');
-  writeRaw('INFO', `Log config: ${configLogPath}`);
-  if (localLogPath) writeRaw('INFO', `Log local:  ${localLogPath}`);
-  writeRaw('INFO', `PID: ${process.pid} | UID: ${process.getuid?.() ?? 'N/A'} | SUDO_USER: ${process.env['SUDO_USER'] ?? 'N/A'}`);
+  writeRaw('INFO', `Log: ${logFilePath ?? '(no disponible)'}`);
+  writeRaw(
+    'INFO',
+    `PID: ${process.pid} | UID: ${process.getuid?.() ?? 'N/A'} | SUDO_USER: ${process.env['SUDO_USER'] ?? 'N/A'}`,
+  );
   writeRaw('INFO', `Platform: ${process.platform} | Node: ${process.version}`);
-  return localLogPath ?? configLogPath;
+  return logFilePath ?? '';
 }
 
 function writeRaw(level: LogLevel, message: string): void {
   const now = new Date();
   const timestamp = now.toISOString().replace('T', ' ').split('.')[0];
   const line = `${timestamp} [${level.padEnd(5)}] SystemUpdater - ${message}\n`;
-  configStream?.write(line);
-  localStream?.write(line);
+  logStream?.write(line);
 }
 
 function addToMemory(level: LogEntry['level'], message: string): void {
@@ -123,7 +117,8 @@ export function logResult(r: UpgradeResult): void {
   const ok = r.status === 'success' || r.status === 'noop';
   const level: LogLevel = ok ? 'INFO' : r.status === 'partial' ? 'WARN' : 'ERROR';
   const reason = r.reason ? ` reason=${r.reason}` : '';
-  writeRaw(level, `${id}: status=${r.status} upgraded=${r.upgraded} failed=${r.failed}${reason}`);
+  const reboot = r.reboot ? ` reboot=${r.reboot}` : '';
+  writeRaw(level, `${id}: status=${r.status} upgraded=${r.upgraded} failed=${r.failed}${reason}${reboot}`);
   for (const e of r.errors) writeRaw(level, `  ${id}: ${e}`);
   const memLevel: LogEntry['level'] = ok ? 'info' : r.status === 'partial' ? 'warn' : 'error';
   addToMemory(memLevel, `${id}: ${r.status} (${r.upgraded} ok, ${r.failed} fail)`);
@@ -134,12 +129,10 @@ export function getLogEntries(): LogEntry[] {
 }
 
 export function getLogFilePath(): string | null {
-  return localLogPath ?? configLogPath;
+  return logFilePath;
 }
 
 export function closeLogger(): void {
-  configStream?.end();
-  localStream?.end();
-  configStream = null;
-  localStream = null;
+  logStream?.end();
+  logStream = null;
 }

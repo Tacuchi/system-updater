@@ -8,14 +8,18 @@ import { ConfirmScreen } from './screens/confirm.js';
 import { UpdateScreen } from './screens/update.js';
 import { SummaryScreen } from './screens/summary.js';
 import { SettingsScreen } from './screens/settings-screen.js';
+import { getVersion } from './lib/version.js';
 import { semantic, colors } from './theme.js';
 
 function Header({ sudoMode }: { sudoMode: boolean }) {
   return (
     <Box justifyContent="space-between" marginBottom={1}>
-      <Text color={semantic.action} bold>
-        @tacuchi/updater
-      </Text>
+      <Box>
+        <Text color={semantic.action} bold>
+          @tacuchi/updater
+        </Text>
+        <Text color={colors.outline}> v{getVersion()}</Text>
+      </Box>
       <Text color={sudoMode ? semantic.warning : colors.outline}>{sudoMode ? 'SUDO' : `${process.platform}`}</Text>
     </Box>
   );

@@ -4,6 +4,7 @@ import { execaSync } from 'execa';
 import App from './app.js';
 import { isElevated } from './lib/elevation.js';
 import { fireProcessCancel } from './lib/cancellation.js';
+import { getVersion } from './lib/version.js';
 
 const args = process.argv.slice(2);
 const sudoRequested = args.includes('--sudo') || args.includes('-s');
@@ -25,12 +26,14 @@ if (args.includes('--help') || args.includes('-h')) {
                          (automático cuando stdin no es un TTY / CI / pipe)
     -h, --help           Mostrar ayuda
     -v, --version        Mostrar versión
+
+  Tip: ejecuta siempre la última versión con  npx @tacuchi/updater@latest
   `);
   process.exit(0);
 }
 
 if (args.includes('--version') || args.includes('-v')) {
-  console.log('1.0.0');
+  console.log(getVersion());
   process.exit(0);
 }
 
