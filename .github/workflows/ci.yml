@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Unit suite — includes the encoding decoder + winget/choco/scoop parser
+      # fixtures (OEM/UTF-16/BOM/non-English) and the hermetic non-interactive
+      # auto-drive test. This is the cross-platform no-regression guarantee.
+      - name: Test
+        run: npm test
+
+      # Builds dist/cli.js and runs the postbuild shebang assertion (LF).
+      - name: Build
+        run: npm run build
+
+      # Smoke: the built bundle must load and report its version on every OS
+      # (no upgrades performed).
+      - name: Smoke (--version)
+        run: node dist/cli.js --version
+
+      # Windows: report which managers are present WITHOUT upgrading anything.
+      # The CI runner has choco + npm; winget and scoop are NOT preinstalled
+      # (runner-images#8584), so a real upgrade run is skipped here. A real
+      # non-interactive `--yes` run against winget/choco/scoop is the gated
+      # validation that belongs on a real Windows machine (plan Open question).
+      - name: Windows managers present (diagnostic, no upgrades)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($m in 'choco', 'winget', 'scoop', 'npm') {
+            $cmd = Get-Command $m -ErrorAction SilentlyContinue
+            if ($cmd) { Write-Host "present: $m -> $($cmd.Source)" }
+            else      { Write-Host "absent:  $m (skipped)" }
+          }
