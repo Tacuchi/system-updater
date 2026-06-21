@@ -4,6 +4,7 @@ import { useMachine } from '../hooks/use-app-machine.js';
 import { StepHeader } from '../components/step-header.js';
 import { StatusGlyph } from '../components/status-glyph.js';
 import { semantic, colors } from '../theme.js';
+import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
 
 export function DetectScreen() {
@@ -42,11 +43,13 @@ export function DetectScreen() {
                 <Text color={e.status === 'outdated' ? semantic.text : semantic.muted}>{managerName(id)}</Text>
               </Box>
               {e.status === 'outdated' ? (
-                <Text color={semantic.warning}>{e.outdated.length} ›</Text>
+                <Text color={semantic.warning}>
+                  {e.outdated.length} {g.outdated}
+                </Text>
               ) : e.status === 'uptodate' ? (
-                <Text color={colors.outline}>—</Text>
+                <Text color={colors.outline}>-</Text>
               ) : (
-                <Text color={semantic.muted}>…</Text>
+                <Text color={semantic.muted}>{g.ellipsis}</Text>
               )}
             </Box>
           );

@@ -5,6 +5,7 @@ import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic } from '../theme.js';
 import { getLogFilePath } from '../lib/logger.js';
+import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
 
 export function SummaryScreen() {
@@ -19,6 +20,7 @@ export function SummaryScreen() {
   let skipped = 0;
   const failures: { manager: string; package?: string; message: string; kind?: string }[] = [];
   const manuals: { manager: string; command: string }[] = [];
+  const reboots: { manager: string; state: string }[] = [];
 
   for (const id of state.run.queue) {
     const e = state.managers[id];
@@ -33,6 +35,7 @@ export function SummaryScreen() {
       upgraded += r.upgraded;
       failed += r.failed;
       for (const f of r.failures) failures.push({ manager: id, package: f.package, message: f.message, kind: f.kind });
+      if (r.reboot) reboots.push({ manager: id, state: r.reboot });
     }
   }
 
@@ -43,7 +46,7 @@ export function SummaryScreen() {
       <StepHeader phase={state.phase} />
       <Box marginBottom={1}>
         <Text color={hasErrors ? semantic.error : semantic.success} bold>
-          {hasErrors ? `✗ ${t('ui', 'withErrors')}` : `✓ ${t('ui', 'allDone')}`}
+          {hasErrors ? `${g.failed} ${t('ui', 'withErrors')}` : `${g.done} ${t('ui', 'allDone')}`}
         </Text>
       </Box>
       <Box marginBottom={1}>
@@ -58,15 +61,15 @@ export function SummaryScreen() {
         <Box flexDirection="column" marginBottom={1}>
           {failures.slice(0, 8).map((f, i) => (
             <Text key={i} color={semantic.error} wrap="truncate-end">
-              ✗ {managerName(f.manager)}
+              {g.failed} {managerName(f.manager)}
               {f.package ? <Text color={semantic.text}> {f.package}</Text> : null}
               {f.kind ? <Text color={semantic.muted}> · {f.kind}</Text> : null}
             </Text>
           ))}
           {failures.some(f => f.kind === 'TIMEOUT') && (
             <Text color={semantic.warning}>
-              ⓘ Un TIMEOUT suele indicar un paquete que pide interacción (ej. un cask que requiere cerrar la app o
-              sudo). Actualízalo manualmente en una terminal.
+              {g.info} Un TIMEOUT suele indicar un paquete que pide interacción (ej. un cask que requiere cerrar la app
+              o sudo). Actualízalo manualmente en una terminal.
             </Text>
           )}
         </Box>
@@ -81,6 +84,14 @@ export function SummaryScreen() {
               {managerName(m.manager)}: <Text color={semantic.text}>{m.command}</Text>
             </Text>
           ))}
+        </Box>
+      )}
+
+      {reboots.length > 0 && (
+        <Box marginBottom={1}>
+          <Text color={semantic.warning}>
+            {g.reboot} Reinicio pendiente: {reboots.map(r => `${managerName(r.manager)} (${r.state})`).join(', ')}
+          </Text>
         </Box>
       )}
 

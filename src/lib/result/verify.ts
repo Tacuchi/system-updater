@@ -3,6 +3,7 @@ import type {
   FailureKind,
   OutdatedPackage,
   PackageResult,
+  RebootState,
   UpgradeResult,
   VerifySnapshot,
 } from '../../managers/types.js';
@@ -10,6 +11,15 @@ import { classifyCommand } from './classify.js';
 
 // Most-specific-first ordering when several commands failed in different ways.
 const KIND_PRIORITY: FailureKind[] = ['NO_PASSWORDLESS_SUDO', 'TIMEOUT', 'NETWORK', 'COMMAND_FAILED'];
+
+/** Detect a pending reboot from command exit codes (Windows/choco semantics). */
+function rebootFrom(commands: CommandRecord[]): RebootState | undefined {
+  const codes = new Set(commands.map(c => c.exitCode));
+  if (codes.has(1641)) return 'initiated';
+  if (codes.has(3010)) return 'required';
+  if (codes.has(350) || codes.has(1604)) return 'deferred';
+  return undefined;
+}
 
 function dominantFailureKind(commands: CommandRecord[], successExitCodes?: number[]): FailureKind | null {
   const kinds = commands.map(c => classifyCommand(c, successExitCodes)).filter((k): k is FailureKind => k !== null);
@@ -86,6 +96,7 @@ export function reconcile(
     status,
     skipped: 0,
     reason,
+    reboot: rebootFrom(commands),
     packages,
     commands,
   };

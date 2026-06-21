@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { semantic } from '../theme.js';
+import { g } from '../lib/glyphs.js';
 import { t } from '../i18n/index.js';
 import type { Phase } from '../state/types.js';
 
@@ -18,7 +19,7 @@ export function StepHeader({ phase }: { phase: Phase }) {
     return (
       <Box marginBottom={1}>
         <Text color={semantic.success} bold>
-          ▆ {t('flow', 'summary')}
+          {g.stepOn} {t('flow', 'summary')}
         </Text>
       </Box>
     );
@@ -27,7 +28,7 @@ export function StepHeader({ phase }: { phase: Phase }) {
     return (
       <Box marginBottom={1}>
         <Text color={semantic.action} bold>
-          ▆ {t('flow', 'settings')}
+          {g.stepOn} {t('flow', 'settings')}
         </Text>
       </Box>
     );
@@ -39,7 +40,7 @@ export function StepHeader({ phase }: { phase: Phase }) {
     <Box marginBottom={1}>
       {[1, 2, 3, 4].map(i => (
         <Text key={i} color={i === step.n ? semantic.action : semantic.muted} bold={i === step.n}>
-          {i === step.n ? '▆' : '▁'}{' '}
+          {i === step.n ? g.stepOn : g.stepOff}{' '}
         </Text>
       ))}
       <Text color={semantic.muted}>

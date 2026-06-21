@@ -83,4 +83,24 @@ describe('reconcile', () => {
     const r = reconcile(['a'], [out('a')], { stillOutdated: [] }, cmds);
     expect(r.commands).toEqual(cmds);
   });
+
+  it('flags a pending reboot from a choco exit code without failing the run', () => {
+    // 3010 is a success code (passed via successExitCodes) AND signals reboot-required.
+    const r = reconcile(undefined, [out('vscode')], { stillOutdated: [] }, [cmd({ exitCode: 3010 })], [0, 3010]);
+    expect(r.status).toBe('success');
+    expect(r.upgraded).toBe(1);
+    expect(r.reboot).toBe('required');
+  });
+
+  it('maps the reboot exit codes (1641 initiated, 350 deferred)', () => {
+    const before = [out('x')];
+    const ok: VerifySnapshot = { stillOutdated: [] };
+    expect(reconcile(undefined, before, ok, [cmd({ exitCode: 1641 })], [0, 1641]).reboot).toBe('initiated');
+    expect(reconcile(undefined, before, ok, [cmd({ exitCode: 350 })], [0, 350]).reboot).toBe('deferred');
+  });
+
+  it('has no reboot for a clean exit', () => {
+    const r = reconcile(undefined, [out('a')], { stillOutdated: [] }, [okCmd]);
+    expect(r.reboot).toBeUndefined();
+  });
 });

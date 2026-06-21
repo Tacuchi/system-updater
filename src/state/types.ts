@@ -1,4 +1,4 @@
-import type { ManagerGroup } from '../managers/types.js';
+import type { ManagerGroup, RebootState } from '../managers/types.js';
 import type { UserConfig } from '../lib/config.js';
 import type { Language } from '../i18n/index.js';
 
@@ -45,6 +45,7 @@ export interface ManagerResult {
   skipped: number;
   failures: UiFailure[];
   manualCommand?: string;
+  reboot?: RebootState;
 }
 
 export interface ManagerEntry {

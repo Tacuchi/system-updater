@@ -7,8 +7,13 @@ export type Language = 'es' | 'en';
 let currentLang: Language = detectLanguage();
 
 function detectLanguage(): Language {
-  const lang = process.env['LANG'] ?? process.env['LANGUAGE'] ?? '';
-  return lang.startsWith('es') ? 'es' : 'es'; // Español por defecto
+  // NOTE: previously both branches returned 'es', so English was unreachable via
+  // env. Windows has no $LANG, so this stays 'es' there by default; the persisted
+  // config.language overrides it at boot. Auto-detecting the Windows UI locale
+  // (Get-Culture) is a deferred backlog item.
+  const lang = (process.env['LANG'] ?? process.env['LANGUAGE'] ?? '').toLowerCase();
+  if (lang.startsWith('en')) return 'en';
+  return 'es';
 }
 
 export function setLanguage(lang: Language): void {

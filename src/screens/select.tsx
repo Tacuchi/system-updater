@@ -4,6 +4,7 @@ import { useMachine } from '../hooks/use-app-machine.js';
 import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic, colors } from '../theme.js';
+import { g } from '../lib/glyphs.js';
 import { selectionKey } from '../state/types.js';
 import type { PackageItem } from '../state/types.js';
 import { t, managerName } from '../i18n/index.js';
@@ -14,7 +15,7 @@ interface Row {
 }
 
 function clip(s: string, n: number): string {
-  return s.length > n ? s.slice(0, n - 1) + '…' : s;
+  return s.length > n ? s.slice(0, Math.max(0, n - g.ellipsis.length)) + g.ellipsis : s;
 }
 
 export function SelectScreen() {
@@ -75,7 +76,11 @@ export function SelectScreen() {
         </Text>
       </Box>
 
-      {start > 0 && <Text color={colors.outline}>▲ {start} ↑</Text>}
+      {start > 0 && (
+        <Text color={colors.outline}>
+          {g.scrollUp} {start}
+        </Text>
+      )}
       {visible.map(r => {
         const header = r.managerId !== prevManager ? managerName(r.managerId) : null;
         prevManager = r.managerId;
@@ -89,21 +94,28 @@ export function SelectScreen() {
               </Text>
             )}
             <Box>
-              <Text color={isCursor ? semantic.action : colors.outline}>{isCursor ? '❯ ' : '  '}</Text>
-              <Text color={selected ? semantic.success : colors.outline}>{selected ? '[✓] ' : '[ ] '}</Text>
+              <Text color={isCursor ? semantic.action : colors.outline}>{isCursor ? `${g.cursor} ` : '  '}</Text>
+              <Text color={selected ? semantic.success : colors.outline}>
+                {selected ? `${g.checkOn} ` : `${g.checkOff} `}
+              </Text>
               <Box width={22}>
                 <Text color={semantic.text} bold={isCursor}>
                   {clip(r.pkg.name, 21)}
                 </Text>
               </Box>
               <Text color={semantic.muted} wrap="truncate-end">
-                {clip(r.pkg.currentVersion, 14)} <Text color={semantic.action}>→</Text> {clip(r.pkg.newVersion, 14)}
+                {clip(r.pkg.currentVersion, 14)} <Text color={semantic.action}>{g.arrow}</Text>{' '}
+                {clip(r.pkg.newVersion, 14)}
               </Text>
             </Box>
           </Box>
         );
       })}
-      {end < rows.length && <Text color={colors.outline}>▼ {rows.length - end} ↓</Text>}
+      {end < rows.length && (
+        <Text color={colors.outline}>
+          {g.scrollDown} {rows.length - end}
+        </Text>
+      )}
 
       <Box marginTop={1}>
         <Text color={semantic.muted}>{clip(t('ui', 'selectHint'), width)}</Text>

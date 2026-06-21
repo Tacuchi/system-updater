@@ -28,6 +28,13 @@ export type FailureKind =
   | 'CANCELLED'
   | 'UNKNOWN';
 
+/**
+ * A Windows upgrade can SUCCEED yet leave the system needing a reboot. Derived
+ * from exit codes (choco 3010 = required, 1641 = initiated, 350/1604 = deferred),
+ * so it must not be reported as a failure.
+ */
+export type RebootState = 'required' | 'initiated' | 'deferred';
+
 /** Lifecycle phase of a single manager's upgrade, surfaced to the UI. */
 export type ManagerPhase = 'queued' | 'updating-index' | 'upgrading' | 'verifying' | 'done';
 
@@ -80,6 +87,8 @@ export interface UpgradeResult {
   status?: 'success' | 'partial' | 'failed' | 'cancelled' | 'noop';
   skipped?: number;
   reason?: FailureKind;
+  /** Set when the upgrade succeeded but a reboot is pending (Windows). */
+  reboot?: RebootState;
   packages?: PackageResult[];
   commands?: CommandRecord[];
   startedAt?: number;

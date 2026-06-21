@@ -34,6 +34,7 @@ export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResul
     skipped: r.skipped ?? 0,
     failures,
     manualCommand: r.manualCommand,
+    reboot: r.reboot,
   };
 }
 

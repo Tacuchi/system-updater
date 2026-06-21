@@ -5,11 +5,12 @@ import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { StatusGlyph, statusColor } from '../components/status-glyph.js';
 import { semantic } from '../theme.js';
+import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
 import type { ManagerEntry } from '../state/types.js';
 
 function clip(s: string, n: number): string {
-  return s.length > n ? s.slice(0, Math.max(0, n - 1)) + '…' : s;
+  return s.length > n ? s.slice(0, Math.max(0, n - g.ellipsis.length)) + g.ellipsis : s;
 }
 
 /** ONE line per manager — constant height across running→done so the frame never
@@ -58,9 +59,17 @@ export function UpdateScreen() {
           {finished}/{total}
           {'   '}
         </Text>
-        <Text color={semantic.success}>✓ {state.run.doneCount}  </Text>
-        <Text color={semantic.error}>✗ {state.run.failedCount}  </Text>
-        <Text color={semantic.warning}>⊘ {state.run.skippedCount}</Text>
+        <Text color={semantic.success}>
+          {g.done} {state.run.doneCount}
+          {'  '}
+        </Text>
+        <Text color={semantic.error}>
+          {g.failed} {state.run.failedCount}
+          {'  '}
+        </Text>
+        <Text color={semantic.warning}>
+          {g.skipped} {state.run.skippedCount}
+        </Text>
       </Box>
 
       {state.run.queue.map(id => {

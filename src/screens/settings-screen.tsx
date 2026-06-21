@@ -4,6 +4,7 @@ import { useMachine } from '../hooks/use-app-machine.js';
 import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic, colors } from '../theme.js';
+import { g } from '../lib/glyphs.js';
 import { isManagerEnabled } from '../lib/config.js';
 import { t, managerName } from '../i18n/index.js';
 
@@ -40,7 +41,7 @@ export function SettingsScreen() {
         const isCursor = i === clamped;
         return (
           <Box key={id}>
-            <Text color={isCursor ? semantic.action : colors.outline}>{isCursor ? '❯ ' : '  '}</Text>
+            <Text color={isCursor ? semantic.action : colors.outline}>{isCursor ? `${g.cursor} ` : '  '}</Text>
             <Text color={enabled ? semantic.success : colors.outline}>{enabled ? '[on ]' : '[off]'} </Text>
             <Text color={enabled ? semantic.text : semantic.muted}>{managerName(id)}</Text>
           </Box>

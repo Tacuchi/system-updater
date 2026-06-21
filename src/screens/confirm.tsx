@@ -4,6 +4,7 @@ import { useMachine } from '../hooks/use-app-machine.js';
 import { useSafeInput } from '../hooks/use-safe-input.js';
 import { StepHeader } from '../components/step-header.js';
 import { semantic } from '../theme.js';
+import { g } from '../lib/glyphs.js';
 import { parseSelectionKey } from '../state/types.js';
 import { t, managerName } from '../i18n/index.js';
 
@@ -38,7 +39,7 @@ export function ConfirmScreen() {
           const willSkip = m?.requiresAdmin && !sudoMode;
           return (
             <Box key={id}>
-              <Text color={semantic.action}>▸ </Text>
+              <Text color={semantic.action}>{g.bullet} </Text>
               <Box width={20}>
                 <Text color={semantic.text} bold>
                   {managerName(id)}
