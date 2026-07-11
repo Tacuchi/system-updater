@@ -44,6 +44,20 @@ async function pythonModuleCmd(): Promise<string | null> {
   });
 }
 
+/**
+ * The ONE invocation every pip operation (list, PEP 668 probe, upgrade, verify)
+ * runs through. `pip3` (shim) and `python3 -m pip` can resolve to DIFFERENT
+ * interpreters — real case: `~/.local/bin/pip3` shebang'd to miniconda 3.12 vs
+ * `/opt/homebrew/bin/python3` 3.14 with the EXTERNALLY-MANAGED marker. If the
+ * probe/list ask one and the upgrade mutates the other, the PEP 668 verdict is
+ * wrong (flag omitted → whole batch fails) and the upgraded packages are not
+ * even the listed ones. Resolving once and sharing it makes the three coherent
+ * by construction.
+ */
+async function resolvedInvocation(): Promise<{ cmd: string; baseArgs: string[] }> {
+  return once('pip:invocation', async () => pipInvocation(await pythonModuleCmd()));
+}
+
 /** Parse `pip list --outdated --format=json`. Pure + testable. */
 export function parsePipOutdated(stdout: string): OutdatedPackage[] {
   try {
@@ -57,15 +71,16 @@ export function parsePipOutdated(stdout: string): OutdatedPackage[] {
 /** Detect a PEP 668 (externally-managed) environment once per session. */
 async function pep668Flags(): Promise<string[]> {
   return once('pip:pep668', async () => {
-    const cmd = pipCmd();
-    const probe = await execCommand(cmd, ['install', '--user', '--dry-run', 'pip'], 5000);
+    const { cmd, baseArgs } = await resolvedInvocation();
+    const probe = await execCommand(cmd, [...baseArgs, 'install', '--user', '--dry-run', 'pip'], 5000);
     const managed = (probe.stdout + probe.stderr).includes('externally-managed');
     return managed ? ['--break-system-packages'] : [];
   });
 }
 
 async function listOutdated(): Promise<OutdatedPackage[]> {
-  const res = await execCommand(pipCmd(), ['list', '--outdated', '--format=json'], 30_000);
+  const { cmd, baseArgs } = await resolvedInvocation();
+  const res = await execCommand(cmd, [...baseArgs, 'list', '--outdated', '--format=json'], 30_000);
   if (res.exitCode !== 0) return [];
   return parsePipOutdated(res.stdout);
 }
@@ -78,10 +93,10 @@ export const pip: ManagerDescriptor = {
   kind: 'direct',
   detectCmd: { cmd: pipCmd(), args: ['--version'], timeout: 3000 },
   parseVersion: stdout => stdout.match(/pip (\S+)/)?.[1],
-  listOutdatedCmd: () => ({ cmd: pipCmd(), args: ['list', '--outdated', '--format=json'] }),
-  parseOutdated: stdout => parsePipOutdated(stdout),
   // Escape hatch: pip needs a cached PEP 668 probe and a single bulk install
   // (the old code looped one `pip install` per package — the main slowness).
+  // No declarative listOutdatedCmd: the engine prefers escapeHatch.listOutdated,
+  // and listing MUST share the upgrade's interpreter (resolvedInvocation).
   escapeHatch: {
     listOutdated,
     async *upgrade(packages: string[] | undefined, ctx: ManagerCtx): AsyncGenerator<ProgressEvent, UpgradeResult> {
@@ -91,7 +106,7 @@ export const pip: ManagerDescriptor = {
 
       // Upgrade via `python -m pip` so pip can self-upgrade without the shim
       // self-modification refusal that otherwise fails the whole batch.
-      const { cmd, baseArgs } = pipInvocation(await pythonModuleCmd());
+      const { cmd, baseArgs } = await resolvedInvocation();
 
       const before = await listOutdated();
       const target = packages && packages.length ? packages : before.map(p => p.name);

@@ -1,5 +1,51 @@
-import { describe, it, expect } from 'vitest';
-import { parsePipOutdated, pipInvocation, pipCmd } from './pip.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { parsePipOutdated, pipInvocation, pipCmd, pip } from './pip.js';
+import { resetCapabilities } from '../../lib/exec/capabilities.js';
+
+// Fake machine with a SPLIT-BRAIN pip: the `pip3` shim resolves to one
+// interpreter (clean) while `python3 -m pip` resolves to another that IS
+// PEP 668 externally-managed — the real-world macOS case (miniconda shim in
+// ~/.local/bin vs Homebrew python3) behind the "every run fails" logs.
+const h = vi.hoisted(() => ({
+  calls: [] as { cmd: string; args: string[] }[],
+  upgrades: [] as { cmd: string; args: string[] }[],
+  world: { pythonOk: true, moduleManaged: true, shimManaged: false },
+}));
+
+vi.mock('../../lib/executor.js', () => ({
+  execCommand: async (cmd: string, args: string[]) => {
+    h.calls.push({ cmd, args });
+    const line = [cmd, ...args].join(' ');
+    const isModule = args[0] === '-m' && args[1] === 'pip';
+    if (line.endsWith('-m pip --version')) {
+      return h.world.pythonOk && cmd === 'python3'
+        ? { exitCode: 0, stdout: 'pip 26.1 (python 3.14)', stderr: '' }
+        : { exitCode: 1, stdout: '', stderr: 'no module named pip' };
+    }
+    if (line.includes('install --user --dry-run pip')) {
+      const managed = isModule ? h.world.moduleManaged : h.world.shimManaged;
+      return managed
+        ? { exitCode: 1, stdout: '', stderr: 'error: externally-managed-environment' }
+        : { exitCode: 0, stdout: 'Would install pip', stderr: '' };
+    }
+    if (line.includes('list --outdated')) return { exitCode: 0, stdout: '[]', stderr: '' };
+    return { exitCode: 0, stdout: '', stderr: '' };
+  },
+}));
+
+vi.mock('../../lib/exec/run.js', () => ({
+  runStream: async function* (cmd: string, args: string[]) {
+    h.upgrades.push({ cmd, args });
+    return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+  },
+}));
+
+async function runUpgrade(packages: string[]) {
+  const gen = pip.escapeHatch!.upgrade!(packages, { platform: 'darwin', sudoMode: false, meta: {} });
+  let next = await gen.next();
+  while (!next.done) next = await gen.next();
+  return next.value;
+}
 
 describe('parsePipOutdated', () => {
   it('parses pip list --outdated --format=json', () => {
@@ -15,6 +61,44 @@ describe('parsePipOutdated', () => {
 
   it('returns [] on invalid json', () => {
     expect(parsePipOutdated('boom')).toEqual([]);
+  });
+});
+
+describe('pip invocation coherence (list + PEP 668 probe + upgrade = ONE interpreter)', () => {
+  beforeEach(() => {
+    resetCapabilities();
+    h.calls.length = 0;
+    h.upgrades.length = 0;
+    h.world.pythonOk = true;
+    h.world.moduleManaged = true;
+    h.world.shimManaged = false;
+  });
+
+  it('applies --break-system-packages when the UPGRADE interpreter is managed, even if the shim is not', async () => {
+    // Regression: the probe used to ask the `pip3` shim (clean) while the
+    // upgrade ran `python3 -m pip` (managed) → flag omitted → every run failed.
+    await runUpgrade(['click']);
+    expect(h.upgrades).toHaveLength(1);
+    expect(h.upgrades[0]!.cmd).toBe('python3');
+    expect(h.upgrades[0]!.args.slice(0, 2)).toEqual(['-m', 'pip']);
+    expect(h.upgrades[0]!.args).toContain('--break-system-packages');
+    expect(h.upgrades[0]!.args).toContain('click');
+  });
+
+  it('never mixes the shim in: probe and list also go through the resolved python', async () => {
+    await runUpgrade(['click']);
+    const shimCalls = h.calls.filter(c => c.cmd === pipCmd());
+    expect(shimCalls).toEqual([]);
+  });
+
+  it('falls back to the shim for EVERYTHING when no python resolves (still coherent)', async () => {
+    h.world.pythonOk = false;
+    h.world.shimManaged = true;
+    await runUpgrade(['click']);
+    expect(h.upgrades).toHaveLength(1);
+    expect(h.upgrades[0]!.cmd).toBe(pipCmd());
+    expect(h.upgrades[0]!.args).not.toContain('-m');
+    expect(h.upgrades[0]!.args).toContain('--break-system-packages');
   });
 });
 

@@ -5,6 +5,7 @@ import App from './app.js';
 import { isElevated } from './lib/elevation.js';
 import { fireProcessCancel } from './lib/cancellation.js';
 import { getVersion } from './lib/version.js';
+import { warn as logWarn } from './lib/logger.js';
 
 const args = process.argv.slice(2);
 const sudoRequested = args.includes('--sudo') || args.includes('-s');
@@ -88,8 +89,11 @@ const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteracti
 // so Ctrl+C / Ctrl+Break never orphan a winget/choco install tree (bug #2). A short
 // grace period lets tree-kill (taskkill /T /F on Windows) actually run.
 const onSignal =
-  (code: number): (() => void) =>
+  (code: number, name: string): (() => void) =>
   () => {
+    // Leave a trace in the log file: an interrupted run otherwise just truncates
+    // (per-manager verdicts present, no "Resumen del run"), which reads as a hang.
+    logWarn(`Interrumpido por señal (${name}) — run incompleto, sin resumen`);
     fireProcessCancel();
     setTimeout(() => {
       unmount();
@@ -97,6 +101,6 @@ const onSignal =
     }, 200);
   };
 
-process.on('SIGINT', onSignal(130));
-process.on('SIGTERM', onSignal(143));
-process.on('SIGBREAK', onSignal(130)); // Windows Ctrl+Break
+process.on('SIGINT', onSignal(130, 'SIGINT'));
+process.on('SIGTERM', onSignal(143, 'SIGTERM'));
+process.on('SIGBREAK', onSignal(130, 'SIGBREAK')); // Windows Ctrl+Break
