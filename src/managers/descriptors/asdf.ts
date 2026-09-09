@@ -1,6 +1,7 @@
 import type { ManagerDescriptor, ManagerCtx } from '../descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from '../types.js';
 import { execCommand } from '../../lib/executor.js';
+import { requireListing } from '../listing.js';
 import { once } from '../../lib/exec/capabilities.js';
 import { reconcile } from '../../lib/result/verify.js';
 import * as logger from '../../lib/logger.js';
@@ -96,7 +97,9 @@ function highestInstalled(versions: string[]): string | undefined {
 async function plugins(): Promise<string[]> {
   return once('asdf:plugins', async () => {
     const res = await execCommand('asdf', ['plugin', 'list'], 10_000);
-    if (res.exitCode !== 0) return [];
+    // The top-level query: without the plugin list nothing about asdf is
+    // knowable, so an empty list would claim «al día» for the whole manager.
+    requireListing('asdf', res);
     return parsePlugins(res.stdout);
   });
 }

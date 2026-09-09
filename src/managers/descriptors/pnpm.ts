@@ -1,6 +1,7 @@
 import type { ManagerDescriptor, ManagerCtx } from '../descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from '../types.js';
 import { execCommand } from '../../lib/executor.js';
+import { requireListing } from '../listing.js';
 import { runStream } from '../../lib/exec/run.js';
 import { reconcile } from '../../lib/result/verify.js';
 import * as logger from '../../lib/logger.js';
@@ -84,7 +85,7 @@ function firstVersionToken(cell: string): string {
 async function listOutdated(): Promise<OutdatedPackage[]> {
   // `pnpm outdated` exits 1 when it finds outdated packages — accept 0 and 1.
   const res = await execCommand('pnpm', ['outdated', '--global'], 30_000);
-  if (res.exitCode !== 0 && res.exitCode !== 1) return [];
+  requireListing('pnpm', res, [0, 1]);
   return parsePnpmOutdated(res.stdout);
 }
 

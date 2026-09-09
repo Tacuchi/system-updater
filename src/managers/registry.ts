@@ -30,10 +30,13 @@ export async function detectManagers(config: UserConfig): Promise<DetectedManage
     managers.map(async m => ({ manager: m, detection: await m.detect() })),
   );
 
+  // An indeterminate probe is surfaced, not dropped: hiding it is what made a
+  // manager whose probe timed out indistinguishable from one that is not
+  // installed. It is never scanned and never upgraded — it just stays visible.
   return results
     .filter(
       (r): r is PromiseFulfilledResult<DetectedManager> =>
-        r.status === 'fulfilled' && r.value.detection.available,
+        r.status === 'fulfilled' && (r.value.detection.available || r.value.detection.undetermined === true),
     )
     .map(r => r.value);
 }
@@ -45,7 +48,7 @@ export function buildTasks(
   packagesByManager?: Map<string, string[]>,
 ): EngineTask[] {
   return detected
-    .filter(dm => isManagerEnabled(config, dm.manager.id))
+    .filter(dm => dm.detection.available && isManagerEnabled(config, dm.manager.id))
     .map(dm => ({
       manager: dm.manager,
       op: 'upgrade' as const,

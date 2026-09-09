@@ -2,6 +2,12 @@ export interface ManagerDetection {
   available: boolean;
   version?: string;
   path?: string;
+  /**
+   * The probe could not answer: it timed out, or the binary ran and replied
+   * something the descriptor does not accept. NOT the same as absent — an absent
+   * manager is one whose binary is not there at all.
+   */
+  undetermined?: boolean;
 }
 
 export interface OutdatedPackage {
@@ -54,7 +60,7 @@ export interface ProgressEvent {
   severity?: 'info' | 'warn';
 }
 
-export type PackageOutcome = 'upgraded' | 'failed' | 'skipped' | 'unchanged';
+export type PackageOutcome = 'upgraded' | 'failed' | 'skipped' | 'unchanged' | 'unknown';
 
 export interface PackageResult {
   name: string;
@@ -75,6 +81,16 @@ export interface CommandRecord {
   stderrTail: string;
 }
 
+/**
+ * The ONE vocabulary of a manager's verdict.
+ *
+ * It is a named type so the per-manager verdict in the log and the run's closing
+ * block cannot drift apart: they used to say `success` and `done` for the same
+ * fact, and `noop` and `skipped` for another. `unknown` is the state that had no
+ * name at all — a probe or a listing that could not answer.
+ */
+export type UpgradeStatus = 'success' | 'partial' | 'failed' | 'cancelled' | 'noop' | 'unknown';
+
 export interface UpgradeResult {
   // --- legacy fields (kept so old UI + managers compile during migration) ---
   success: boolean;
@@ -84,7 +100,7 @@ export interface UpgradeResult {
   manualCommand?: string;
   // --- new fields (authored only by the engine via reconcile()) ---
   managerId?: string;
-  status?: 'success' | 'partial' | 'failed' | 'cancelled' | 'noop';
+  status?: UpgradeStatus;
   skipped?: number;
   reason?: FailureKind;
   /** Set when the upgrade succeeded but a reboot is pending (Windows). */

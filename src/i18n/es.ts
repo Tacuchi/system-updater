@@ -183,6 +183,7 @@ export const es = {
     done: 'OK',
     failed: 'ERROR',
     skipped: 'MANUAL',
+    unknown: 'INDETERMINADO',
   },
   // Cadenas de la interfaz del flujo
   ui: {
@@ -205,6 +206,7 @@ export const es = {
     summaryHint: 'R re-escanear · Q salir',
     elapsed: 'transcurrido',
     cancel: 'Cancelando...',
+    undetermined: 'no se pudo determinar',
   },
 } as const;
 

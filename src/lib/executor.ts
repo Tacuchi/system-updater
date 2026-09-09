@@ -9,9 +9,25 @@ export interface ExecResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+  /** The command was killed for exceeding its wait. */
+  timedOut: boolean;
+  /**
+   * The binary could not be launched at all (ENOENT).
+   *
+   * This is the ONLY failure that honestly means "not installed". Every other
+   * one — a timeout, a non-zero answer — means the probe could not decide, and
+   * conflating them is how a five-second timeout became «no está instalado».
+   */
+  spawnFailed: boolean;
 }
 
 export { withSudo };
+
+/** ENOENT — the binary is not on PATH, which is the one honest "not installed". */
+function isSpawnFailure(r: { code?: unknown; originalMessage?: unknown }): boolean {
+  if (r.code === 'ENOENT') return true;
+  return typeof r.originalMessage === 'string' && r.originalMessage.includes('ENOENT');
+}
 
 /**
  * Ejecuta un comando y devuelve stdout/stderr completo (sin truncar) — usado
@@ -40,6 +56,8 @@ export async function execCommand(
       stdout: decodeSmart(result.stdout as Buffer),
       stderr: decodeSmart(result.stderr as Buffer),
       exitCode: result.exitCode ?? (result.failed ? 127 : 0),
+      timedOut: result.timedOut === true,
+      spawnFailed: isSpawnFailure(result),
     };
   } catch (err) {
     if (err instanceof ExecaError) {
@@ -47,6 +65,8 @@ export async function execCommand(
         stdout: decodeSmart(err.stdout as Buffer | undefined),
         stderr: decodeSmart(err.stderr as Buffer | undefined) || String(err.message),
         exitCode: err.exitCode ?? 1,
+        timedOut: err.timedOut === true,
+        spawnFailed: isSpawnFailure(err),
       };
     }
     throw err;

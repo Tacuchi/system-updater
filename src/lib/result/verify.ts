@@ -38,15 +38,42 @@ function dominantFailureKind(commands: CommandRecord[], successExitCodes?: numbe
 export function reconcile(
   requested: string[] | undefined,
   before: OutdatedPackage[],
-  after: VerifySnapshot,
+  after: VerifySnapshot | null,
   commands: CommandRecord[],
   successExitCodes?: number[],
 ): UpgradeResult {
   const beforeByName = new Map(before.map(p => [p.name, p]));
   const targetNames = requested ?? before.map(p => p.name);
   const targets = [...new Set(targetNames)];
-  const stillOutdated = new Set(after.stillOutdated.map(p => p.name));
   const cmdKind = dominantFailureKind(commands, successExitCodes);
+
+  // No after-snapshot means the diff — the only honest source of this verdict —
+  // could not be taken. An empty `stillOutdated` would have read as "everything
+  // upgraded", which is the same silence-as-success this function exists against.
+  if (after === null) {
+    return {
+      success: false,
+      upgraded: 0,
+      failed: 0,
+      errors: ['no se pudo verificar el resultado: el listado posterior falló'],
+      status: 'unknown',
+      skipped: 0,
+      reason: cmdKind ?? undefined,
+      reboot: rebootFrom(commands),
+      packages: targets.map(name => {
+        const b = beforeByName.get(name);
+        return {
+          name,
+          outcome: 'unknown' as const,
+          fromVersion: b?.currentVersion,
+          toVersion: b?.newVersion,
+        };
+      }),
+      commands,
+    };
+  }
+
+  const stillOutdated = new Set(after.stillOutdated.map(p => p.name));
 
   const packages: PackageResult[] = targets.map(name => {
     const b = beforeByName.get(name);

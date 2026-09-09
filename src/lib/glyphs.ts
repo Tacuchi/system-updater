@@ -29,6 +29,7 @@ export interface Glyphs {
   done: string;
   failed: string;
   skipped: string;
+  unknown: string;
   cursor: string;
   checkOn: string;
   checkOff: string;
@@ -52,6 +53,7 @@ const UNICODE: Glyphs = {
   done: '✓',
   failed: '✗',
   skipped: '⊘',
+  unknown: '?',
   cursor: '❯',
   checkOn: '[✓]',
   checkOff: '[ ]',
@@ -75,6 +77,7 @@ const ASCII_GLYPHS: Glyphs = {
   done: '+',
   failed: 'x',
   skipped: '-',
+  unknown: '?',
   cursor: '>',
   checkOn: '[x]',
   checkOff: '[ ]',

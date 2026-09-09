@@ -5,6 +5,7 @@ import type { AppState, ManagerResult, ManagerPackageResult, UiFailure, PackageI
 import { parseSelectionKey } from '../state/types.js';
 import type { Action } from '../state/actions.js';
 import { detectManagers } from '../managers/registry.js';
+import { ListingUnavailableError } from '../managers/listing.js';
 import type { DetectedManager } from '../managers/registry.js';
 import { runEngine } from '../lib/exec/engine.js';
 import type { EngineProgress, EngineTask } from '../lib/exec/engine.js';
@@ -63,6 +64,8 @@ export interface RunSummary {
   upgraded: number;
   failed: number;
   skipped: number;
+  /** Managers whose outcome could not be established — never folded into the rest. */
+  unknown: number;
   managers: RunSummaryManager[];
 }
 
@@ -75,6 +78,7 @@ export function summarizeRun(state: AppState): RunSummary {
   let upgraded = 0;
   let failed = 0;
   let skipped = 0;
+  let unknown = 0;
   const managers: RunSummaryManager[] = [];
   for (const id of state.run.queue) {
     const e = state.managers[id];
@@ -82,6 +86,13 @@ export function summarizeRun(state: AppState): RunSummary {
     if (e.status === 'skipped') {
       skipped++;
       managers.push({ id, status: 'skipped', upgraded: 0, failed: 0 });
+      continue;
+    }
+    // Counted apart on purpose: adding it to upgraded would claim work that was
+    // never confirmed, and adding it to skipped would claim a decision nobody made.
+    if (e.status === 'unknown') {
+      unknown++;
+      managers.push({ id, status: 'unknown', upgraded: 0, failed: 0 });
       continue;
     }
     const r = e.result;
@@ -93,7 +104,7 @@ export function summarizeRun(state: AppState): RunSummary {
       r?.startedAt !== undefined && r?.finishedAt !== undefined ? r.finishedAt - r.startedAt : undefined;
     managers.push({ id, status: e.status, upgraded: u, failed: f, durationMs, packages: r?.packages });
   }
-  return { upgraded, failed, skipped, managers };
+  return { upgraded, failed, skipped, unknown, managers };
 }
 
 export interface MachineValue {
@@ -149,10 +160,14 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
           group: d.manager.group ?? 'language',
           requiresAdmin: d.manager.requiresAdmin,
           version: d.detection.version,
+          undetermined: d.detection.undetermined === true,
         })),
       });
       await Promise.allSettled(
         detected.map(async dm => {
+          // Its probe could not answer, so there is nothing to ask it. It stays
+          // indeterminate instead of being scanned into a false «al día».
+          if (dm.detection.undetermined) return;
           if (!isManagerEnabled(config, dm.manager.id)) {
             dispatch({ type: 'SCAN_MANAGER_DONE', id: dm.manager.id, outdated: [] });
             return;
@@ -162,7 +177,12 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
             const outdated = await dm.manager.listOutdated();
             dispatch({ type: 'SCAN_MANAGER_DONE', id: dm.manager.id, outdated: outdated as PackageItem[] });
           } catch (err) {
-            logger.error(`Error escaneando ${dm.manager.id}: ${String(err)}`);
+            // The scan line already recorded the command, its wait and its
+            // failure; repeating it here was the second of two near-identical
+            // entries for one event.
+            if (!(err instanceof ListingUnavailableError)) {
+              logger.error(`Error escaneando ${dm.manager.id}: ${String(err)}`);
+            }
             dispatch({ type: 'SCAN_MANAGER_FAILED', id: dm.manager.id });
           }
         }),
@@ -239,16 +259,21 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
       let upgraded = 0;
       let failed = 0;
       let skipped = 0;
+      let unknownTotal = 0;
       const managers = queue.map(id => {
         if (skippedIds.has(id)) {
           skipped++;
-          return { id, status: 'skipped', upgraded: 0, failed: 0 };
+          return { id, status: 'noop' as const, upgraded: 0, failed: 0 };
         }
         const r = settledResults.get(id);
         // No verdict yet: a signal settles the closure immediately rather than
-        // waiting for the engine, so a manager can legitimately have none. Named
-        // in the same vocabulary as the other statuses; F3 unifies the wording.
-        if (!r) return { id, status: 'unresolved', upgraded: 0, failed: 0 };
+        // waiting for the engine, so a manager can legitimately have none — and
+        // «no lo sé» is exactly what `unknown` means.
+        if (!r) {
+          unknownTotal++;
+          return { id, status: 'unknown' as const, upgraded: 0, failed: 0 };
+        }
+        if (r.status === 'unknown') unknownTotal++;
         upgraded += r.upgraded;
         failed += r.failed;
         const durationMs =
@@ -261,7 +286,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
           durationMs,
         };
       });
-      runLogRef.current = { upgraded, failed, skipped, managers };
+      runLogRef.current = { upgraded, failed, skipped, unknown: unknownTotal, managers };
     };
     rebuildRunLog();
 
@@ -308,6 +333,9 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
         rebuildRunLog();
         if (r.status === 'noop' && r.manualCommand) {
           enqueue({ type: 'MGR_SKIPPED', id, manualCommand: r.manualCommand });
+        } else if (r.status === 'unknown') {
+          // Neither done nor failed: the run could not establish what happened.
+          enqueue({ type: 'MGR_UNKNOWN', id, result: toManagerResult(r, logRef) });
         } else if (r.success || r.status === 'success' || r.status === 'partial') {
           enqueue({ type: 'MGR_DONE', id, result: toManagerResult(r, logRef) });
         } else {

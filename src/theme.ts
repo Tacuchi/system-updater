@@ -38,6 +38,9 @@ export const colors = {
   onSurface: '#e5e2e1',
   onSurfaceVariant: '#a09d9c',
 
+  // Ámbar — reservado al estado «no se pudo determinar»
+  unknown: '#f0b429',
+
   // Bordes
   outlineVariant: '#484556',
   outline: '#6f6d70',
@@ -50,6 +53,10 @@ export const semantic = {
   success: colors.tertiary, // verde
   error: colors.error, // rojo
   warning: colors.secondary, // rosa (admin / skipped / atención)
+  // Ámbar — «no se pudo determinar». NO puede reusar `muted`, que hoy significa
+  // «al día»: eso es exactamente confundir «no lo sé» con «está bien»
+  // (DES-001@r1). Se distingue a la vez del rosa de advertencia y del gris.
+  unknown: colors.unknown,
   text: colors.onSurface,
   muted: colors.onSurfaceVariant,
 } as const;

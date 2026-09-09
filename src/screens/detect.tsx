@@ -13,7 +13,9 @@ export function DetectScreen() {
 
   const done = state.order.filter(id => {
     const s = state.managers[id]?.status;
-    return s === 'outdated' || s === 'uptodate';
+    // `unknown` is a settled outcome too: leaving it out kept the counter short
+    // forever on any machine where a probe or a listing could not answer.
+    return s === 'outdated' || s === 'uptodate' || s === 'unknown';
   }).length;
 
   return (
@@ -48,6 +50,8 @@ export function DetectScreen() {
                 </Text>
               ) : e.status === 'uptodate' ? (
                 <Text color={colors.outline}>-</Text>
+              ) : e.status === 'unknown' ? (
+                <Text color={semantic.unknown}>{t('ui', 'undetermined')}</Text>
               ) : (
                 <Text color={semantic.muted}>{g.ellipsis}</Text>
               )}

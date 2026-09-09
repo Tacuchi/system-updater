@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parsePipOutdated, pipInvocation, pipCmd, pip } from './pip.js';
 import { resetCapabilities } from '../../lib/exec/capabilities.js';
+import { ListingUnavailableError } from '../listing.js';
 
 // Fake machine with a SPLIT-BRAIN pip: the `pip3` shim resolves to one
 // interpreter (clean) while `python3 -m pip` resolves to another that IS
@@ -9,7 +10,7 @@ import { resetCapabilities } from '../../lib/exec/capabilities.js';
 const h = vi.hoisted(() => ({
   calls: [] as { cmd: string; args: string[] }[],
   upgrades: [] as { cmd: string; args: string[] }[],
-  world: { pythonOk: true, moduleManaged: true, shimManaged: false },
+  world: { pythonOk: true, moduleManaged: true, shimManaged: false, listExit: 0 },
 }));
 
 vi.mock('../../lib/executor.js', () => ({
@@ -28,7 +29,9 @@ vi.mock('../../lib/executor.js', () => ({
         ? { exitCode: 1, stdout: '', stderr: 'error: externally-managed-environment' }
         : { exitCode: 0, stdout: 'Would install pip', stderr: '' };
     }
-    if (line.includes('list --outdated')) return { exitCode: 0, stdout: '[]', stderr: '' };
+    if (line.includes('list --outdated')) {
+      return { exitCode: h.world.listExit, stdout: h.world.listExit === 0 ? '[]' : '', stderr: 'boom', timedOut: false, spawnFailed: false };
+    }
     return { exitCode: 0, stdout: '', stderr: '' };
   },
 }));
@@ -72,6 +75,7 @@ describe('pip invocation coherence (list + PEP 668 probe + upgrade = ONE interpr
     h.world.pythonOk = true;
     h.world.moduleManaged = true;
     h.world.shimManaged = false;
+    h.world.listExit = 0;
   });
 
   it('applies --break-system-packages when the UPGRADE interpreter is managed, even if the shim is not', async () => {
@@ -110,5 +114,29 @@ describe('pipInvocation', () => {
 
   it('falls back to the bare pip shim with no extra args when no interpreter is found', () => {
     expect(pipInvocation(null)).toEqual({ cmd: pipCmd(), baseArgs: [] });
+  });
+});
+
+describe('el listado de pip que falla no se lee como «todo al día»', () => {
+  beforeEach(() => {
+    resetCapabilities();
+    h.world.pythonOk = true;
+    h.world.moduleManaged = true;
+    h.world.shimManaged = false;
+    h.world.listExit = 0;
+  });
+
+  it('devuelve la lista cuando el comando contesta', async () => {
+    const list = await pip.escapeHatch!.listOutdated!({ platform: 'darwin', sudoMode: false, meta: {} });
+    expect(list).toEqual([]);
+  });
+
+  it('un listado que sale distinto de cero NO devuelve lista vacía', async () => {
+    // La forma exacta del defecto de origen: pip fallaba el 100% de las corridas
+    // y la pantalla decía «al día» porque una lista vacía es una respuesta válida.
+    h.world.listExit = 1;
+    await expect(
+      pip.escapeHatch!.listOutdated!({ platform: 'darwin', sudoMode: false, meta: {} }),
+    ).rejects.toThrow(ListingUnavailableError);
   });
 });

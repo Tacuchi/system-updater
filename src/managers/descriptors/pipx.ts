@@ -1,6 +1,7 @@
 import type { ManagerDescriptor, ManagerCtx } from '../descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from '../types.js';
 import { execCommand } from '../../lib/executor.js';
+import { requireListing } from '../listing.js';
 import { runStream } from '../../lib/exec/run.js';
 import { reconcile } from '../../lib/result/verify.js';
 import * as logger from '../../lib/logger.js';
@@ -67,7 +68,7 @@ export function parsePipxList(stdout: string): PipxSnapshot {
 
 async function snapshot(): Promise<PipxSnapshot> {
   const res = await execCommand('pipx', ['list', '--json'], 30_000);
-  if (res.exitCode !== 0) return {};
+  requireListing('pipx', res);
   return parsePipxList(res.stdout);
 }
 

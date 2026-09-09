@@ -21,6 +21,7 @@ function Row({ e, width }: { e: ManagerEntry; width: number }) {
   if (e.status === 'running') detail = e.percent > 0 ? `${e.percent}%` : '';
   else if (e.status === 'skipped') detail = e.manualCommand ?? 'manual';
   else if (e.status === 'failed') detail = e.result?.failures[0]?.message ?? '';
+  else if (e.status === 'unknown') detail = e.result?.failures[0]?.message ?? t('ui', 'undetermined');
 
   return (
     <Box>
@@ -48,7 +49,8 @@ export function UpdateScreen() {
   });
 
   const total = state.run.queue.length;
-  const finished = state.run.doneCount + state.run.failedCount + state.run.skippedCount;
+  const finished =
+    state.run.doneCount + state.run.failedCount + state.run.skippedCount + state.run.unknownCount;
   const width = Math.min((process.stdout.columns ?? 90) - 4, 92);
 
   return (

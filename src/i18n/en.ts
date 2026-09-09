@@ -174,6 +174,7 @@ export const en: Translations = {
     done: 'OK',
     failed: 'ERROR',
     skipped: 'MANUAL',
+    unknown: 'UNDETERMINED',
   },
   ui: {
     detecting: 'Detecting package managers...',
@@ -195,5 +196,6 @@ export const en: Translations = {
     summaryHint: 'R rescan · Q quit',
     elapsed: 'elapsed',
     cancel: 'Cancelling...',
+    undetermined: 'could not be determined',
   },
 };

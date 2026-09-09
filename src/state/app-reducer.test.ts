@@ -149,4 +149,39 @@ describe('appReducer', () => {
     expect(s.order).toEqual([]);
     expect(s.selection.size).toBe(0);
   });
+
+  it('un listado que falla deja el gestor INDETERMINADO, no al día', () => {
+    const s = apply(base(), detect, { type: 'SCAN_MANAGER_FAILED', id: 'brew' });
+    // La línea que convertía «no pude preguntar» en «nada que actualizar».
+    expect(s.managers['brew']?.status).toBe('unknown');
+    expect(s.managers['brew']?.outdated).toEqual([]);
+  });
+
+  it('un sondeo indeterminado entra como indeterminado y nunca se escanea', () => {
+    const s = apply(base(), {
+      type: 'DETECT_DONE',
+      managers: [{ id: 'gem', group: 'language', requiresAdmin: false, undetermined: true }],
+    });
+    expect(s.managers['gem']?.status).toBe('unknown');
+  });
+
+  it('MGR_UNKNOWN cuenta aparte: ni hecho ni fallido', () => {
+    const result = {
+      status: 'unknown' as const,
+      upgraded: 0,
+      failed: 0,
+      skipped: 0,
+      failures: [{ message: 'no se pudo verificar el resultado' }],
+    };
+    const s = apply(
+      base(),
+      detect,
+      { type: 'RUN_START', queue: ['brew'] },
+      { type: 'MGR_UNKNOWN', id: 'brew', result },
+    );
+    expect(s.managers['brew']?.status).toBe('unknown');
+    expect(s.run.unknownCount).toBe(1);
+    expect(s.run.doneCount).toBe(0);
+    expect(s.run.failedCount).toBe(0);
+  });
 });

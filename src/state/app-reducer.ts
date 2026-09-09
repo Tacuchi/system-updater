@@ -10,7 +10,7 @@ export function initialState(config: UserConfig, sudoMode: boolean): AppState {
     managers: {},
     order: [],
     selection: new Set(),
-    run: { queue: [], doneCount: 0, failedCount: 0, skippedCount: 0 },
+    run: { queue: [], doneCount: 0, failedCount: 0, skippedCount: 0, unknownCount: 0 },
     config,
     sudoMode,
   };
@@ -22,7 +22,9 @@ function newEntry(info: DetectedManagerInfo): ManagerEntry {
     group: info.group,
     requiresAdmin: info.requiresAdmin,
     version: info.version,
-    status: 'scanning',
+    // A manager whose probe could not answer is never scanned, so it enters
+    // indeterminate and stays there instead of being presented as pending work.
+    status: info.undetermined ? 'unknown' : 'scanning',
     outdated: [],
     percent: 0,
   };
@@ -66,8 +68,10 @@ export function appReducer(state: AppState, action: Action): AppState {
         status: action.outdated.length > 0 ? 'outdated' : 'uptodate',
       }));
 
+    // A listing that failed used to land here as `uptodate`: the single line that
+    // turned "I could not ask" into "nothing to update".
     case 'SCAN_MANAGER_FAILED':
-      return patch(state, action.id, e => ({ ...e, status: 'uptodate', outdated: [] }));
+      return patch(state, action.id, e => ({ ...e, status: 'unknown', outdated: [] }));
 
     case 'SCAN_ALL_DONE':
       return { ...state, phase: 'select' };
@@ -113,7 +117,7 @@ export function appReducer(state: AppState, action: Action): AppState {
         ...state,
         phase: 'updating',
         managers,
-        run: { queue: action.queue, doneCount: 0, failedCount: 0, skippedCount: 0 },
+        run: { queue: action.queue, doneCount: 0, failedCount: 0, skippedCount: 0, unknownCount: 0 },
       };
     }
 
@@ -146,6 +150,14 @@ export function appReducer(state: AppState, action: Action): AppState {
       return {
         ...patch(state, action.id, e => ({ ...e, status: 'skipped', manualCommand: action.manualCommand })),
         run: { ...state.run, skippedCount: state.run.skippedCount + 1 },
+      };
+
+    // Its own counter on purpose: an upgrade whose result could not be verified
+    // is neither done nor failed, and folding it into either is the lie.
+    case 'MGR_UNKNOWN':
+      return {
+        ...patch(state, action.id, e => ({ ...e, status: 'unknown', percent: 100, result: action.result })),
+        run: { ...state.run, unknownCount: state.run.unknownCount + 1 },
       };
 
     case 'RUN_DONE':

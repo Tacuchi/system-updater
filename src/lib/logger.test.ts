@@ -7,6 +7,7 @@ import {
   formatRunSummary,
   formatRunClosure,
 } from './logger.js';
+import type { RunSummaryLog } from './logger.js';
 import type { CommandRecord, UpgradeResult } from '../managers/types.js';
 
 describe('logCommand', () => {
@@ -75,39 +76,46 @@ describe('formatResultLines', () => {
 });
 
 describe('formatRunSummary', () => {
-  const summary = {
+  // One vocabulary: these are UpgradeStatus values, the same ones the
+  // per-manager verdict uses. `done` and `skipped` are the UI's words and the
+  // type no longer accepts them here.
+  const summary: RunSummaryLog = {
     upgraded: 3,
     failed: 1,
     skipped: 1,
+    unknown: 1,
     managers: [
-      { id: 'brew', status: 'done', upgraded: 2, failed: 0, durationMs: 1_200 },
+      { id: 'brew', status: 'success', upgraded: 2, failed: 0, durationMs: 1_200 },
       { id: 'winget', status: 'failed', upgraded: 1, failed: 1 },
-      { id: 'choco', status: 'skipped', upgraded: 0, failed: 0 },
+      { id: 'choco', status: 'noop', upgraded: 0, failed: 0 },
+      { id: 'gem', status: 'unknown', upgraded: 0, failed: 0 },
     ],
   };
 
   it('formats a plain-text block with per-manager lines and totals (no JSON)', () => {
     const lines = formatRunSummary(summary);
     expect(lines[0]).toContain('Resumen del run');
-    expect(lines).toContain('  brew: done (2 ok, 0 fail) 1200ms');
+    expect(lines).toContain('  brew: success (2 ok, 0 fail) 1200ms');
     expect(lines).toContain('  winget: failed (1 ok, 1 fail)');
-    expect(lines.at(-1)).toBe('Total: 3 upgraded · 1 failed · 1 skipped');
+    expect(lines).toContain('  gem: unknown (0 ok, 0 fail)');
+    expect(lines.at(-1)).toBe('Total: 3 upgraded · 1 failed · 1 skipped · 1 unknown');
     expect(lines.join('\n')).not.toContain('{');
   });
 });
 
 describe('formatRunClosure', () => {
-  const summary = {
+  const summary: RunSummaryLog = {
     upgraded: 2,
     failed: 0,
     skipped: 0,
-    managers: [{ id: 'brew', status: 'done', upgraded: 2, failed: 0, durationMs: 900 }],
+    unknown: 0,
+    managers: [{ id: 'brew', status: 'success', upgraded: 2, failed: 0, durationMs: 900 }],
   };
 
   it('cierra con el modo de término en la ÚLTIMA línea, después del resumen', () => {
     const lines = formatRunClosure('completa', summary);
     expect(lines[0]).toContain('Resumen del run');
-    expect(lines).toContain('  brew: done (2 ok, 0 fail) 900ms');
+    expect(lines).toContain('  brew: success (2 ok, 0 fail) 900ms');
     expect(lines.at(-1)).toBe('Cierre del run: modo=completa');
   });
 
@@ -119,5 +127,41 @@ describe('formatRunClosure', () => {
     expect(formatRunClosure('interrumpida', null, 'señal SIGHUP').at(-1)).toBe(
       'Cierre del run: modo=interrumpida (señal SIGHUP)',
     );
+  });
+});
+
+describe('un paquete fallido deja UNA entrada', () => {
+  it('la razón viaja en la línea del paquete, no en una segunda casi idéntica', () => {
+    const r: UpgradeResult = {
+      success: false,
+      upgraded: 0,
+      failed: 1,
+      errors: ['numpy: no se pudo actualizar (COMMAND_FAILED)'],
+      managerId: 'pip',
+      status: 'failed',
+      reason: 'COMMAND_FAILED',
+      packages: [{ name: 'numpy', outcome: 'failed', failureKind: 'COMMAND_FAILED', fromVersion: '1.0', toVersion: '2.0' }],
+    };
+    const lines = formatResultLines(r);
+    const aboutNumpy = lines.filter(l => l.includes('numpy'));
+    expect(aboutNumpy).toHaveLength(1);
+    expect(aboutNumpy[0]).toBe('  pip: numpy 1.0->2.0 [failed] (COMMAND_FAILED)');
+  });
+
+  it('un fallo sin paquetes al que atribuirlo sí deja su línea de error', () => {
+    const r: UpgradeResult = {
+      success: false,
+      upgraded: 0,
+      failed: 0,
+      errors: ['no se pudo determinar la lista de pendientes (exit=2)'],
+      managerId: 'gem',
+      status: 'unknown',
+    };
+    // formatResultLines no inventa una línea de paquete cuando no hay paquetes;
+    // logResult es el que agrega los errores sueltos en ese caso.
+    expect(formatResultLines(r).some(l => l.includes('numpy'))).toBe(false);
+    const before = getLogEntries().length;
+    logResult(r);
+    expect(getLogEntries().length).toBe(before + 1);
   });
 });

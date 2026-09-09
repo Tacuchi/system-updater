@@ -15,6 +15,7 @@ import type { ExecResult } from '../lib/executor.js';
 import { runStream as realRunStream } from '../lib/exec/run.js';
 import { reconcile } from '../lib/result/verify.js';
 import * as logger from '../lib/logger.js';
+import { ListingUnavailableError, requireListing } from './listing.js';
 
 /** Injectable I/O surface so the engine is unit-testable without spawning. */
 export interface ExecDeps {
@@ -35,6 +36,24 @@ const LIST_TIMEOUT = 30_000;
 // min. Esc still cancels instantly (the AbortSignal is wired to the child), and
 // per-manager overrides live in config.timeoutsMs.
 const UPGRADE_TIMEOUT = 600_000;
+
+/**
+ * Nothing can be asserted about this manager's run.
+ *
+ * Sibling of `skippedResult`: the two are the only verdicts the engine authors
+ * without a before/after diff, and they sit together so that stays visible.
+ */
+function undeterminedResult(managerId: string, detail: string): UpgradeResult {
+  return {
+    success: false,
+    upgraded: 0,
+    failed: 0,
+    errors: [detail],
+    skipped: 0,
+    status: 'unknown',
+    managerId,
+  };
+}
 
 function skippedResult(managerId: string, manualCommand: string): UpgradeResult {
   return {
@@ -98,9 +117,15 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
 
       const res = await deps.execCommand(spec.cmd, spec.args, timeoutMs, sudoFor(spec, ctx(false)));
       const ok = res.exitCode === 0 || (d.detectOkExitCodes?.includes(res.exitCode) ?? false);
+      // Only a failure to launch the binary honestly means "not installed". A
+      // timeout, or a probe that ran and answered something the descriptor does
+      // not accept, means the probe could not decide — and used to be reported
+      // as absent, which is how a five-second timeout read as «no instalado».
       const detection: ManagerDetection = ok
         ? { available: true, version: d.parseVersion?.(res.stdout, res.stderr) }
-        : { available: false };
+        : res.spawnFailed
+          ? { available: false }
+          : { available: false, undetermined: true };
       logger.logDetect({
         managerId: d.id,
         cmd: `${spec.cmd} ${spec.args.join(' ')}`,
@@ -108,6 +133,8 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
         durationMs: Date.now() - startedAt,
         exitCode: res.exitCode,
         available: detection.available,
+        undetermined: detection.undetermined === true,
+        timedOut: res.timedOut,
         version: detection.version,
       });
       return detection;
@@ -158,7 +185,9 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
         exitCode: res.exitCode,
         count: list.length,
         ok,
+        timedOut: res.timedOut,
       });
+      requireListing(d.id, res, [0, ...(d.listOkExitCodes ?? [])]);
       return list;
     },
 
@@ -187,9 +216,21 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
         return { ...r, startedAt, finishedAt: Date.now() };
       }
 
-      // before-snapshot so verification knows what to diff against.
+      // before-snapshot so verification knows what to diff against. A listing we
+      // could not take is survivable ONLY when the caller named the packages: the
+      // targets are known, just not their previous versions.
       yield { type: 'phase', phase: 'upgrading', message: `Actualizando ${d.id}...` };
-      const before = await this.listOutdated();
+      let before: OutdatedPackage[] = [];
+      try {
+        before = await this.listOutdated();
+      } catch (err) {
+        if (!(err instanceof ListingUnavailableError)) throw err;
+        if (!packages || packages.length === 0) {
+          const r = { ...undeterminedResult(d.id, err.message), startedAt, finishedAt: Date.now() };
+          logger.logResult(r);
+          return r;
+        }
+      }
       const target = packages ?? before.map(p => p.name);
 
       const commands: CommandRecord[] = [];
@@ -219,9 +260,17 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
       yield* runOne(d.upgradeCmd(target.length ? target : undefined, c));
       for (const spec of d.postUpgradeCmds?.(c) ?? []) yield* runOne(spec);
 
-      // after-snapshot → verify.
+      // after-snapshot → verify. Null means it could not be taken, and reconcile
+      // turns that into `unknown` instead of an empty still-outdated list, which
+      // would have read as "everything upgraded".
       yield { type: 'phase', phase: 'verifying', message: 'Verificando resultado...' };
-      const after = await verifySnapshot(d, c, deps, this);
+      let after: VerifySnapshot | null;
+      try {
+        after = await verifySnapshot(d, c, deps, this);
+      } catch (err) {
+        if (!(err instanceof ListingUnavailableError)) throw err;
+        after = null;
+      }
 
       const result: UpgradeResult = {
         managerId: d.id,

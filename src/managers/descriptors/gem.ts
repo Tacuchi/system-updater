@@ -1,6 +1,7 @@
 import type { ManagerDescriptor, ManagerCtx } from '../descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from '../types.js';
 import { execCommand } from '../../lib/executor.js';
+import { requireListing } from '../listing.js';
 import { runStream } from '../../lib/exec/run.js';
 import { once } from '../../lib/exec/capabilities.js';
 import { reconcile } from '../../lib/result/verify.js';
@@ -57,7 +58,7 @@ async function userGems(): Promise<Set<string>> {
 
 async function listOutdated(): Promise<OutdatedPackage[]> {
   const res = await execCommand('gem', ['outdated'], 30_000);
-  if (res.exitCode !== 0) return [];
+  requireListing('gem', res);
   return parseGemOutdated(res.stdout, await userGems());
 }
 

@@ -7,6 +7,8 @@ export interface DetectedManagerInfo {
   group: ManagerGroup;
   requiresAdmin: boolean;
   version?: string;
+  /** The probe could not answer: the manager enters the run as indeterminate. */
+  undetermined?: boolean;
 }
 
 export type Action =
@@ -32,6 +34,7 @@ export type Action =
   | { type: 'MGR_DONE'; id: string; result: ManagerResult }
   | { type: 'MGR_FAILED'; id: string; result: ManagerResult }
   | { type: 'MGR_SKIPPED'; id: string; manualCommand: string }
+  | { type: 'MGR_UNKNOWN'; id: string; result: ManagerResult }
   | { type: 'RUN_DONE' }
   | { type: 'SET_LANGUAGE'; lang: Language }
   | { type: 'TOGGLE_ENABLED'; id: string }

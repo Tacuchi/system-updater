@@ -103,4 +103,16 @@ describe('reconcile', () => {
     const r = reconcile(undefined, [out('a')], { stillOutdated: [] }, [okCmd]);
     expect(r.reboot).toBeUndefined();
   });
+
+  it('sin foto posterior el resultado es INDETERMINADO, nunca éxito', () => {
+    // Una lista de «sigue pendiente» vacía se habría leído como «todo se
+    // actualizó»: exactamente el silencio que esta función existe para evitar.
+    const r = reconcile(['a'], [{ name: 'a', currentVersion: '1.0', newVersion: '2.0' }], null, []);
+    expect(r.status).toBe('unknown');
+    expect(r.success).toBe(false);
+    expect(r.upgraded).toBe(0);
+    expect(r.failed).toBe(0);
+    expect(r.packages?.[0]).toMatchObject({ name: 'a', outcome: 'unknown', fromVersion: '1.0', toVersion: '2.0' });
+    expect(r.errors[0]).toContain('no se pudo verificar');
+  });
 });

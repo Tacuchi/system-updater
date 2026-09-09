@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogDir } from './config.js';
-import type { CommandRecord, UpgradeResult } from '../managers/types.js';
+import type { CommandRecord, UpgradeResult, UpgradeStatus } from '../managers/types.js';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
@@ -145,6 +145,9 @@ export interface DetectRecord {
   exitCode: number | null;
   available: boolean;
   version?: string;
+  /** The probe ran but could not decide — never the same as absent. */
+  undetermined?: boolean;
+  timedOut?: boolean;
   /** The descriptor ran its own probe, so `cmd` is the declared one, not the run one. */
   viaEscapeHatch?: boolean;
 }
@@ -159,6 +162,7 @@ export interface ScanRecord {
   count: number;
   /** Whether the listing itself succeeded — `npm outdated` exits 1 on success. */
   ok: boolean;
+  timedOut?: boolean;
 }
 
 function exitOf(code: number | null): string {
@@ -170,14 +174,23 @@ function waitOf(timeoutMs: number | undefined): string {
 }
 
 /** Pure: the line a presence probe leaves. */
+function timeoutMark(timedOut: boolean | undefined): string {
+  return timedOut === true ? ' (expiró)' : '';
+}
+
 function formatDetectLine(r: DetectRecord): string {
-  const verdict = r.available ? `disponible${r.version ? ` version=${r.version}` : ''}` : 'ausente';
-  return `${r.managerId}: detect cmd="${r.cmd}"${waitOf(r.timeoutMs)} ${exitOf(r.exitCode)} (${r.durationMs}ms) → ${verdict}`;
+  const verdict = r.available
+    ? `disponible${r.version ? ` version=${r.version}` : ''}`
+    : r.undetermined
+      ? `indeterminado${timeoutMark(r.timedOut)}`
+      : 'ausente';
+  const via = r.viaEscapeHatch ? ' via=escape-hatch' : '';
+  return `${r.managerId}: detect cmd="${r.cmd}"${via}${waitOf(r.timeoutMs)} ${exitOf(r.exitCode)} (${r.durationMs}ms) → ${verdict}`;
 }
 
 /** Pure: the line an outdated listing leaves. */
 function formatScanLine(r: ScanRecord): string {
-  const verdict = r.ok ? `pendientes=${r.count}` : 'listado fallido';
+  const verdict = r.ok ? `pendientes=${r.count}` : `indeterminado${timeoutMark(r.timedOut)}`;
   return `${r.managerId}: scan cmd="${r.cmd}"${waitOf(r.timeoutMs)} ${exitOf(r.exitCode)} (${r.durationMs}ms) → ${verdict}`;
 }
 
@@ -194,11 +207,11 @@ export function logDetect(r: DetectRecord): void {
   addToMemory('debug', line);
 }
 
-/** Record an outdated listing. */
+/** Record an outdated listing. A failed one is a WARN: nobody greps DEBUG for it. */
 export function logScan(r: ScanRecord): void {
   const line = formatScanLine(r);
-  writeRaw('DEBUG', line);
-  addToMemory('debug', line);
+  writeRaw(r.ok ? 'DEBUG' : 'WARN', line);
+  addToMemory(r.ok ? 'debug' : 'warn', line);
 }
 
 /** What the run offered against what the user chose to upgrade. */
@@ -241,7 +254,10 @@ export function formatResultLines(r: UpgradeResult): string[] {
   }
   for (const p of r.packages ?? []) {
     const ver = p.fromVersion || p.toVersion ? ` ${p.fromVersion ?? '?'}->${p.toVersion ?? '?'}` : '';
-    lines.push(`  ${id}: ${p.name}${ver} [${p.outcome}]`);
+    // The reason rides on the package's own line. It used to be logged again,
+    // separately, from `errors` — two near-identical entries for one package.
+    const why = p.failureKind ? ` (${p.failureKind})` : '';
+    lines.push(`  ${id}: ${p.name}${ver} [${p.outcome}]${why}`);
   }
   return lines;
 }
@@ -250,19 +266,33 @@ export function formatResultLines(r: UpgradeResult): string[] {
 export function logResult(r: UpgradeResult): void {
   const id = r.managerId ?? '?';
   const ok = r.status === 'success' || r.status === 'noop';
-  const level: LogLevel = ok ? 'INFO' : r.status === 'partial' ? 'WARN' : 'ERROR';
+  const level: LogLevel =
+    ok ? 'INFO' : r.status === 'partial' || r.status === 'unknown' ? 'WARN' : 'ERROR';
   for (const line of formatResultLines(r)) writeRaw(level, line);
-  for (const e of r.errors) writeRaw(level, `  ${id}: ${e}`);
+  // Only the errors no package line already carries — a manager-level failure
+  // with no packages to attribute it to.
+  if ((r.packages ?? []).length === 0) {
+    for (const e of r.errors) writeRaw(level, `  ${id}: ${e}`);
+  }
   const memLevel: LogEntry['level'] = ok ? 'info' : r.status === 'partial' ? 'warn' : 'error';
   addToMemory(memLevel, `${id}: ${r.status} (${r.upgraded} ok, ${r.failed} fail)`);
 }
 
-/** Minimal shape of a run summary the logger needs (a superset is accepted). */
+/**
+ * Minimal shape of a run summary the logger needs (a superset is accepted).
+ *
+ * `status` is `UpgradeStatus` and not `string` on purpose: that is what stops the
+ * per-manager verdict and this closing block from drifting into two vocabularies
+ * for the same facts, which is what `done` vs `success` and `skipped` vs `noop`
+ * were. Now the compiler refuses a third spelling.
+ */
 export interface RunSummaryLog {
   upgraded: number;
   failed: number;
   skipped: number;
-  managers: { id: string; status: string; upgraded: number; failed: number; durationMs?: number }[];
+  /** Managers whose outcome could not be established. Never folded into the rest. */
+  unknown: number;
+  managers: { id: string; status: UpgradeStatus; upgraded: number; failed: number; durationMs?: number }[];
 }
 
 /** Pure: format the end-of-run summary block (plain text, no JSON). Testable. */
@@ -272,7 +302,9 @@ export function formatRunSummary(s: RunSummaryLog): string[] {
     const dur = m.durationMs !== undefined ? ` ${m.durationMs}ms` : '';
     lines.push(`  ${m.id}: ${m.status} (${m.upgraded} ok, ${m.failed} fail)${dur}`);
   }
-  lines.push(`Total: ${s.upgraded} upgraded · ${s.failed} failed · ${s.skipped} skipped`);
+  lines.push(
+    `Total: ${s.upgraded} upgraded · ${s.failed} failed · ${s.skipped} skipped · ${s.unknown} unknown`,
+  );
   return lines;
 }
 

@@ -23,6 +23,11 @@ const SPECS: Record<ManagerStatus, GlyphSpec> = {
   done: { glyph: g.done, color: semantic.success },
   failed: { glyph: g.failed, color: semantic.error },
   skipped: { glyph: g.skipped, color: semantic.warning },
+  // Amber and a one-cell `?`: it cannot reuse `muted`, which is the colour of
+  // "up to date" — the confusion this state exists to remove (DES-001@r1). The
+  // spec lands here with the domain state because this table is exhaustive over
+  // ManagerStatus, so the state cannot exist without it.
+  unknown: { glyph: g.unknown, color: semantic.unknown },
 };
 
 export function statusColor(status: ManagerStatus): string {

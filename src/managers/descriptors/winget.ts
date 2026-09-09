@@ -1,6 +1,7 @@
 import type { ManagerDescriptor, ManagerCtx } from '../descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from '../types.js';
 import { execCommand } from '../../lib/executor.js';
+import { requireListing } from '../listing.js';
 import { runStream } from '../../lib/exec/run.js';
 import { reconcile } from '../../lib/result/verify.js';
 import * as logger from '../../lib/logger.js';
@@ -63,6 +64,7 @@ async function listWinget(): Promise<OutdatedPackage[]> {
     ['list', '--upgrade-available', '--include-unknown', '--accept-source-agreements'],
     60_000,
   );
+  requireListing('winget', res);
   return parseWingetOutdated(res.stdout);
 }
 

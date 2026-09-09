@@ -4,7 +4,10 @@ import type { AppState } from '../state/types.js';
 
 // summarizeRun only reads state.run.queue + state.managers, so a partial cast is enough.
 const make = (managers: Record<string, unknown>, queue: string[]): AppState =>
-  ({ run: { queue, doneCount: 0, failedCount: 0, skippedCount: 0 }, managers } as unknown as AppState);
+  ({
+    run: { queue, doneCount: 0, failedCount: 0, skippedCount: 0, unknownCount: 0 },
+    managers,
+  } as unknown as AppState);
 
 describe('summarizeRun', () => {
   it('aggregates upgraded/failed/skipped across the run queue', () => {
@@ -20,6 +23,7 @@ describe('summarizeRun', () => {
       upgraded: 3,
       failed: 1,
       skipped: 1,
+      unknown: 0,
       managers: [
         { id: 'brew', status: 'done', upgraded: 2, failed: 0 },
         { id: 'winget', status: 'failed', upgraded: 1, failed: 1 },
@@ -34,6 +38,7 @@ describe('summarizeRun', () => {
       upgraded: 1,
       failed: 0,
       skipped: 0,
+      unknown: 0,
       managers: [{ id: 'brew', status: 'done', upgraded: 1, failed: 0 }],
     });
   });
@@ -62,5 +67,21 @@ describe('summarizeRun', () => {
   it('leaves duration undefined when result timings are absent', () => {
     const state = make({ brew: { status: 'done', result: { upgraded: 1, failed: 0 } } }, ['brew']);
     expect(summarizeRun(state).managers[0]!.durationMs).toBeUndefined();
+  });
+
+  it('un gestor indeterminado NO suma a actualizados, ni a fallidos, ni a al día', () => {
+    const state = make(
+      {
+        brew: { status: 'done', result: { upgraded: 2, failed: 0 } },
+        gem: { status: 'unknown', result: { upgraded: 0, failed: 0 } },
+      },
+      ['brew', 'gem'],
+    );
+    const s = summarizeRun(state);
+    expect(s.upgraded).toBe(2);
+    expect(s.failed).toBe(0);
+    expect(s.skipped).toBe(0);
+    expect(s.unknown).toBe(1);
+    expect(s.managers.find(m => m.id === 'gem')?.status).toBe('unknown');
   });
 });

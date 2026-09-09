@@ -1,6 +1,7 @@
 import type { ManagerDescriptor, ManagerCtx } from '../descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from '../types.js';
 import { execCommand } from '../../lib/executor.js';
+import { requireListing } from '../listing.js';
 import { runStream } from '../../lib/exec/run.js';
 import { once } from '../../lib/exec/capabilities.js';
 import { reconcile } from '../../lib/result/verify.js';
@@ -81,7 +82,7 @@ async function pep668Flags(): Promise<string[]> {
 async function listOutdated(): Promise<OutdatedPackage[]> {
   const { cmd, baseArgs } = await resolvedInvocation();
   const res = await execCommand(cmd, [...baseArgs, 'list', '--outdated', '--format=json'], 30_000);
-  if (res.exitCode !== 0) return [];
+  requireListing('pip', res);
   return parsePipOutdated(res.stdout);
 }
 

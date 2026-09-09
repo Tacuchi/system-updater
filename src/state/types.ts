@@ -1,4 +1,4 @@
-import type { ManagerGroup, PackageOutcome, RebootState } from '../managers/types.js';
+import type { ManagerGroup, PackageOutcome, RebootState, UpgradeStatus } from '../managers/types.js';
 import type { UserConfig } from '../lib/config.js';
 import type { Language } from '../i18n/index.js';
 
@@ -22,7 +22,8 @@ export type ManagerStatus =
   | 'running' // upgrading now
   | 'done' // upgraded successfully
   | 'failed' // upgrade failed
-  | 'skipped'; // readonly / no-sudo → manual command
+  | 'skipped' // readonly / no-sudo → manual command
+  | 'unknown'; // the probe, the listing or the verification could not answer
 
 export interface PackageItem {
   name: string;
@@ -47,7 +48,7 @@ export interface ManagerPackageResult {
 }
 
 export interface ManagerResult {
-  status: 'success' | 'partial' | 'failed' | 'cancelled' | 'noop';
+  status: UpgradeStatus;
   upgraded: number;
   failed: number;
   skipped: number;
@@ -81,6 +82,8 @@ export interface RunState {
   doneCount: number;
   failedCount: number;
   skippedCount: number;
+  /** Managers whose outcome could not be established. Never folded into the others. */
+  unknownCount: number;
 }
 
 export interface AppState {

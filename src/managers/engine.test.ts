@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { fromDescriptor } from './engine.js';
+import { ListingUnavailableError } from './listing.js';
 import type { ExecDeps } from './engine.js';
 import type { ManagerDescriptor } from './descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from './types.js';
@@ -7,6 +8,11 @@ import { normalizeConfig } from '../lib/config.js';
 import { getLogEntries } from '../lib/logger.js';
 
 const cfg = normalizeConfig({});
+
+/** An ExecResult with the two honesty fields defaulted: ran, did not time out. */
+function ran(stdout: string, exitCode = 0, extra: { timedOut?: boolean; spawnFailed?: boolean } = {}) {
+  return { stdout, stderr: '', exitCode, timedOut: false, spawnFailed: false, ...extra };
+}
 
 function parseLines(stdout: string): OutdatedPackage[] {
   return stdout
@@ -45,9 +51,9 @@ function makeDeps(o: {
     calls,
     async execCommand(cmd, args) {
       calls.push([cmd, ...args].join(' '));
-      if (args.includes('--version')) return { stdout: o.version ?? '1.0.0', stderr: '', exitCode: 0 };
-      if (args.includes('outdated')) return { stdout: o.outdatedQueue[idx++] ?? '', stderr: '', exitCode: 0 };
-      return { stdout: '', stderr: '', exitCode: 0 };
+      if (args.includes('--version')) return ran(o.version ?? '1.0.0');
+      if (args.includes('outdated')) return ran(o.outdatedQueue[idx++] ?? '');
+      return ran('');
     },
     async *runStream(cmd, args, _opts, pp): AsyncGenerator<ProgressEvent, CommandRecord> {
       calls.push([cmd, ...args].join(' '));
@@ -137,7 +143,7 @@ describe('fromDescriptor', () => {
     let captured: AbortSignal | undefined;
     const deps: ExecDeps = {
       async execCommand() {
-        return { stdout: '', stderr: '', exitCode: 0 };
+        return ran('');
       },
       async *runStream(_cmd, _args, opts) {
         captured = opts.signal;
@@ -182,21 +188,48 @@ describe('la detección y el escaneo dejan traza', () => {
     expect(line).toContain('→ disponible version=1.2.3');
   });
 
-  it('un sondeo que falla se registra como ausente, no en silencio', async () => {
+  it('un binario que no se puede lanzar es ausente, y se registra como tal', async () => {
     const before = getLogEntries().length;
-    const deps: ExecDeps = {
+    const mgr = fromDescriptor(fooDescriptor, cfg, {
       async execCommand() {
-        return { stdout: '', stderr: 'not found', exitCode: 127 };
+        return ran('', 127, { spawnFailed: true });
       },
       async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
         return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
       },
-    };
-    const mgr = fromDescriptor(fooDescriptor, cfg, deps);
+    });
     expect(await mgr.detect()).toEqual({ available: false });
+    expect(traceSince(before).find(m => m.includes('foo: detect'))).toContain('→ ausente');
+  });
+
+  it('un sondeo que corre y no puede decidir es INDETERMINADO, no ausente', async () => {
+    const before = getLogEntries().length;
+    const mgr = fromDescriptor(fooDescriptor, cfg, {
+      async execCommand() {
+        return ran('', 3);
+      },
+      async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
+        return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+      },
+    });
+    expect(await mgr.detect()).toEqual({ available: false, undetermined: true });
     const line = traceSince(before).find(m => m.includes('foo: detect'));
-    expect(line).toContain('exit=127');
-    expect(line).toContain('→ ausente');
+    expect(line).toContain('exit=3');
+    expect(line).toContain('→ indeterminado');
+  });
+
+  it('un sondeo que expira es indeterminado y lo dice', async () => {
+    const before = getLogEntries().length;
+    const mgr = fromDescriptor(fooDescriptor, cfg, {
+      async execCommand() {
+        return ran('', 1, { timedOut: true });
+      },
+      async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
+        return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+      },
+    });
+    expect((await mgr.detect()).undetermined).toBe(true);
+    expect(traceSince(before).find(m => m.includes('foo: detect'))).toContain('→ indeterminado (expiró)');
   });
 
   it('un listado deja su duración y cuántos pendientes arrojó', async () => {
@@ -209,22 +242,24 @@ describe('la detección y el escaneo dejan traza', () => {
     expect(line).toMatch(/\(\d+ms\)/);
   });
 
-  it('un listado que falla queda marcado como fallido y no como cero pendientes', async () => {
+  it('un listado que falla NO devuelve lista vacía: no se puede determinar', async () => {
     const before = getLogEntries().length;
     const deps: ExecDeps = {
       async execCommand(_cmd, args) {
-        if (args.includes('--version')) return { stdout: '1.0.0', stderr: '', exitCode: 0 };
-        return { stdout: '', stderr: 'boom', exitCode: 2 };
+        if (args.includes('--version')) return ran('1.0.0');
+        return ran('', 2);
       },
       async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
         return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
       },
     };
     const mgr = fromDescriptor(fooDescriptor, cfg, deps);
-    expect(await mgr.listOutdated()).toEqual([]);
+    // Una lista vacía es una respuesta legítima —«nada pendiente»— así que un
+    // fallo no puede devolverla: eso ES la confusión que la fase saca.
+    await expect(mgr.listOutdated()).rejects.toThrow(ListingUnavailableError);
     const line = traceSince(before).find(m => m.includes('foo: scan'));
     expect(line).toContain('exit=2');
-    expect(line).toContain('→ listado fallido');
+    expect(line).toContain('→ indeterminado');
   });
 
   it('un descriptor sin comando de listado lo dice, en vez de no dejar rastro', async () => {
@@ -235,5 +270,39 @@ describe('la detección y el escaneo dejan traza', () => {
     const mgr = fromDescriptor(readonlyDescriptor, cfg, makeDeps({ outdatedQueue: [] }));
     expect(await mgr.listOutdated()).toEqual([]);
     expect(traceSince(before).find(m => m.includes('foo: scan'))).toContain('(sin comando de listado)');
+  });
+
+  it('un upgrade cuya verificación no se puede tomar es indeterminado, no éxito', async () => {
+    let listCalls = 0;
+    const mgr = fromDescriptor(fooDescriptor, cfg, {
+      async execCommand(_cmd, args) {
+        if (args.includes('--version')) return ran('1.0.0');
+        // La foto previa sale bien; la posterior falla.
+        listCalls += 1;
+        return listCalls === 1 ? ran('a 1.0 2.0') : ran('', 2);
+      },
+      async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
+        return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+      },
+    });
+    const { result } = await drain(mgr.upgrade(['a']));
+    expect(result.status).toBe('unknown');
+    expect(result.success).toBe(false);
+    expect(result.upgraded).toBe(0);
+  });
+
+  it('sin foto previa y sin paquetes pedidos, no hay nada que afirmar', async () => {
+    const mgr = fromDescriptor(fooDescriptor, cfg, {
+      async execCommand(_cmd, args) {
+        if (args.includes('--version')) return ran('1.0.0');
+        return ran('', 2);
+      },
+      async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
+        return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+      },
+    });
+    const { result } = await drain(mgr.upgrade());
+    expect(result.status).toBe('unknown');
+    expect(result.errors[0]).toContain('no se pudo determinar la lista de pendientes');
   });
 });

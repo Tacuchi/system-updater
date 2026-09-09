@@ -46,9 +46,10 @@ vi.mock('./managers/registry.js', async () => {
   let listed = 0;
   const deps: ExecDeps = {
     async execCommand(_cmd, args) {
-      if (args.includes('--version')) return { stdout: '9.9.9', stderr: '', exitCode: 0 };
-      if (args.includes('outdated')) return { stdout: listings[listed++] ?? '', stderr: '', exitCode: 0 };
-      return { stdout: '', stderr: '', exitCode: 0 };
+      const ran = (stdout: string) => ({ stdout, stderr: '', exitCode: 0, timedOut: false, spawnFailed: false });
+      if (args.includes('--version')) return ran('9.9.9');
+      if (args.includes('outdated')) return ran(listings[listed++] ?? '');
+      return ran('');
     },
     async *runStream(cmd, args) {
       yield { type: 'log' as const, message: 'upgrading left-pad' };
