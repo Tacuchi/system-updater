@@ -77,26 +77,89 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
     defaultTimeoutMs: d.defaultTimeoutMs,
 
     async detect(): Promise<ManagerDetection> {
+      const spec = d.detectCmd;
+      const timeoutMs = spec.timeout ?? DETECT_TIMEOUT;
+      const startedAt = Date.now();
+
       if (d.escapeHatch?.detect) {
         const r = await d.escapeHatch.detect(ctx(false));
+        logger.logDetect({
+          managerId: d.id,
+          cmd: `${spec.cmd} ${spec.args.join(' ')}`,
+          viaEscapeHatch: true,
+          timeoutMs,
+          durationMs: Date.now() - startedAt,
+          exitCode: null,
+          available: r.available,
+          version: r.version,
+        });
         return { available: r.available, version: r.version };
       }
-      const spec = d.detectCmd;
-      const res = await deps.execCommand(spec.cmd, spec.args, spec.timeout ?? DETECT_TIMEOUT, sudoFor(spec, ctx(false)));
+
+      const res = await deps.execCommand(spec.cmd, spec.args, timeoutMs, sudoFor(spec, ctx(false)));
       const ok = res.exitCode === 0 || (d.detectOkExitCodes?.includes(res.exitCode) ?? false);
-      if (!ok) return { available: false };
-      return { available: true, version: d.parseVersion?.(res.stdout, res.stderr) };
+      const detection: ManagerDetection = ok
+        ? { available: true, version: d.parseVersion?.(res.stdout, res.stderr) }
+        : { available: false };
+      logger.logDetect({
+        managerId: d.id,
+        cmd: `${spec.cmd} ${spec.args.join(' ')}`,
+        timeoutMs,
+        durationMs: Date.now() - startedAt,
+        exitCode: res.exitCode,
+        available: detection.available,
+        version: detection.version,
+      });
+      return detection;
     },
 
     async listOutdated(): Promise<OutdatedPackage[]> {
       const c = ctx(false);
-      if (d.escapeHatch?.listOutdated) return d.escapeHatch.listOutdated(c);
-      if (!d.listOutdatedCmd || !d.parseOutdated) return [];
+      const startedAt = Date.now();
+
+      if (d.escapeHatch?.listOutdated) {
+        const list = await d.escapeHatch.listOutdated(c);
+        logger.logScan({
+          managerId: d.id,
+          cmd: '(escape hatch)',
+          timeoutMs: LIST_TIMEOUT,
+          durationMs: Date.now() - startedAt,
+          exitCode: null,
+          count: list.length,
+          ok: true,
+        });
+        return list;
+      }
+
+      // A read-only descriptor has nothing to list. Saying so is what keeps
+      // "shows no packages" from being indistinguishable from "was never asked".
+      if (!d.listOutdatedCmd || !d.parseOutdated) {
+        logger.logScan({
+          managerId: d.id,
+          cmd: '(sin comando de listado)',
+          durationMs: Date.now() - startedAt,
+          exitCode: null,
+          count: 0,
+          ok: true,
+        });
+        return [];
+      }
+
       const spec = d.listOutdatedCmd(c);
-      const res = await deps.execCommand(spec.cmd, spec.args, spec.timeout ?? LIST_TIMEOUT, sudoFor(spec, c));
+      const timeoutMs = spec.timeout ?? LIST_TIMEOUT;
+      const res = await deps.execCommand(spec.cmd, spec.args, timeoutMs, sudoFor(spec, c));
       const ok = res.exitCode === 0 || (d.listOkExitCodes?.includes(res.exitCode) ?? false);
-      if (!ok) return [];
-      return d.parseOutdated(res.stdout, res.stderr, c);
+      const list = ok ? d.parseOutdated(res.stdout, res.stderr, c) : [];
+      logger.logScan({
+        managerId: d.id,
+        cmd: `${spec.cmd} ${spec.args.join(' ')}`,
+        timeoutMs,
+        durationMs: Date.now() - startedAt,
+        exitCode: res.exitCode,
+        count: list.length,
+        ok,
+      });
+      return list;
     },
 
     async *upgrade(

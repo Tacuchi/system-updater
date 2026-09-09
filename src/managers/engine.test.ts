@@ -4,6 +4,7 @@ import type { ExecDeps } from './engine.js';
 import type { ManagerDescriptor } from './descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from './types.js';
 import { normalizeConfig } from '../lib/config.js';
+import { getLogEntries } from '../lib/logger.js';
 
 const cfg = normalizeConfig({});
 
@@ -158,5 +159,81 @@ describe('fromDescriptor', () => {
     const { result } = await drain(mgr.upgrade(undefined, false));
     expect(result.status).toBe('noop');
     expect(result.manualCommand).toBe('sudo foo upgrade');
+  });
+});
+
+/** The trace of a probe/listing, taken from the log's own buffer. */
+function traceSince(before: number): string[] {
+  return getLogEntries()
+    .slice(before)
+    .map(e => e.message);
+}
+
+describe('la detección y el escaneo dejan traza', () => {
+  it('un sondeo deja su comando, su espera y su resultado', async () => {
+    const before = getLogEntries().length;
+    const mgr = fromDescriptor(fooDescriptor, cfg, makeDeps({ version: '1.2.3', outdatedQueue: [] }));
+    await mgr.detect();
+    const line = traceSince(before).find(m => m.includes('foo: detect'));
+    expect(line).toBeDefined();
+    expect(line).toContain('cmd="foo --version"');
+    expect(line).toContain('timeout=5000ms');
+    expect(line).toContain('exit=0');
+    expect(line).toContain('→ disponible version=1.2.3');
+  });
+
+  it('un sondeo que falla se registra como ausente, no en silencio', async () => {
+    const before = getLogEntries().length;
+    const deps: ExecDeps = {
+      async execCommand() {
+        return { stdout: '', stderr: 'not found', exitCode: 127 };
+      },
+      async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
+        return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+      },
+    };
+    const mgr = fromDescriptor(fooDescriptor, cfg, deps);
+    expect(await mgr.detect()).toEqual({ available: false });
+    const line = traceSince(before).find(m => m.includes('foo: detect'));
+    expect(line).toContain('exit=127');
+    expect(line).toContain('→ ausente');
+  });
+
+  it('un listado deja su duración y cuántos pendientes arrojó', async () => {
+    const before = getLogEntries().length;
+    const mgr = fromDescriptor(fooDescriptor, cfg, makeDeps({ outdatedQueue: ['a 1.0 2.0\nb 1.0 2.0'] }));
+    await mgr.listOutdated();
+    const line = traceSince(before).find(m => m.includes('foo: scan'));
+    expect(line).toContain('cmd="foo outdated"');
+    expect(line).toContain('→ pendientes=2');
+    expect(line).toMatch(/\(\d+ms\)/);
+  });
+
+  it('un listado que falla queda marcado como fallido y no como cero pendientes', async () => {
+    const before = getLogEntries().length;
+    const deps: ExecDeps = {
+      async execCommand(_cmd, args) {
+        if (args.includes('--version')) return { stdout: '1.0.0', stderr: '', exitCode: 0 };
+        return { stdout: '', stderr: 'boom', exitCode: 2 };
+      },
+      async *runStream(cmd, args): AsyncGenerator<ProgressEvent, CommandRecord> {
+        return { cmd: [cmd, ...args].join(' '), exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
+      },
+    };
+    const mgr = fromDescriptor(fooDescriptor, cfg, deps);
+    expect(await mgr.listOutdated()).toEqual([]);
+    const line = traceSince(before).find(m => m.includes('foo: scan'));
+    expect(line).toContain('exit=2');
+    expect(line).toContain('→ listado fallido');
+  });
+
+  it('un descriptor sin comando de listado lo dice, en vez de no dejar rastro', async () => {
+    const before = getLogEntries().length;
+    // A read-only descriptor simply declares no listing command.
+    const readonlyDescriptor: ManagerDescriptor = { ...fooDescriptor };
+    delete readonlyDescriptor.listOutdatedCmd;
+    const mgr = fromDescriptor(readonlyDescriptor, cfg, makeDeps({ outdatedQueue: [] }));
+    expect(await mgr.listOutdated()).toEqual([]);
+    expect(traceSince(before).find(m => m.includes('foo: scan'))).toContain('(sin comando de listado)');
   });
 });

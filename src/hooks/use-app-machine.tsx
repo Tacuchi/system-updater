@@ -206,6 +206,22 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     if (tasks.length === 0) return;
 
     const queue = tasks.map(t => t.manager.id);
+
+    // What was offered against what was chosen, at the moment of confirming.
+    // Without it a run that upgraded one of forty-three pending packages is
+    // indistinguishable from one that only ever had a single package.
+    logger.logSelection({
+      offered: state.order.reduce((n, id) => n + (state.managers[id]?.outdated.length ?? 0), 0),
+      chosen: state.selection.size,
+      managers: state.order
+        .filter(id => (state.managers[id]?.outdated.length ?? 0) > 0)
+        .map(id => ({
+          id,
+          offered: state.managers[id]?.outdated.length ?? 0,
+          chosen: packagesByManager.get(id)?.length ?? 0,
+        })),
+    });
+
     dispatch({ type: 'RUN_START', queue });
     const ac = new AbortController();
     abortRef.current = ac;

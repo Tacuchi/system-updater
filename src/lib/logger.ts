@@ -130,6 +130,103 @@ export function logCommand(rec: CommandRecord): void {
 }
 
 /**
+ * A presence probe, as the log records it.
+ *
+ * `exitCode` is null when a descriptor's escape hatch ran the probe: those own
+ * their own commands and there is no single exit code to report. Saying `n/d`
+ * is the point — the alternative was coercing it to 0, which is how a missing
+ * binary starts looking like a successful detection.
+ */
+export interface DetectRecord {
+  managerId: string;
+  cmd: string;
+  timeoutMs?: number;
+  durationMs: number;
+  exitCode: number | null;
+  available: boolean;
+  version?: string;
+  /** The descriptor ran its own probe, so `cmd` is the declared one, not the run one. */
+  viaEscapeHatch?: boolean;
+}
+
+/** An outdated-package listing, as the log records it. */
+export interface ScanRecord {
+  managerId: string;
+  cmd: string;
+  timeoutMs?: number;
+  durationMs: number;
+  exitCode: number | null;
+  count: number;
+  /** Whether the listing itself succeeded — `npm outdated` exits 1 on success. */
+  ok: boolean;
+}
+
+function exitOf(code: number | null): string {
+  return code === null ? 'exit=n/d' : `exit=${code}`;
+}
+
+function waitOf(timeoutMs: number | undefined): string {
+  return timeoutMs === undefined ? '' : ` timeout=${timeoutMs}ms`;
+}
+
+/** Pure: the line a presence probe leaves. */
+function formatDetectLine(r: DetectRecord): string {
+  const verdict = r.available ? `disponible${r.version ? ` version=${r.version}` : ''}` : 'ausente';
+  return `${r.managerId}: detect cmd="${r.cmd}"${waitOf(r.timeoutMs)} ${exitOf(r.exitCode)} (${r.durationMs}ms) → ${verdict}`;
+}
+
+/** Pure: the line an outdated listing leaves. */
+function formatScanLine(r: ScanRecord): string {
+  const verdict = r.ok ? `pendientes=${r.count}` : 'listado fallido';
+  return `${r.managerId}: scan cmd="${r.cmd}"${waitOf(r.timeoutMs)} ${exitOf(r.exitCode)} (${r.durationMs}ms) → ${verdict}`;
+}
+
+/**
+ * Record a presence probe.
+ *
+ * Until now the log jumped straight from its header to the first upgrade
+ * command: nineteen probes and ten listings happened in between and left not one
+ * line, so "brew is not installed" and "the probe timed out" read identically.
+ */
+export function logDetect(r: DetectRecord): void {
+  const line = formatDetectLine(r);
+  writeRaw('DEBUG', line);
+  addToMemory('debug', line);
+}
+
+/** Record an outdated listing. */
+export function logScan(r: ScanRecord): void {
+  const line = formatScanLine(r);
+  writeRaw('DEBUG', line);
+  addToMemory('debug', line);
+}
+
+/** What the run offered against what the user chose to upgrade. */
+export interface SelectionRecord {
+  offered: number;
+  chosen: number;
+  managers: { id: string; offered: number; chosen: number }[];
+}
+
+/**
+ * Pure: the offered-vs-chosen block.
+ *
+ * Without it a run that upgraded one of forty-three pending packages looks
+ * identical to one that had a single package to begin with.
+ */
+function formatSelectionLines(s: SelectionRecord): string[] {
+  const lines = [`Selección: ofrecidos=${s.offered} elegidos=${s.chosen}`];
+  for (const m of s.managers) lines.push(`  ${m.id}: ofrecidos=${m.offered} elegidos=${m.chosen}`);
+  return lines;
+}
+
+/** Record what was offered against what was chosen, at the moment of confirming. */
+export function logSelection(s: SelectionRecord): void {
+  for (const line of formatSelectionLines(s)) writeRaw('INFO', line);
+  addToMemory('info', `Selección: ${s.chosen} de ${s.offered}`);
+}
+
+/**
  * Pure: format a manager's result into plain-text log lines — the status verdict,
  * its real duration, and a line per package (name + version delta + outcome).
  * Exported so it's testable without touching the file stream.
