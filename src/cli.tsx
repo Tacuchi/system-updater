@@ -5,7 +5,8 @@ import App from './app.js';
 import { isElevated } from './lib/elevation.js';
 import { fireProcessCancel } from './lib/cancellation.js';
 import { getVersion } from './lib/version.js';
-import { warn as logWarn } from './lib/logger.js';
+import { settleRun } from './lib/run-closure.js';
+import type { TerminationMode } from './lib/logger.js';
 
 const args = process.argv.slice(2);
 const sudoRequested = args.includes('--sudo') || args.includes('-s');
@@ -85,22 +86,30 @@ const nonInteractive =
 
 const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteractive} />);
 
-// Cancel the active run (abort → tree-kill the child process tree) BEFORE unmounting,
-// so Ctrl+C / Ctrl+Break never orphan a winget/choco install tree (bug #2). A short
-// grace period lets tree-kill (taskkill /T /F on Windows) actually run.
+// Cancel the active run BEFORE unmounting, so no signal ever orphans a
+// winget/choco/brew install tree (bug #2). The cancel goes FIRST so tree-kill
+// starts immediately and the short grace period below lets it finish; the closure
+// is written right after it, because whatever margin the OS gives us can end at
+// any moment.
+//
+// Ctrl+C and Ctrl+Break are the user stopping the run; SIGHUP (the terminal window
+// closing) and SIGTERM are the environment stopping it — a distinction the log has
+// to keep, since only one of the two is somebody's decision.
 const onSignal =
-  (code: number, name: string): (() => void) =>
+  (code: number, name: string, mode: TerminationMode): (() => void) =>
   () => {
-    // Leave a trace in the log file: an interrupted run otherwise just truncates
-    // (per-manager verdicts present, no "Resumen del run"), which reads as a hang.
-    logWarn(`Interrumpido por señal (${name}) — run incompleto, sin resumen`);
     fireProcessCancel();
+    settleRun(mode, `señal ${name}`);
     setTimeout(() => {
       unmount();
       process.exit(code);
     }, 200);
   };
 
-process.on('SIGINT', onSignal(130, 'SIGINT'));
-process.on('SIGTERM', onSignal(143, 'SIGTERM'));
-process.on('SIGBREAK', onSignal(130, 'SIGBREAK')); // Windows Ctrl+Break
+process.on('SIGINT', onSignal(130, 'SIGINT', 'cancelada'));
+process.on('SIGTERM', onSignal(143, 'SIGTERM', 'interrumpida'));
+process.on('SIGBREAK', onSignal(130, 'SIGBREAK', 'cancelada')); // Windows Ctrl+Break
+// Terminal window closed. Unhandled until now, so closing the window left a run
+// with no closing line at all — the exit route with the least margin and the one
+// nobody can retry.
+process.on('SIGHUP', onSignal(129, 'SIGHUP', 'interrumpida'));

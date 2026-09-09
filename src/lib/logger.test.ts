@@ -5,7 +5,7 @@ import {
   getLogEntries,
   formatResultLines,
   formatRunSummary,
-  logRunSummary,
+  formatRunClosure,
 } from './logger.js';
 import type { CommandRecord, UpgradeResult } from '../managers/types.js';
 
@@ -74,7 +74,7 @@ describe('formatResultLines', () => {
   });
 });
 
-describe('formatRunSummary / logRunSummary', () => {
+describe('formatRunSummary', () => {
   const summary = {
     upgraded: 3,
     failed: 1,
@@ -94,12 +94,30 @@ describe('formatRunSummary / logRunSummary', () => {
     expect(lines.at(-1)).toBe('Total: 3 upgraded · 1 failed · 1 skipped');
     expect(lines.join('\n')).not.toContain('{');
   });
+});
 
-  it('records a concise summary entry in the in-memory buffer', () => {
-    const before = getLogEntries().length;
-    logRunSummary(summary);
-    const last = getLogEntries().at(-1);
-    expect(getLogEntries().length).toBe(before + 1);
-    expect(last?.message).toContain('3 ok');
+describe('formatRunClosure', () => {
+  const summary = {
+    upgraded: 2,
+    failed: 0,
+    skipped: 0,
+    managers: [{ id: 'brew', status: 'done', upgraded: 2, failed: 0, durationMs: 900 }],
+  };
+
+  it('cierra con el modo de término en la ÚLTIMA línea, después del resumen', () => {
+    const lines = formatRunClosure('completa', summary);
+    expect(lines[0]).toContain('Resumen del run');
+    expect(lines).toContain('  brew: done (2 ok, 0 fail) 900ms');
+    expect(lines.at(-1)).toBe('Cierre del run: modo=completa');
+  });
+
+  it('cierra igual cuando no hay resumen: una corrida que salió antes de correr nada', () => {
+    expect(formatRunClosure('cancelada', null)).toEqual(['Cierre del run: modo=cancelada']);
+  });
+
+  it('conserva el detalle que distingue una salida de otra', () => {
+    expect(formatRunClosure('interrumpida', null, 'señal SIGHUP').at(-1)).toBe(
+      'Cierre del run: modo=interrumpida (señal SIGHUP)',
+    );
   });
 });

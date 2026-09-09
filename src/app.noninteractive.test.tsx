@@ -1,5 +1,8 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { render } from 'ink-testing-library';
 
 // Hermetic: mock detection so NO real package-manager is spawned or upgraded.
@@ -25,6 +28,22 @@ vi.mock('./managers/registry.js', () => ({
 }));
 
 import App from './app.js';
+
+// Mounting the app boots the real logger. Without this, every `npm test` appended
+// a run to the deposit the user actually reads — which is also the deposit the
+// retention work has to measure.
+let previousLogDir: string | undefined;
+let tmpLogRoot: string;
+beforeAll(() => {
+  previousLogDir = process.env['TACUCHI_UPDATER_LOG_DIR'];
+  tmpLogRoot = mkdtempSync(join(tmpdir(), 'updater-test-logs-'));
+  process.env['TACUCHI_UPDATER_LOG_DIR'] = tmpLogRoot;
+});
+afterAll(() => {
+  if (previousLogDir === undefined) delete process.env['TACUCHI_UPDATER_LOG_DIR'];
+  else process.env['TACUCHI_UPDATER_LOG_DIR'] = previousLogDir;
+  rmSync(tmpLogRoot, { recursive: true, force: true });
+});
 
 const tick = (ms: number) => new Promise(r => setTimeout(r, ms));
 

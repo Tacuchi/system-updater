@@ -67,12 +67,23 @@ const APP = 'tacuchi-updater';
  * unchanged.
  */
 export function getConfigDir(): string {
+  const override = process.env['TACUCHI_UPDATER_CONFIG_DIR'];
+  if (override) return override;
   if (process.platform === 'win32') return envPaths(APP, { suffix: '' }).config;
   return path.join(os.homedir(), '.tacuchi-updater');
 }
 
-/** Log dir. Windows uses %LOCALAPPDATA% (non-roamed → no OneDrive churn). */
+/**
+ * Log dir. Windows uses %LOCALAPPDATA% (non-roamed → no OneDrive churn).
+ *
+ * `TACUCHI_UPDATER_LOG_DIR` overrides it — as `TACUCHI_UPDATER_CONFIG_DIR` does
+ * for the config dir above. Those overrides are what let a harness launch the
+ * REAL binary and read what it produced, without writing a single line into the
+ * user's own deposit or preferences.
+ */
 export function getLogDir(): string {
+  const override = process.env['TACUCHI_UPDATER_LOG_DIR'];
+  if (override) return override;
   if (process.platform === 'win32') return envPaths(APP, { suffix: '' }).log;
   return path.join(getConfigDir(), 'logs');
 }

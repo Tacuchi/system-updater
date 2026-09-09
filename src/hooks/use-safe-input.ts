@@ -15,6 +15,11 @@ type InputOptions = NonNullable<Parameters<typeof useInput>[1]>;
  */
 export function useSafeInput(handler: InputHandler, options?: InputOptions): void {
   const { isRawModeSupported } = useStdin();
-  const active = (options?.isActive ?? true) && isRawModeSupported;
+  // `isRawModeSupported` is Ink's `stdin.isTTY`, which is UNDEFINED (not false)
+  // for a pipe or /dev/null — and Ink only skips raw mode when `isActive` is
+  // strictly `false`. Passing `undefined` through therefore armed the hook on
+  // exactly the streams it exists to protect, and a piped run died on
+  // "Raw mode is not supported" before it could do anything. Coerce it.
+  const active = (options?.isActive ?? true) && isRawModeSupported === true;
   useInput(handler, { ...options, isActive: active });
 }

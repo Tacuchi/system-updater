@@ -13,16 +13,24 @@ export interface LogEntry {
 }
 
 let logFilePath: string | null = null;
-let logStream: fs.WriteStream | null = null;
+let logFd: number | null = null;
 
 const inMemoryLog: LogEntry[] = [];
 let entryCounter = 0;
 
-function createStream(dir: string, filename: string): { stream: fs.WriteStream; filePath: string } {
+/**
+ * Append-mode file descriptor, written with `fs.writeSync`.
+ *
+ * It used to be an `fs.WriteStream`, which buffers: none of the process' exit
+ * paths ever drained it, so a run could finish its work and lose the tail of its
+ * own log — which is how three of nine real runs ended with per-manager verdicts
+ * and no closing block. A synchronous append has nothing to drain: every line is
+ * on disk the moment it is written, whichever way the process then dies.
+ */
+function openLog(dir: string, filename: string): { fd: number; filePath: string } {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, filename);
-  const stream = fs.createWriteStream(filePath, { flags: 'a', encoding: 'utf-8' });
-  return { stream, filePath };
+  return { fd: fs.openSync(filePath, 'a'), filePath };
 }
 
 export function initLogger(): string {
@@ -34,15 +42,12 @@ export function initLogger(): string {
   // The previous second sink under process.cwd()/logs polluted whatever directory the
   // CLI was launched from and could EPERM; it has been removed.
   try {
-    const { stream, filePath } = createStream(getLogDir(), filename);
-    logStream = stream;
+    const { fd, filePath } = openLog(getLogDir(), filename);
+    logFd = fd;
     logFilePath = filePath;
-    logStream.on('error', () => {
-      logStream = null;
-    });
   } catch {
     // Logging is best-effort; never crash the app because a log file can't be opened.
-    logStream = null;
+    logFd = null;
     logFilePath = null;
   }
 
@@ -57,10 +62,23 @@ export function initLogger(): string {
 }
 
 function writeRaw(level: LogLevel, message: string): void {
+  if (logFd === null) return;
   const now = new Date();
   const timestamp = now.toISOString().replace('T', ' ').split('.')[0];
   const line = `${timestamp} [${level.padEnd(5)}] SystemUpdater - ${message}\n`;
-  logStream?.write(line);
+  try {
+    // writeSync is allowed to write FEWER bytes than asked, and a command tail
+    // can be 16 KB. Looping is what makes "no emitted line is lost" true rather
+    // than usually true.
+    const bytes = new TextEncoder().encode(line);
+    let written = 0;
+    while (written < bytes.length) {
+      written += fs.writeSync(logFd, bytes.subarray(written));
+    }
+  } catch {
+    // A dead descriptor must never crash the app — stop writing to it instead.
+    logFd = null;
+  }
 }
 
 function addToMemory(level: LogEntry['level'], message: string): void {
@@ -161,12 +179,6 @@ export function formatRunSummary(s: RunSummaryLog): string[] {
   return lines;
 }
 
-/** Append the run-summary block to the log file (and one concise memory entry). */
-export function logRunSummary(s: RunSummaryLog): void {
-  for (const line of formatRunSummary(s)) writeRaw('INFO', line);
-  addToMemory('info', `Resumen: ${s.upgraded} ok · ${s.failed} fail · ${s.skipped} skip`);
-}
-
 export function getLogEntries(): LogEntry[] {
   return [...inMemoryLog];
 }
@@ -175,7 +187,43 @@ export function getLogFilePath(): string | null {
   return logFilePath;
 }
 
+/**
+ * Close the sink. After this, `writeRaw` is inert — which is what makes the
+ * closing block the last line of the file BY CONSTRUCTION instead of by luck.
+ */
 export function closeLogger(): void {
-  logStream?.end();
-  logStream = null;
+  if (logFd === null) return;
+  try {
+    fs.closeSync(logFd);
+  } catch {
+    /* the descriptor may already be gone */
+  }
+  logFd = null;
+}
+
+/** How a run ended. Every exit route of the process declares exactly one of these. */
+export type TerminationMode = 'completa' | 'cancelada' | 'interrumpida' | 'fallida' | 'cedida';
+
+/**
+ * Pure: the closing block of a run — its summary when there is one, then the line
+ * that says HOW the run ended. Exported so it is testable without a file.
+ */
+export function formatRunClosure(
+  mode: TerminationMode,
+  summary: RunSummaryLog | null,
+  detail?: string,
+): string[] {
+  const lines = summary ? formatRunSummary(summary) : [];
+  lines.push(`Cierre del run: modo=${mode}${detail ? ` (${detail})` : ''}`);
+  return lines;
+}
+
+/** Append the closing block to the log file (and one concise memory entry). */
+export function logRunClosure(
+  mode: TerminationMode,
+  summary: RunSummaryLog | null,
+  detail?: string,
+): void {
+  for (const line of formatRunClosure(mode, summary, detail)) writeRaw('INFO', line);
+  addToMemory('info', `Cierre del run: ${mode}`);
 }

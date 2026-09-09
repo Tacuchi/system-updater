@@ -53,7 +53,6 @@ function execaOptions(opts: RunOptions, all: boolean) {
     reject: false as const,
     cwd: opts.cwd,
     env: opts.env,
-    cancelSignal: opts.signal,
     all,
     // Capture raw bytes; we sniff-decode (UTF-8 / UTF-16LE / OEM) ourselves.
     encoding: 'buffer' as const,
@@ -61,9 +60,18 @@ function execaOptions(opts: RunOptions, all: boolean) {
 }
 
 /**
- * On abort, kill the child's WHOLE tree (not just the direct child, which is all
- * execa's cancelSignal does). This is what stops a cancelled winget/choco upgrade
- * from orphaning msiexec/installer grandchildren on Windows (bug #2).
+ * On abort, kill the child's WHOLE tree — and be the ONLY thing that does.
+ *
+ * execa's `cancelSignal` used to run alongside this, and the two raced: execa
+ * signals the direct child immediately, so by the time tree-kill asked `ps` for
+ * that child's children the parent was already gone and the grandchildren had
+ * been reparented to pid 1. Measured on macOS with a two-level fake upgrade: the
+ * direct child died, `/bin/sleep` survived, tree-kill reported success. The
+ * orphan is a `winget`/`choco`/`brew` installer still mutating the system with
+ * nothing on screen, which is the whole reason this function exists.
+ *
+ * So cancellation is ours alone: no `cancelSignal` in the execa options, and
+ * tree-kill walks a tree that is still intact when it looks at it.
  */
 function attachTreeKill(signal: AbortSignal | undefined, child: { pid?: number }): void {
   if (!signal) return;

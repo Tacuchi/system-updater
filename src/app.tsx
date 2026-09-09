@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Text, useApp as useInkApp } from 'ink';
+import { Box, Text } from 'ink';
 import { useAppMachine, MachineProvider, useMachine } from './hooks/use-app-machine.js';
 import { useSafeInput } from './hooks/use-safe-input.js';
 import { DetectScreen } from './screens/detect.js';
@@ -48,14 +48,12 @@ function PhaseRouter() {
 }
 
 function Shell({ sudoMode }: { sudoMode: boolean }) {
-  const { exit } = useInkApp();
+  const { quitApp } = useMachine();
   // Global quit only. Phase-specific keys live in each screen so handlers never
-  // collide (only the active screen is mounted).
+  // collide (only the active screen is mounted). The route itself lives in the
+  // machine: leaving has to abort the run and close the log, not just exit.
   useSafeInput((input) => {
-    if (input === 'q' || input === 'Q') {
-      exit();
-      process.exit(0);
-    }
+    if (input === 'q' || input === 'Q') quitApp();
   });
   return (
     <Box flexDirection="column" paddingX={1} width={Math.min(process.stdout.columns ?? 100, 100)}>

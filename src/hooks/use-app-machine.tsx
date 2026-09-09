@@ -18,6 +18,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { relaunchElevated, elevatedSummaryPath } from '../lib/elevation.js';
 import { onProcessCancel } from '../lib/cancellation.js';
+import { registerRunSummary, settleRun } from '../lib/run-closure.js';
 
 /** Pure: project an engine UpgradeResult onto the UI ManagerResult shape. */
 export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResult {
@@ -111,6 +112,8 @@ export interface MachineValue {
   closeSettings: () => void;
   setLang: (lang: 'es' | 'en') => void;
   toggleEnabled: (id: string) => void;
+  /** Leave the app: abort an in-flight run, kill its child tree, settle the log. */
+  quitApp: () => void;
 }
 
 const MachineContext = createContext<MachineValue | null>(null);
@@ -128,6 +131,9 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
   );
   const detectedRef = useRef<DetectedManager[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  // The engine's own accounting of the run so far. Every exit route reads the
+  // closure's numbers from here, never from the rendered state.
+  const runLogRef = useRef<logger.RunSummaryLog | null>(null);
 
   // ---- detect + scan ----
   const boot = useCallback(async () => {
@@ -164,6 +170,9 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
       dispatch({ type: 'SCAN_ALL_DONE' });
     } catch (err) {
       dispatch({ type: 'DETECT_FAILED', error: String(err) });
+      // Detection never got off the ground: this run cannot complete, and saying
+      // so now means the log declares it even if the user closes the terminal.
+      settleRun('fallida', `detección: ${String(err)}`);
     }
   }, []);
 
@@ -177,6 +186,9 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
   // AbortController so Ctrl+C / Ctrl+Break cancel the run (→ tree-kill children),
   // not just unmount Ink. Works regardless of raw-mode (non-interactive too).
   useEffect(() => onProcessCancel(() => abortRef.current?.abort()), []);
+
+  // Where the closing block of the log reads its numbers from.
+  useEffect(() => registerRunSummary(() => runLogRef.current), []);
 
   // ---- run upgrades through the engine ----
   const startRun = useCallback(() => {
@@ -193,10 +205,49 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
       .map(dm => ({ manager: dm.manager, op: 'upgrade', packages: packagesByManager.get(dm.manager.id) }));
     if (tasks.length === 0) return;
 
-    dispatch({ type: 'RUN_START', queue: tasks.map(t => t.manager.id) });
+    const queue = tasks.map(t => t.manager.id);
+    dispatch({ type: 'RUN_START', queue });
     const ac = new AbortController();
     abortRef.current = ac;
     const logRef = getLogFilePath() ?? undefined;
+
+    // Engine-side accounting, kept in step with the results as they land.
+    //
+    // It deliberately does NOT reuse summarizeRun(state): that one aggregates the
+    // UI's state, which at settlement time has not applied the batched dispatch
+    // yet — and reading it is exactly the dependency on rendering that made the
+    // closing block disappear from three real runs. Same numbers, honest source.
+    const settledResults = new Map<string, UpgradeResult>();
+    const skippedIds = new Set<string>();
+    const rebuildRunLog = (): void => {
+      let upgraded = 0;
+      let failed = 0;
+      let skipped = 0;
+      const managers = queue.map(id => {
+        if (skippedIds.has(id)) {
+          skipped++;
+          return { id, status: 'skipped', upgraded: 0, failed: 0 };
+        }
+        const r = settledResults.get(id);
+        // No verdict yet: a signal settles the closure immediately rather than
+        // waiting for the engine, so a manager can legitimately have none. Named
+        // in the same vocabulary as the other statuses; F3 unifies the wording.
+        if (!r) return { id, status: 'unresolved', upgraded: 0, failed: 0 };
+        upgraded += r.upgraded;
+        failed += r.failed;
+        const durationMs =
+          r.startedAt !== undefined && r.finishedAt !== undefined ? r.finishedAt - r.startedAt : undefined;
+        return {
+          id,
+          status: r.status ?? (r.success ? 'success' : 'failed'),
+          upgraded: r.upgraded,
+          failed: r.failed,
+          durationMs,
+        };
+      });
+      runLogRef.current = { upgraded, failed, skipped, managers };
+    };
+    rebuildRunLog();
 
     // Coalesce engine events into ONE batched dispatch per frame (~30fps) so a
     // multi-manager run renders a handful of times per second, not once per
@@ -236,6 +287,9 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
         }
       } else if (e.phase === 'done' && e.result) {
         const r = e.result;
+        settledResults.set(id, r);
+        if (r.status === 'noop' && r.manualCommand) skippedIds.add(id);
+        rebuildRunLog();
         if (r.status === 'noop' && r.manualCommand) {
           enqueue({ type: 'MGR_SKIPPED', id, manualCommand: r.manualCommand });
         } else if (r.success || r.status === 'success' || r.status === 'partial') {
@@ -246,17 +300,31 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
       }
     };
 
+    let engineError: unknown = null;
     void runEngine(tasks, {
       concurrency: config.concurrency,
       signal: ac.signal,
       sudoMode,
       timeoutsMs: config.timeoutsMs,
       onEvent,
-    }).finally(() => {
-      flush(); // drain any buffered events before settling
-      dispatch({ type: 'RUN_DONE' });
-      abortRef.current = null;
-    });
+    })
+      .catch((err: unknown) => {
+        engineError = err;
+        logger.error(`El motor terminó con error: ${String(err)}`);
+      })
+      .finally(() => {
+        flush(); // drain any buffered events before settling
+        dispatch({ type: 'RUN_DONE' });
+        abortRef.current = null;
+        // THIS is the run's settlement, and it is where the log closes — not the
+        // render of the Summary screen. A closure written here survives the user
+        // walking away, the terminal closing, or Ink never painting the frame.
+        // The accounting is already current: the engine emits a `done` for every
+        // manager, cancelled ones included, before it resolves.
+        if (ac.signal.aborted) settleRun('cancelada', 'corrida abortada en vuelo');
+        else if (engineError !== null) settleRun('fallida', `motor: ${String(engineError)}`);
+        else settleRun('completa');
+      });
   }, [state.selection, sudoMode]);
 
   const cancelRun = useCallback(() => {
@@ -280,6 +348,10 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
       if (exitedRef.current) return;
       exitedRef.current = true;
       process.exitCode = code;
+      // A run with nothing to upgrade never reaches the engine's settlement, so
+      // this is its only chance to say it completed. Idempotent: after a real run
+      // the closure already exists and keeps the mode it was settled with.
+      settleRun('completa');
       exit(); // unmount Ink, restoring the terminal
       // Backstop hard-exit in case a stray handle keeps the loop alive. Skipped
       // under vitest so the test runner is never killed.
@@ -329,15 +401,6 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase]);
 
-  // On run completion, append a plain-text run-summary block to the log file so
-  // the end-of-execution detail (per-manager status + duration + totals) is
-  // reconstructable from the log alone. Best-effort; fires once per summary.
-  useEffect(() => {
-    if (state.phase !== 'summary') return;
-    logger.logRunSummary(summarizeRun(state));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase]);
-
   // Relaunch the whole TUI elevated (one UAC) and cede control. Offered in Confirm
   // when admin managers would be skipped for lack of elevation (win32).
   const relaunch = useCallback(() => {
@@ -345,6 +408,9 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
       const ok = await relaunchElevated();
       if (ok) {
         process.exitCode = 0;
+        // Neither complete nor cancelled: the work moves to another console, and
+        // the log has to say so or it reads as a run that simply stopped.
+        settleRun('cedida', 'consola elevada');
         exit(); // cede control to the elevated console
         if (!process.env['VITEST']) {
           const t = setTimeout(() => process.exit(0), 100);
@@ -352,6 +418,27 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
         }
       }
     })();
+  }, [exit]);
+
+  /**
+   * Leave the app.
+   *
+   * The quit key used to `process.exit(0)` on the spot: no closing line in the
+   * log, and a `brew upgrade` left running as root with no screen in front of it.
+   * Now it does what the signal already did — abort the run, which tree-kills the
+   * child processes — declares the closure as a user cancellation, and only then
+   * exits, after a short grace period so tree-kill actually gets to run.
+   */
+  const quitApp = useCallback(() => {
+    const inFlight = abortRef.current !== null;
+    abortRef.current?.abort();
+    settleRun('cancelada', inFlight ? 'tecla de salida con corrida en vuelo' : 'tecla de salida');
+    const code = inFlight ? 130 : 0;
+    process.exitCode = code;
+    exit();
+    if (!process.env['VITEST']) {
+      setTimeout(() => process.exit(code), 200);
+    }
   }, [exit]);
 
   // persist config whenever it changes via the reducer
@@ -390,6 +477,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     closeSettings: useCallback(() => persist({ type: 'CLOSE_SETTINGS' }), [persist]),
     setLang,
     toggleEnabled,
+    quitApp,
   };
 }
 
