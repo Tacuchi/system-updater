@@ -95,6 +95,14 @@ export function appReducer(state: AppState, action: Action): AppState {
     case 'GOTO_SELECT':
       return { ...state, phase: 'select' };
 
+    // Same shape as the settings overlay: a screen SWAP grows no region, which
+    // is what keeps a long package list from having to be capped by hand.
+    case 'OPEN_DETAIL':
+      return { ...state, prevPhase: state.phase, phase: 'detail' };
+
+    case 'CLOSE_DETAIL':
+      return { ...state, phase: state.prevPhase };
+
     case 'OPEN_SETTINGS':
       return { ...state, prevPhase: state.phase, phase: 'settings' };
 
@@ -124,8 +132,15 @@ export function appReducer(state: AppState, action: Action): AppState {
     case 'MGR_QUEUED':
       return patch(state, action.id, e => ({ ...e, status: 'queued' }));
 
+    // `at` comes in the action, not from Date.now(): the reducer stays pure, and
+    // it used to store 0 — which is why no row could show how long it had been
+    // running.
     case 'MGR_RUNNING':
-      return patch(state, action.id, e => ({ ...e, status: 'running', startedAt: e.startedAt ?? 0 }));
+      return patch(state, action.id, e => ({
+        ...e,
+        status: 'running',
+        startedAt: e.startedAt !== undefined && e.startedAt > 0 ? e.startedAt : action.at,
+      }));
 
     case 'MGR_PROGRESS':
       return patch(state, action.id, e => ({

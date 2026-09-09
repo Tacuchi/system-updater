@@ -123,6 +123,8 @@ export interface MachineValue {
   rescan: () => void;
   openSettings: () => void;
   closeSettings: () => void;
+  openDetail: () => void;
+  closeDetail: () => void;
   setLang: (lang: 'es' | 'en') => void;
   toggleEnabled: (id: string) => void;
   /** Leave the app: abort an in-flight run, kill its child tree, settle the log. */
@@ -344,7 +346,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
         if (e.event?.percent !== undefined) {
           enqueue({ type: 'MGR_PROGRESS', id, percent: e.event.percent });
         } else if (!e.event) {
-          enqueue({ type: 'MGR_RUNNING', id });
+          enqueue({ type: 'MGR_RUNNING', id, at: Date.now() });
         }
       } else if (e.phase === 'done' && e.result) {
         const r = e.result;
@@ -537,6 +539,8 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     cancelRun,
     relaunch,
     rescan,
+    openDetail: useCallback(() => persist({ type: 'OPEN_DETAIL' }), [persist]),
+    closeDetail: useCallback(() => persist({ type: 'CLOSE_DETAIL' }), [persist]),
     openSettings: useCallback(() => persist({ type: 'OPEN_SETTINGS' }), [persist]),
     closeSettings: useCallback(() => persist({ type: 'CLOSE_SETTINGS' }), [persist]),
     setLang,

@@ -8,6 +8,7 @@ import { ConfirmScreen } from './screens/confirm.js';
 import { UpdateScreen } from './screens/update.js';
 import { SummaryScreen } from './screens/summary.js';
 import { SettingsScreen } from './screens/settings-screen.js';
+import { DetailScreen } from './screens/detail.js';
 import { getVersion } from './lib/version.js';
 import { semantic, colors } from './theme.js';
 
@@ -51,6 +52,8 @@ function PhaseRouter() {
       return <UpdateScreen />;
     case 'summary':
       return <SummaryScreen />;
+    case 'detail':
+      return <DetailScreen />;
     case 'settings':
       return <SettingsScreen />;
     default:

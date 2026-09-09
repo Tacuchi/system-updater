@@ -24,12 +24,14 @@ export type Action =
   | { type: 'SELECT_NONE' }
   | { type: 'GOTO_CONFIRM' }
   | { type: 'GOTO_SELECT' }
+  | { type: 'OPEN_DETAIL' }
+  | { type: 'CLOSE_DETAIL' }
   | { type: 'OPEN_SETTINGS' }
   | { type: 'CLOSE_SETTINGS' }
   | { type: 'RESCAN' }
   | { type: 'RUN_START'; queue: string[] }
   | { type: 'MGR_QUEUED'; id: string }
-  | { type: 'MGR_RUNNING'; id: string }
+  | { type: 'MGR_RUNNING'; id: string; at: number }
   | { type: 'MGR_PROGRESS'; id: string; percent?: number; currentPackage?: string }
   | { type: 'MGR_DONE'; id: string; result: ManagerResult }
   | { type: 'MGR_FAILED'; id: string; result: ManagerResult }

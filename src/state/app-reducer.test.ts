@@ -89,7 +89,7 @@ describe('appReducer', () => {
     expect(s.phase).toBe('updating');
     expect(s.managers['brew']?.status).toBe('queued');
 
-    s = appReducer(s, { type: 'MGR_RUNNING', id: 'brew' });
+    s = appReducer(s, { type: 'MGR_RUNNING', id: 'brew', at: 1_000 });
     expect(s.managers['brew']?.status).toBe('running');
 
     s = appReducer(s, { type: 'MGR_PROGRESS', id: 'brew', percent: 50, currentPackage: 'git' });

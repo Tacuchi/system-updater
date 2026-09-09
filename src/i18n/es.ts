@@ -170,6 +170,7 @@ export const es = {
     confirm: 'Confirmar',
     updating: 'Actualizando',
     summary: 'Resumen',
+    detail: 'Detalle por paquete',
     settings: 'Ajustes',
   },
   // Etiquetas de estado por-gestor (ManagerStatus)
@@ -207,6 +208,11 @@ export const es = {
     elapsed: 'transcurrido',
     cancel: 'Cancelando...',
     undetermined: 'no se pudo determinar',
+    undeterminedCount: 'no se pudieron determinar',
+    undeterminedTotal: 'indeterminados',
+    detailHint: 'D detalle · R re-escanear · Q salir',
+    detailBack: '↑↓ recorrer · D volver al resumen · Q salir',
+    noChanges: 'Ninguna corrida cambió paquetes.',
   },
 } as const;
 

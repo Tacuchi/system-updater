@@ -11,14 +11,25 @@ import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
 import type { ManagerStatus } from '../state/types.js';
 
-/** Show a version delta only for a single upgraded package with a known target. */
+/**
+ * The delta for a single upgraded package, or how many there were.
+ *
+ * It used to return '' for anything other than exactly one package, so a brew
+ * run of twenty-one showed the number 21 and nothing else. Now the row says how
+ * many changed and the D key opens the list of which.
+ */
 function versionDelta(m: RunSummaryManager): string {
   const ups = (m.packages ?? []).filter(p => p.outcome === 'upgraded' && p.toVersion);
-  if (ups.length !== 1) return '';
-  const p = ups[0]!;
-  return p.fromVersion
-    ? `${p.name} ${p.fromVersion} ${g.arrow} ${p.toVersion}`
-    : `${p.name} ${g.arrow} ${p.toVersion}`;
+  if (ups.length === 0) return '';
+  if (ups.length === 1) {
+    const p = ups[0]!;
+    return p.fromVersion
+      ? `${p.name} ${p.fromVersion} ${g.arrow} ${p.toVersion}`
+      : `${p.name} ${g.arrow} ${p.toVersion}`;
+  }
+  // Just the count: the column is data, and the key that opens the list belongs
+  // in the hint line, not inside a value.
+  return `${ups.length} ${t('ui', 'upgraded')}`;
 }
 
 /** One fixed-width row per manager: status · name · counts · version delta · duration. */
@@ -60,25 +71,34 @@ function ManagerRow({ m }: { m: RunSummaryManager }) {
 }
 
 export function SummaryScreen() {
-  const { state, rescan } = useMachine();
+  const { state, rescan, openDetail } = useMachine();
 
   useSafeInput((input) => {
     if (input === 'r' || input === 'R') rescan();
+    // The same key that closes it in the detail screen. `d` collides with
+    // neither quit nor rescan, the only two keys this screen already had.
+    else if (input === 'd' || input === 'D') openDetail();
   });
 
   const summary = summarizeRun(state);
-  const { upgraded, failed, skipped } = summary;
+  const { upgraded, failed, skipped, unknown } = summary;
   const hasErrors = failed > 0;
+  const hasPackages = summary.managers.some(m => (m.packages ?? []).length > 0);
 
   // Failure/manual/reboot detail lives on the entry results, not in summarizeRun.
   const failures: { manager: string; package?: string; message: string; kind?: string }[] = [];
   const manuals: { manager: string; command: string }[] = [];
   const reboots: { manager: string; state: string }[] = [];
+  const undetermined: string[] = [];
   for (const id of state.run.queue) {
     const e = state.managers[id];
     if (!e) continue;
     if (e.status === 'skipped') {
       if (e.manualCommand) manuals.push({ manager: id, command: e.manualCommand });
+      continue;
+    }
+    if (e.status === 'unknown') {
+      undetermined.push(id);
       continue;
     }
     const r = e.result;
@@ -96,12 +116,39 @@ export function SummaryScreen() {
           {hasErrors ? `${g.failed} ${t('ui', 'withErrors')}` : `${g.done} ${t('ui', 'allDone')}`}
         </Text>
       </Box>
+      {/* Above the total on purpose (DES-001@r1): these are the two things the
+          reader needs before believing the number. */}
+      {undetermined.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text color={semantic.unknown}>
+            {g.unknown} {undetermined.length} {t('ui', 'undeterminedCount')}:{' '}
+            {undetermined.map(id => managerName(id)).join(', ')}
+          </Text>
+        </Box>
+      )}
+
+      {manuals.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Text color={semantic.warning}>{t('ui', 'manualNeeded')}</Text>
+          {manuals.map((m, i) => (
+            <Text key={i} color={semantic.muted}>
+              {'  '}
+              {managerName(m.manager)}: <Text color={semantic.text}>{m.command}</Text>
+            </Text>
+          ))}
+        </Box>
+      )}
+
       <Box marginBottom={1}>
         <Text color={semantic.success}>{upgraded} {t('ui', 'upgraded')}</Text>
         <Text color={semantic.muted}>  ·  </Text>
         <Text color={hasErrors ? semantic.error : semantic.muted}>{failed} {t('ui', 'failed')}</Text>
         <Text color={semantic.muted}>  ·  </Text>
         <Text color={semantic.warning}>{skipped} {t('ui', 'skipped')}</Text>
+        <Text color={semantic.muted}>  ·  </Text>
+        <Text color={unknown > 0 ? semantic.unknown : semantic.muted}>
+          {unknown} {t('ui', 'undeterminedTotal')}
+        </Text>
       </Box>
 
       {summary.managers.length > 0 && (
@@ -130,18 +177,6 @@ export function SummaryScreen() {
         </Box>
       )}
 
-      {manuals.length > 0 && (
-        <Box flexDirection="column" marginBottom={1}>
-          <Text color={semantic.warning}>{t('ui', 'manualNeeded')}</Text>
-          {manuals.map((m, i) => (
-            <Text key={i} color={semantic.muted}>
-              {'  '}
-              {managerName(m.manager)}: <Text color={semantic.text}>{m.command}</Text>
-            </Text>
-          ))}
-        </Box>
-      )}
-
       {reboots.length > 0 && (
         <Box marginBottom={1}>
           <Text color={semantic.warning}>
@@ -155,7 +190,7 @@ export function SummaryScreen() {
         {t('ui', 'logAt')} {getLogFilePath() ?? '~/.tacuchi-updater/logs/'}
       </Text>
       <Box marginTop={1}>
-        <Text color={semantic.muted}>{t('ui', 'summaryHint')}</Text>
+        <Text color={semantic.muted}>{hasPackages ? t('ui', 'detailHint') : t('ui', 'summaryHint')}</Text>
       </Box>
     </Box>
   );

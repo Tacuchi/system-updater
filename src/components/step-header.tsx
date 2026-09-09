@@ -24,6 +24,15 @@ export function StepHeader({ phase }: { phase: Phase }) {
       </Box>
     );
   }
+  if (phase === 'detail') {
+    return (
+      <Box marginBottom={1}>
+        <Text color={semantic.action} bold>
+          {g.stepOn} {t('flow', 'detail')}
+        </Text>
+      </Box>
+    );
+  }
   if (phase === 'settings') {
     return (
       <Box marginBottom={1}>

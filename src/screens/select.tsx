@@ -28,6 +28,10 @@ export function SelectScreen() {
     if (m && m.status === 'outdated') for (const pkg of m.outdated) rows.push({ managerId: id, pkg });
   }
   const clamped = Math.min(cursor, Math.max(0, rows.length - 1));
+  // A manager whose state could not be determined contributes no rows, so
+  // without this line the selection screen is exactly where it disappears —
+  // and "nothing to choose from it" reads as "nothing to do".
+  const undetermined = state.order.filter(id => state.managers[id]?.status === 'unknown');
 
   useSafeInput((input, key) => {
     if (key.downArrow || input === 'j') setCursor(c => Math.min(rows.length - 1, c + 1));
@@ -46,6 +50,12 @@ export function SelectScreen() {
       <Box flexDirection="column">
         <StepHeader phase={state.phase} />
         <Text color={semantic.success}>✓ {t('ui', 'noUpdates')}</Text>
+        {undetermined.length > 0 && (
+          <Text color={semantic.unknown}>
+            {g.unknown} {undetermined.length} {t('ui', 'undeterminedCount')}:{' '}
+            {undetermined.map(id => managerName(id)).join(', ')}
+          </Text>
+        )}
         <Box marginTop={1}>
           <Text color={semantic.muted}>R {t('flow', 'detecting')} · Q</Text>
         </Box>
@@ -76,6 +86,14 @@ export function SelectScreen() {
         </Text>
       </Box>
 
+      {undetermined.length > 0 && (
+        <Box marginBottom={1}>
+          <Text color={semantic.unknown}>
+            {g.unknown} {undetermined.length} {t('ui', 'undeterminedCount')}:{' '}
+            {undetermined.map(id => managerName(id)).join(', ')}
+          </Text>
+        </Box>
+      )}
       {start > 0 && (
         <Text color={colors.outline}>
           {g.scrollUp} {start}

@@ -4,8 +4,21 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { render } from 'ink-testing-library';
+import { g } from './lib/glyphs.js';
 
 // Mock detection so the smoke is hermetic + fast (no real package-manager spawns).
+//
+// TWO managers on purpose: one that reports a percentage and one that does not.
+// 25 of the 27 real managers report none, which is why the row's detail slot sat
+// empty for minutes — and it is the only way to check that the slot shows a
+// percentage OR a time and never both. `brew` carries twenty packages so the
+// per-package detail screen has a real list to render.
+const BREW_PACKAGES = Array.from({ length: 20 }, (_, i) =>
+  i === 0
+    ? { name: 'git', currentVersion: '2.40', newVersion: '2.44' }
+    : { name: `pkg-${i}`, currentVersion: `1.${i}.0`, newVersion: `1.${i}.1` },
+);
+
 vi.mock('./managers/registry.js', () => ({
   detectManagers: async () => [
     {
@@ -15,14 +28,53 @@ vi.mock('./managers/registry.js', () => ({
         requiresAdmin: false,
         group: 'system',
         detect: async () => ({ available: true, version: '4.0' }),
-        listOutdated: async () => [{ name: 'git', currentVersion: '2.40', newVersion: '2.44' }],
+        listOutdated: async () => BREW_PACKAGES,
         async *upgrade() {
           yield { type: 'log', message: 'brew upgrade git' };
           yield { type: 'progress', message: 'downloading', percent: 50 };
-          return { success: true, upgraded: 1, failed: 0, errors: [], status: 'success', managerId: 'brew' };
+          await new Promise(r => setTimeout(r, 120));
+          return {
+            success: true,
+            upgraded: BREW_PACKAGES.length,
+            failed: 0,
+            errors: [],
+            status: 'success',
+            managerId: 'brew',
+            packages: BREW_PACKAGES.map(p => ({
+              name: p.name,
+              outcome: 'upgraded',
+              fromVersion: p.currentVersion,
+              toVersion: p.newVersion,
+            })),
+          };
         },
       },
       detection: { available: true, version: '4.0' },
+    },
+    {
+      manager: {
+        id: 'npm',
+        platforms: ['darwin', 'linux', 'win32'],
+        requiresAdmin: false,
+        group: 'language',
+        detect: async () => ({ available: true, version: '10.0' }),
+        listOutdated: async () => [{ name: 'left-pad', currentVersion: '1.0.0', newVersion: '1.3.0' }],
+        // No percent event ever: this is the row whose detail slot must show a time.
+        async *upgrade() {
+          yield { type: 'log', message: 'npm update -g left-pad' };
+          await new Promise(r => setTimeout(r, 120));
+          return {
+            success: true,
+            upgraded: 1,
+            failed: 0,
+            errors: [],
+            status: 'success',
+            managerId: 'npm',
+            packages: [{ name: 'left-pad', outcome: 'upgraded', fromVersion: '1.0.0', toVersion: '1.3.0' }],
+          };
+        },
+      },
+      detection: { available: true, version: '10.0' },
     },
   ],
 }));
@@ -85,6 +137,117 @@ describe('App (linear flow) smoke', () => {
     const frame = lastFrame() ?? '';
     expect(frame).toContain('COMPLETADO');
     expect(frame).toContain('1'); // 1 upgraded
+    unmount();
+  });
+});
+
+/**
+ * Drive the flow to the summary with keys, NOT with the non-interactive driver:
+ * that one exits Ink as soon as the summary appears, so there would be nothing
+ * left to press a key into.
+ */
+async function toSummary() {
+  const h = render(<App sudoMode={false} />);
+  for (let i = 0; i < 40; i++) {
+    if ((h.lastFrame() ?? '').includes('Espacio marcar')) break;
+    await tick(30);
+  }
+  h.stdin.write('a'); // select every package
+  await tick(40);
+  h.stdin.write('\r'); // → confirm
+  await tick(40);
+  h.stdin.write('\r'); // → run
+  for (let i = 0; i < 60; i++) {
+    if ((h.lastFrame() ?? '').includes('COMPLETADO')) break;
+    await tick(40);
+  }
+  await tick(60); // let the summary settle before pressing anything into it
+  return h;
+}
+
+/** Press a key and wait until the frame actually reflects it. */
+async function press(h: { stdin: { write: (s: string) => void }; lastFrame: () => string | undefined }, key: string, until: string) {
+  h.stdin.write(key);
+  for (let i = 0; i < 30; i++) {
+    if ((h.lastFrame() ?? '').includes(until)) return;
+    await tick(30);
+  }
+  throw new Error(`la tecla '${key}' no llevó a "${until}"; se ve: ${(h.lastFrame() ?? '').slice(0, 200)}`);
+}
+
+describe('el detalle por paquete (DES-001@r1)', () => {
+  it('se abre y se cierra con la MISMA tecla, y vuelve al resumen', async () => {
+    const { lastFrame, stdin, unmount } = await toSummary();
+    expect(lastFrame() ?? '').toContain('COMPLETADO');
+
+    await press({ stdin, lastFrame }, 'd', 'Detalle por paquete');
+    expect(lastFrame() ?? '').not.toContain('COMPLETADO');
+
+    await press({ stdin, lastFrame }, 'd', 'COMPLETADO');
+    unmount();
+  });
+
+  it('con veinte paquetes no desborda ni cambia el alto del marco', async () => {
+    const { lastFrame, stdin, unmount } = await toSummary();
+    await press({ stdin, lastFrame }, 'd', 'Detalle por paquete');
+    const frame = lastFrame() ?? '';
+    const lines = frame.split('\n');
+
+    // No desborda a lo alto: la ventana se acota al alto de la terminal y lo que
+    // sobra se anuncia, en vez de empujar el marco hacia arriba.
+    expect(lines.length).toBeLessThanOrEqual(24);
+    expect(frame).toContain(g.scrollDown);
+    // Ni a lo ancho: ninguna línea pasa las columnas disponibles.
+    for (const line of lines) expect(line.length).toBeLessThanOrEqual(100);
+    // Y dice de qué versión a qué versión, que es lo que el resumen no podía.
+    expect(frame).toContain('2.40');
+    expect(frame).toContain('2.44');
+
+    // El alto no cambia entre dos dibujados del mismo estado.
+    const again = (lastFrame() ?? '').split('\n').length;
+    expect(again).toBe(lines.length);
+
+    // Y la cola de la lista es alcanzable: recorrerla no cambia el alto del marco.
+    stdin.write('j');
+    await tick(40);
+    const scrolled = lastFrame() ?? '';
+    expect(scrolled.split('\n').length).toBe(lines.length);
+    expect(scrolled).toContain(g.scrollUp);
+    unmount();
+  });
+
+  it('el resumen nombra lo pendiente y ofrece el detalle por encima del total', async () => {
+    const { lastFrame, unmount } = await toSummary();
+    const frame = lastFrame() ?? '';
+    // La fila de un gestor con más de un paquete dice cuántos cambiaron, en vez
+    // de quedar vacía porque no había exactamente uno.
+    expect(frame).toContain('20 actualizados');
+    // Y la tecla se ofrece en la línea de ayuda, no dentro de una celda de datos.
+    expect(frame).toContain('D detalle');
+    unmount();
+  });
+});
+
+describe('la fila del gestor en curso muestra porcentaje O tiempo, nunca ambos', () => {
+  it('el que reporta porcentaje muestra porcentaje; el que no, tiempo', async () => {
+    const { lastFrame, frames, unmount } = render(<App sudoMode={false} nonInteractive />);
+    // Esperar a que la pantalla de actualización esté visible con las dos filas.
+    for (let i = 0; i < 40; i++) {
+      if ((lastFrame() ?? '').includes('ACTUALIZANDO')) break;
+      await tick(20);
+    }
+    const updating = frames.filter(f => f.includes('ACTUALIZANDO'));
+    expect(updating.length).toBeGreaterThan(0);
+
+    for (const frame of updating) {
+      for (const line of frame.split('\n')) {
+        if (!line.includes('ACTUALIZANDO')) continue;
+        const hasPercent = /\d+%/.test(line);
+        const hasElapsed = /\d+(s|m\d\ds|h\d\dm)\b/.test(line);
+        // Los dos a la vez harían que el ancho de la fila dependa del gestor.
+        expect(hasPercent && hasElapsed).toBe(false);
+      }
+    }
     unmount();
   });
 });

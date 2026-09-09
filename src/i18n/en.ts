@@ -162,6 +162,7 @@ export const en: Translations = {
     confirm: 'Confirm',
     updating: 'Updating',
     summary: 'Summary',
+    detail: 'Per-package detail',
     settings: 'Settings',
   },
   status: {
@@ -197,5 +198,10 @@ export const en: Translations = {
     elapsed: 'elapsed',
     cancel: 'Cancelling...',
     undetermined: 'could not be determined',
+    undeterminedCount: 'could not be determined',
+    undeterminedTotal: 'undetermined',
+    detailHint: 'D detail · R rescan · Q quit',
+    detailBack: '↑↓ scroll · D back to summary · Q quit',
+    noChanges: 'No run changed any package.',
   },
 };

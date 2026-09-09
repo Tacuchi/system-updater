@@ -11,6 +11,7 @@ export type Phase =
   | 'confirm'
   | 'updating'
   | 'summary'
+  | 'detail'
   | 'settings';
 
 export type ManagerStatus =
