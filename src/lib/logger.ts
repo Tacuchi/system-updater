@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogDir } from './config.js';
-import { pruneLogs, unremovableCommand } from './log-retention.js';
+import { pruneLogs, unremovableReport } from './log-retention.js';
 import type { CommandRecord, UpgradeResult, UpgradeStatus } from '../managers/types.js';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
@@ -82,14 +82,17 @@ function pruneDeposit(retentionRuns: number): void {
   const report = pruneLogs(getLogDir(), retentionRuns);
   writeRaw(
     'INFO',
-    `Retención: conservadas=${report.kept} retiradas=${report.removed} sin permiso=${report.unremovable.length} (límite=${retentionRuns} corridas)`,
+    `Retención: conservadas=${report.kept} retiradas=${report.removed} sin retirar=${report.unremovable.length} (límite=${retentionRuns} corridas)`,
   );
-  const command = unremovableCommand(
+  // Reported wherever it happens, but with the cause that system actually has —
+  // and only with a command where there IS one to hand over.
+  const unremovable = unremovableReport(
     report.unremovable.map(u => u.file),
     process.platform,
   );
-  if (command !== null) {
-    writeRaw('WARN', `Retención: ${report.unremovable.length} archivo(s) de otro dueño. Para retirarlos: ${command}`);
+  if (unremovable !== null) {
+    const how = unremovable.command === null ? '' : ` Para retirarlos: ${unremovable.command}`;
+    writeRaw('WARN', `Retención: ${report.unremovable.length} archivo(s) ${unremovable.reason}.${how}`);
   }
 }
 

@@ -94,11 +94,26 @@ export function pruneLogs(
   return report;
 }
 
-/** The one line that tells the user how to remove what this process cannot. */
-export function unremovableCommand(files: string[], platform: NodeJS.Platform): string | null {
+/**
+ * What to say about the files this process could not remove — and the cause is
+ * NOT the same on every system.
+ *
+ * On unix it is ownership: an elevated run leaves root-owned logs behind, and the
+ * fix is a command the user can run. On Windows an elevated console runs as the
+ * SAME user, so ownership is never the reason; a refusal there means the file is
+ * locked (antivirus, OneDrive, a reader), and there is no command to hand over —
+ * offering `sudo` would be advice for a machine the user is not on.
+ */
+export function unremovableReport(
+  files: string[],
+  platform: NodeJS.Platform,
+): { reason: string; command: string | null } | null {
   if (files.length === 0) return null;
-  // Windows has no equivalent case: an elevated console runs as the same user,
-  // so a log written by an elevated run is removable by an ordinary one.
-  if (platform === 'win32') return null;
-  return `sudo rm -f ${files.map(f => `'${f}'`).join(' ')}`;
+  if (platform === 'win32') {
+    return { reason: 'bloqueado(s) por otro proceso', command: null };
+  }
+  return {
+    reason: 'de otro dueño',
+    command: `sudo rm -f ${files.map(f => `'${f}'`).join(' ')}`,
+  };
 }

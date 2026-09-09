@@ -11,7 +11,7 @@ import type { RunSummaryLog } from './logger.js';
 import type { CommandRecord, UpgradeResult } from '../managers/types.js';
 import { readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { pruneLogs, unremovableCommand } from './log-retention.js';
+import { pruneLogs, unremovableReport } from './log-retention.js';
 import type { RetentionDeps } from './log-retention.js';
 
 describe('logCommand', () => {
@@ -234,12 +234,24 @@ describe('retención del depósito por cantidad de corridas', () => {
     expect(pruneLogs('/dep', 0, deps).kept).toBe(1);
   });
 
-  it('en unix el informe trae el comando que los retira; en Windows ese caso no existe', () => {
-    expect(unremovableCommand(['/l/a.log'], 'darwin')).toBe("sudo rm -f '/l/a.log'");
-    expect(unremovableCommand(['/l/a.log'], 'linux')).toContain('sudo rm -f');
-    // Una consola elevada de Windows corre como el mismo usuario: el archivo que
-    // dejó una corrida elevada lo puede retirar una corrida normal.
-    expect(unremovableCommand(['C:/l/a.log'], 'win32')).toBeNull();
-    expect(unremovableCommand([], 'darwin')).toBeNull();
+  it('en unix la causa es el dueño y hay un comando que los retira', () => {
+    expect(unremovableReport(['/l/a.log'], 'darwin')?.command).toBe("sudo rm -f '/l/a.log'");
+    expect(unremovableReport(['/l/a.log'], 'linux')?.command).toContain('sudo rm -f');
+    expect(unremovableReport(['/l/a.log'], 'darwin')?.reason).toBe('de otro dueño');
+  });
+
+  it('en Windows la causa NO es el dueño, así que se informa sin comando', () => {
+    // Una consola elevada de Windows corre como el mismo usuario, así que la
+    // propiedad nunca es el motivo: un rechazo ahí es un archivo bloqueado, y
+    // ofrecer `sudo` sería un consejo para una máquina en la que no se está.
+    const report = unremovableReport(['C:/l/a.log'], 'win32');
+    expect(report?.command).toBeNull();
+    expect(report?.reason).toContain('bloqueado');
+  });
+
+  it('sin archivos que informar no informa nada, en ningún sistema', () => {
+    for (const platform of ['darwin', 'linux', 'win32'] as NodeJS.Platform[]) {
+      expect(unremovableReport([], platform)).toBeNull();
+    }
   });
 });

@@ -62,9 +62,18 @@ El registro anota cada sondeo de presencia, cada listado de pendientes y cada co
 salida, y **termina siempre con una línea de cierre que declara cómo terminó la corrida** — completa,
 cancelada, interrumpida, fallida o cedida a una consola elevada.
 
-Las corridas que sobran del límite de retención se retiran al arrancar. Las que este proceso no puede
-retirar —los registros que dejó una corrida `--sudo`, que en unix pertenecen a root— se informan una
-vez, con el comando exacto para retirarlas.
+Las señales que se atienden dependen del sistema: `SIGINT` (Ctrl+C), `SIGTERM` y `SIGHUP` en los tres,
+más `SIGBREAK` (Ctrl+Break) en Windows, donde existe. Cerrar la ventana de la consola llega como
+`SIGHUP` y deja su línea de cierre: se escribe de forma **sincrónica** dentro del manejador, antes de
+cualquier espera, así que no depende del margen que el sistema dé antes de matar el proceso.
+
+Los registros que sobran y no se pueden retirar se informan con la causa que ese sistema tiene: en
+unix es la propiedad del archivo —los dejó una corrida elevada— y viene con el comando que los
+retira; en Windows una consola elevada corre como el mismo usuario, así que la propiedad nunca es el
+motivo y un rechazo ahí significa que el archivo está bloqueado por otro proceso.
+
+Las corridas que sobran del límite de retención se retiran al arrancar, y lo que no se pudo retirar se
+informa una sola vez.
 
 Dos variables de entorno mueven esas rutas, y existen para que las pruebas puedan lanzar el binario
 real sin tocar tus datos: `TACUCHI_UPDATER_CONFIG_DIR` y `TACUCHI_UPDATER_LOG_DIR`.

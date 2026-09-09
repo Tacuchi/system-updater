@@ -81,26 +81,29 @@ const APP = 'tacuchi-updater';
  * home dir; macOS/Linux KEEP the legacy `~/.tacuchi-updater` so their behavior is
  * unchanged.
  */
-export function getConfigDir(): string {
+export function getConfigDir(platform: NodeJS.Platform = process.platform): string {
   const override = process.env['TACUCHI_UPDATER_CONFIG_DIR'];
   if (override) return override;
-  if (process.platform === 'win32') return envPaths(APP, { suffix: '' }).config;
+  if (platform === 'win32') return envPaths(APP, { suffix: '' }).config;
   return path.join(os.homedir(), '.tacuchi-updater');
 }
 
 /**
  * Log dir. Windows uses %LOCALAPPDATA% (non-roamed → no OneDrive churn).
  *
+ * The platform is a PARAMETER, defaulting to the real one, so both branches are
+ * exercisable from either OS instead of being skipped on the other.
+ *
  * `TACUCHI_UPDATER_LOG_DIR` overrides it — as `TACUCHI_UPDATER_CONFIG_DIR` does
  * for the config dir above. Those overrides are what let a harness launch the
  * REAL binary and read what it produced, without writing a single line into the
  * user's own deposit or preferences.
  */
-export function getLogDir(): string {
+export function getLogDir(platform: NodeJS.Platform = process.platform): string {
   const override = process.env['TACUCHI_UPDATER_LOG_DIR'];
   if (override) return override;
-  if (process.platform === 'win32') return envPaths(APP, { suffix: '' }).log;
-  return path.join(getConfigDir(), 'logs');
+  if (platform === 'win32') return envPaths(APP, { suffix: '' }).log;
+  return path.join(getConfigDir(platform), 'logs');
 }
 
 export function getConfigPath(): string {

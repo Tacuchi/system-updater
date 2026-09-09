@@ -6,6 +6,7 @@ import { isElevated } from './lib/elevation.js';
 import { fireProcessCancel } from './lib/cancellation.js';
 import { getVersion } from './lib/version.js';
 import { settleRun } from './lib/run-closure.js';
+import { signalRoutes } from './lib/signals.js';
 import type { TerminationMode } from './lib/logger.js';
 
 const args = process.argv.slice(2);
@@ -106,10 +107,10 @@ const onSignal =
     }, 200);
   };
 
-process.on('SIGINT', onSignal(130, 'SIGINT', 'cancelada'));
-process.on('SIGTERM', onSignal(143, 'SIGTERM', 'interrumpida'));
-process.on('SIGBREAK', onSignal(130, 'SIGBREAK', 'cancelada')); // Windows Ctrl+Break
-// Terminal window closed. Unhandled until now, so closing the window left a run
-// with no closing line at all — the exit route with the least margin and the one
+// Which signals exist is the platform's business, so the table is the platform's
+// too — SIGBREAK only exists on Windows, and SIGHUP (the window closing) was not
+// answered at all until now: the exit route with the least margin and the one
 // nobody can retry.
-process.on('SIGHUP', onSignal(129, 'SIGHUP', 'interrumpida'));
+for (const route of signalRoutes(process.platform)) {
+  process.on(route.signal, onSignal(route.code, route.signal, route.mode));
+}
