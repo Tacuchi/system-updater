@@ -124,9 +124,35 @@ async function waitUntil(predicate: () => boolean, timeoutMs: number, what: stri
   throw new Error(`timeout esperando ${what}`);
 }
 
-/** Wait until the child has opened its log and written its header. */
-async function waitForBoot(logDir: string): Promise<void> {
-  await waitUntil(() => (readLog(logDir) ?? '').includes('Logger iniciado'), 20_000, 'el arranque del registro');
+/**
+ * A fake `npm` whose LISTING hangs, so the child is demonstrably still working
+ * when a signal arrives.
+ *
+ * Waiting for the log header was not enough: with nothing on PATH the whole run
+ * finished in a few hundred milliseconds, so the process could be gone before
+ * the signal landed and the closure honestly said `completa`. A test whose
+ * outcome depends on who wins that race proves nothing about either mode.
+ */
+function fakeSlowScanDir(pidFile: string): string {
+  const dir = path.join(tmpRoot, 'slowbin');
+  const systemPath = process.platform === 'darwin' ? '/usr/bin:/bin:/usr/sbin:/sbin' : '/usr/bin:/bin';
+  fs.mkdirSync(dir, { recursive: true });
+  const script = [
+    '#!/bin/sh',
+    'if [ "$1" = "--version" ]; then echo "10.0.0"; exit 0; fi',
+    'if [ "$1" = "outdated" ]; then',
+    '  /bin/sleep 987 &',
+    `  echo "$$ $!" > "${pidFile}"`,
+    '  wait',
+    '  exit 0',
+    'fi',
+    'exit 0',
+    '',
+  ].join('\n');
+  const file = path.join(dir, 'npm');
+  fs.writeFileSync(file, script, 'utf-8');
+  fs.chmodSync(file, 0o755);
+  return `${dir}:${systemPath}`;
 }
 
 /**
@@ -161,29 +187,27 @@ describe('ruta de salida: modo no interactivo', () => {
 });
 
 describe.skipIf(!unix)('ruta de salida: señales', () => {
-  it('Ctrl+C (SIGINT) cierra el registro como cancelación del usuario', async () => {
-    const { child, logDir, exited } = launch([]);
-    await waitForBoot(logDir);
-    child.kill('SIGINT');
+  /** Launch, wait until the child is provably mid-scan, then signal it. */
+  async function signalMidRun(signal: NodeJS.Signals): Promise<string | null> {
+    const pidFile = path.join(tmpRoot, `${signal}.pids`);
+    const { child, logDir, exited } = launch(['--yes'], fakeSlowScanDir(pidFile), ['npm']);
+    await waitUntil(() => recordedPids(pidFile).length === 2, 40_000, 'que el escaneo esté en vuelo');
+    child.kill(signal);
     await exited;
-    expectClosedLog(readLog(logDir), 'cancelada');
-  }, 60_000);
+    return readLog(logDir);
+  }
+
+  it('Ctrl+C (SIGINT) cierra el registro como cancelación del usuario', async () => {
+    expectClosedLog(await signalMidRun('SIGINT'), 'cancelada');
+  }, 90_000);
 
   it('SIGTERM cierra el registro como interrupción del entorno', async () => {
-    const { child, logDir, exited } = launch([]);
-    await waitForBoot(logDir);
-    child.kill('SIGTERM');
-    await exited;
-    expectClosedLog(readLog(logDir), 'interrumpida');
-  }, 60_000);
+    expectClosedLog(await signalMidRun('SIGTERM'), 'interrumpida');
+  }, 90_000);
 
   it('cerrar la terminal (SIGHUP) deja cierre en vez de un registro trunco', async () => {
-    const { child, logDir, exited } = launch([]);
-    await waitForBoot(logDir);
-    child.kill('SIGHUP');
-    await exited;
-    expectClosedLog(readLog(logDir), 'interrumpida');
-  }, 60_000);
+    expectClosedLog(await signalMidRun('SIGHUP'), 'interrumpida');
+  }, 90_000);
 });
 
 /**
