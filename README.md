@@ -64,8 +64,17 @@ cancelada, interrumpida, fallida o cedida a una consola elevada.
 
 Las señales que se atienden dependen del sistema: `SIGINT` (Ctrl+C), `SIGTERM` y `SIGHUP` en los tres,
 más `SIGBREAK` (Ctrl+Break) en Windows, donde existe. Cerrar la ventana de la consola llega como
-`SIGHUP` y deja su línea de cierre: se escribe de forma **sincrónica** dentro del manejador, antes de
-cualquier espera, así que no depende del margen que el sistema dé antes de matar el proceso.
+`SIGHUP` y deja su línea de cierre: se escribe de forma **sincrónica** y **antes** de cancelar la
+corrida, así que no gasta el margen que el sistema da antes de matar el proceso. En Windows ese margen
+es de **5000 ms** (`SPI_GETHUNGAPPTIMEOUT`) y escribir el cierre mide **0,08 ms**. La verificación corre
+en la matriz: el paso *Probe* de `windows-latest` lanza el binario en su propia consola y la cierra.
+
+**Límite conocido, y está documentado como imposible, no como pendiente:** cerrar sesión, reiniciar o
+apagar Windows **no entrega ninguna señal**. libuv mapea a `SIGHUP` sólo `CTRL_CLOSE_EVENT` e ignora
+`CTRL_LOGOFF_EVENT` y `CTRL_SHUTDOWN_EVENT`, y `node.exe` enlaza `user32`, lo que según la
+documentación de `SetConsoleCtrlHandler` impide que el manejador se llame para esos dos. Una corrida
+terminada por un apagado no deja línea de cierre. Cubrirlo necesitaría un registro que confirme cada
+línea, no mejor evidencia.
 
 Los registros que sobran y no se pueden retirar se informan con la causa que ese sistema tiene: en
 unix es la propiedad del archivo —los dejó una corrida elevada— y viene con el comando que los

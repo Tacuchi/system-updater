@@ -41,6 +41,17 @@ jobs:
       - name: Smoke (--version)
         run: node dist/cli.js --version
 
+      # Windows: the exit route with the LEAST margin and the one nobody can
+      # retry. Launches the built binary in its own hidden console and posts
+      # WM_CLOSE to that window — which the kernel turns into a genuine
+      # CTRL_CLOSE_EVENT, i.e. a real SIGHUP, i.e. the product's actual path.
+      # Not a cousin (SIGBREAK) and not a simulation (calling the handler).
+      # It FAILS the job on any inconclusive condition instead of skipping: a
+      # probe that skips when it cannot measure reports "covered" over nothing.
+      - name: Probe — el cierre del registro sobrevive al cierre de consola
+        if: runner.os == 'Windows'
+        run: python scripts/probe-windows-console-close.py dist/cli.js
+
       # Windows: report which managers are present WITHOUT upgrading anything.
       # The CI runner has choco + npm; winget and scoop are NOT preinstalled
       # (runner-images#8584), so a real upgrade run is skipped here. A real

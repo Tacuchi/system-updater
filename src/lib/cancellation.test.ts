@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { onProcessCancel, fireProcessCancel } from './cancellation.js';
-import { signalRoutes } from './signals.js';
+import { answerSignal, signalRoutes, SIGNAL_GRACE_MS } from './signals.js';
+import type { SignalEffects } from './signals.js';
 import type { TerminationMode } from './logger.js';
 
 /** El modo que una señal declara en ese sistema, o null si no la atendemos. */
@@ -84,6 +85,79 @@ describe('qué señales se atienden, por sistema', () => {
     expect(byName.get('SIGINT')).toBe(130);
     expect(byName.get('SIGHUP')).toBe(129);
     expect(byName.get('SIGTERM')).toBe(143);
+  });
+});
+
+describe('answerSignal: el orden es el arreglo', () => {
+  /** Registra QUÉ efecto corrió y en qué orden. Nada de esto es simulado por mí:
+   *  es el mismo `answerSignal` que cli.tsx le pasa a process.on. */
+  function recorder(o: { unmountThrows?: boolean } = {}) {
+    const orden: string[] = [];
+    let scheduled: (() => void) | null = null;
+    let scheduledMs = -1;
+    let exitedWith = -1;
+    const effects: SignalEffects = {
+      settle: (mode, detail) => orden.push(`settle:${mode}:${detail}`),
+      cancel: () => orden.push('cancel'),
+      unmount: () => {
+        orden.push('unmount');
+        if (o.unmountThrows) throw new Error('console I/O falló durante el cierre');
+      },
+      exit: code => {
+        orden.push('exit');
+        exitedWith = code;
+      },
+      schedule: (fn, ms) => {
+        scheduled = fn;
+        scheduledMs = ms;
+      },
+    };
+    return { orden, effects, run: () => scheduled?.(), ms: () => scheduledMs, code: () => exitedWith };
+  }
+
+  const sighup = signalRoutes('win32').find(r => r.signal === 'SIGHUP')!;
+
+  it('el cierre se escribe ANTES de cancelar, porque cancelar hace spawn', () => {
+    // `tree-kill` corre `taskkill /pid X /T /F` en win32 —un CreateProcess de
+    // cmd.exe— y `pgrep` en darwin. Ese spawn delante de la única línea que tiene
+    // que sobrevivir gasta el margen del sistema antes de que haya un byte en
+    // disco. El margen documentado de Windows es 5000 ms (SPI_GETHUNGAPPTIMEOUT).
+    const r = recorder();
+    answerSignal(sighup, r.effects);
+    expect(r.orden).toEqual(['settle:interrumpida:señal SIGHUP', 'cancel']);
+  });
+
+  it('recién después sale, con margen para que el kill alcance a correr', () => {
+    const r = recorder();
+    answerSignal(sighup, r.effects);
+    expect(r.orden).not.toContain('exit');
+    expect(r.ms()).toBe(SIGNAL_GRACE_MS);
+    expect(SIGNAL_GRACE_MS).toBeLessThan(5000);
+    r.run();
+    expect(r.orden).toEqual(['settle:interrumpida:señal SIGHUP', 'cancel', 'unmount', 'exit']);
+    expect(r.code()).toBe(129);
+  });
+
+  it('si unmount tira, IGUAL sale con el código de la señal', () => {
+    // Microsoft documenta que las funciones de consola pueden no ser fiables
+    // mientras se procesa un cierre; y libuv deja el hilo del handler en
+    // Sleep(INFINITE), así que un unmount que tira dejaría el proceso colgado
+    // hasta que Windows lo mate, y el código de salida dejaría de ser el de la señal.
+    const r = recorder({ unmountThrows: true });
+    answerSignal(sighup, r.effects);
+    r.run();
+    expect(r.orden).toEqual(['settle:interrumpida:señal SIGHUP', 'cancel', 'unmount', 'exit']);
+    expect(r.code()).toBe(129);
+  });
+
+  it('cada señal lleva su modo y su código a través del mismo camino', () => {
+    for (const route of signalRoutes('win32')) {
+      const r = recorder();
+      answerSignal(route, r.effects);
+      r.run();
+      expect(r.orden[0]).toBe(`settle:${route.mode}:señal ${route.signal}`);
+      expect(r.code()).toBe(route.code);
+    }
   });
 });
 

@@ -6,8 +6,7 @@ import { isElevated } from './lib/elevation.js';
 import { fireProcessCancel } from './lib/cancellation.js';
 import { getVersion } from './lib/version.js';
 import { settleRun } from './lib/run-closure.js';
-import { signalRoutes } from './lib/signals.js';
-import type { TerminationMode } from './lib/logger.js';
+import { answerSignal, signalRoutes } from './lib/signals.js';
 
 const args = process.argv.slice(2);
 const sudoRequested = args.includes('--sudo') || args.includes('-s');
@@ -87,30 +86,21 @@ const nonInteractive =
 
 const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteractive} />);
 
-// Cancel the active run BEFORE unmounting, so no signal ever orphans a
-// winget/choco/brew install tree (bug #2). The cancel goes FIRST so tree-kill
-// starts immediately and the short grace period below lets it finish; the closure
-// is written right after it, because whatever margin the OS gives us can end at
-// any moment.
-//
-// Ctrl+C and Ctrl+Break are the user stopping the run; SIGHUP (the terminal window
-// closing) and SIGTERM are the environment stopping it — a distinction the log has
-// to keep, since only one of the two is somebody's decision.
-const onSignal =
-  (code: number, name: string, mode: TerminationMode): (() => void) =>
-  () => {
-    fireProcessCancel();
-    settleRun(mode, `señal ${name}`);
-    setTimeout(() => {
-      unmount();
-      process.exit(code);
-    }, 200);
-  };
-
 // Which signals exist is the platform's business, so the table is the platform's
 // too — SIGBREAK only exists on Windows, and SIGHUP (the window closing) was not
 // answered at all until now: the exit route with the least margin and the one
-// nobody can retry.
+// nobody can retry. The order of what a signal DOES lives in `answerSignal`,
+// where a test can reach it.
 for (const route of signalRoutes(process.platform)) {
-  process.on(route.signal, onSignal(route.code, route.signal, route.mode));
+  process.on(route.signal, () =>
+    answerSignal(route, {
+      settle: (mode, detail) => settleRun(mode, detail),
+      cancel: fireProcessCancel,
+      unmount,
+      exit: exitCode => process.exit(exitCode),
+      schedule: (fn, ms) => {
+        setTimeout(fn, ms);
+      },
+    }),
+  );
 }

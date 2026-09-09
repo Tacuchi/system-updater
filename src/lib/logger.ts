@@ -358,6 +358,15 @@ export function getLogFilePath(): string | null {
 export function closeLogger(): void {
   if (logFd === null) return;
   try {
+    // fsync before close: writeSync hands the bytes to the OS cache, which
+    // survives the process dying but not the machine dying. One syscall at the
+    // very end is what makes "the run's closure is on disk" true rather than
+    // "the run's closure was handed to Windows".
+    fs.fsyncSync(logFd);
+  } catch {
+    /* some descriptors cannot be synced; the write already happened */
+  }
+  try {
     fs.closeSync(logFd);
   } catch {
     /* the descriptor may already be gone */
