@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { render } from 'ink-testing-library';
-import { mkdtempSync, rmSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // Type-only, so the hoisted vi.mock factory can annotate without importing code.
@@ -75,15 +75,26 @@ vi.mock('./managers/registry.js', async () => {
 import App from './app.js';
 
 let previousLogDir: string | undefined;
+let previousConfigDir: string | undefined;
 let tmpLogRoot: string;
 beforeAll(() => {
   previousLogDir = process.env['TACUCHI_UPDATER_LOG_DIR'];
+  previousConfigDir = process.env['TACUCHI_UPDATER_CONFIG_DIR'];
   tmpLogRoot = mkdtempSync(join(tmpdir(), 'updater-test-logs-'));
   process.env['TACUCHI_UPDATER_LOG_DIR'] = tmpLogRoot;
+  const cfg = join(tmpLogRoot, 'config');
+  process.env['TACUCHI_UPDATER_CONFIG_DIR'] = cfg;
+  // Seeded, not defaulted: mounting the app fires the self-version check, and a
+  // test must not reach the npm registry.
+  mkdirSync(cfg, { recursive: true });
+  writeFileSync(join(cfg, 'config.json'), JSON.stringify({ selfCheck: false }), 'utf-8');
+
 });
 afterAll(() => {
   if (previousLogDir === undefined) delete process.env['TACUCHI_UPDATER_LOG_DIR'];
   else process.env['TACUCHI_UPDATER_LOG_DIR'] = previousLogDir;
+  if (previousConfigDir === undefined) delete process.env['TACUCHI_UPDATER_CONFIG_DIR'];
+  else process.env['TACUCHI_UPDATER_CONFIG_DIR'] = previousConfigDir;
   rmSync(tmpLogRoot, { recursive: true, force: true });
 });
 

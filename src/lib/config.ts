@@ -23,6 +23,14 @@ export interface UserConfig {
   logTailBytes: number;
   /** Per-manager settings (enable/disable, timeout). */
   managers: Record<string, ManagerConfig>;
+  /**
+   * How many runs of logs to keep. By COUNT and not by age because the real
+   * corpus arrives in bursts. Editable here; deliberately NOT on the preferences
+   * screen, which does not grow.
+   */
+  logRetentionRuns: number;
+  /** Ask npm at most once a day whether a newer updater exists. */
+  selfCheck: boolean;
 }
 
 const DEFAULTS: UserConfig = {
@@ -33,6 +41,8 @@ const DEFAULTS: UserConfig = {
   timeoutsMs: {},
   logTailBytes: 16384,
   managers: {},
+  logRetentionRuns: 30,
+  selfCheck: true,
 };
 
 const MIN_CONCURRENCY = 1;
@@ -56,6 +66,11 @@ export function normalizeConfig(parsed: Partial<UserConfig>): UserConfig {
       typeof parsed.logTailBytes === 'number' && parsed.logTailBytes > 0
         ? Math.round(parsed.logTailBytes)
         : DEFAULTS.logTailBytes,
+    logRetentionRuns:
+      typeof parsed.logRetentionRuns === 'number' && parsed.logRetentionRuns >= 1
+        ? Math.round(parsed.logRetentionRuns)
+        : DEFAULTS.logRetentionRuns,
+    selfCheck: typeof parsed.selfCheck === 'boolean' ? parsed.selfCheck : DEFAULTS.selfCheck,
   };
 }
 
@@ -108,11 +123,27 @@ function migrateLegacyConfig(): void {
   }
 }
 
+/**
+ * Load the preferences, materializing the file the first time it is needed.
+ *
+ * It never existed: `saveConfig` only ran when the user changed a language or
+ * toggled a manager, so somebody who never touched a preference had no file to
+ * read, edit or copy — and no way to discover that these settings exist at all.
+ * Writing it is best-effort: a read-only home must not stop a run.
+ */
 export function loadConfig(): UserConfig {
   migrateLegacyConfig();
   const configPath = getConfigPath();
   try {
-    if (!fs.existsSync(configPath)) return { ...DEFAULTS };
+    if (!fs.existsSync(configPath)) {
+      const defaults = { ...DEFAULTS };
+      try {
+        saveConfig(defaults);
+      } catch {
+        /* best-effort: the run continues with the defaults in memory */
+      }
+      return defaults;
+    }
     const raw = fs.readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(raw) as Partial<UserConfig>;
     return normalizeConfig(parsed);

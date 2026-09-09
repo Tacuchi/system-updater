@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogDir } from './config.js';
+import { pruneLogs, unremovableCommand } from './log-retention.js';
 import type { CommandRecord, UpgradeResult, UpgradeStatus } from '../managers/types.js';
 
 type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
@@ -33,7 +34,13 @@ function openLog(dir: string, filename: string): { fd: number; filePath: string 
   return { fd: fs.openSync(filePath, 'a'), filePath };
 }
 
-export function initLogger(): string {
+/**
+ * Open the run's log and bound the deposit.
+ *
+ * `retentionRuns` is the preference; pruning happens AFTER the new sink is open
+ * so the report of what could not be removed lands in this run's own file.
+ */
+export function initLogger(retentionRuns?: number): string {
   const now = new Date();
   const stamp = now.toISOString().replace(/[T:]/g, '_').split('.')[0]?.replace(/-/g, '');
   const filename = `system_updater_${stamp}.log`;
@@ -58,7 +65,32 @@ export function initLogger(): string {
     `PID: ${process.pid} | UID: ${process.getuid?.() ?? 'N/A'} | SUDO_USER: ${process.env['SUDO_USER'] ?? 'N/A'}`,
   );
   writeRaw('INFO', `Platform: ${process.platform} | Node: ${process.version}`);
+
+  if (retentionRuns !== undefined) pruneDeposit(retentionRuns);
+
   return logFilePath ?? '';
+}
+
+/**
+ * Keep the newest runs, and say ONCE what could not be removed and how.
+ *
+ * Elevated runs leave root-owned files behind, so an ordinary run trips over
+ * them. Reporting each one every time would be noise; reporting none of them
+ * would leave a deposit that silently never shrinks.
+ */
+function pruneDeposit(retentionRuns: number): void {
+  const report = pruneLogs(getLogDir(), retentionRuns);
+  writeRaw(
+    'INFO',
+    `Retención: conservadas=${report.kept} retiradas=${report.removed} sin permiso=${report.unremovable.length} (límite=${retentionRuns} corridas)`,
+  );
+  const command = unremovableCommand(
+    report.unremovable.map(u => u.file),
+    process.platform,
+  );
+  if (command !== null) {
+    writeRaw('WARN', `Retención: ${report.unremovable.length} archivo(s) de otro dueño. Para retirarlos: ${command}`);
+  }
 }
 
 function writeRaw(level: LogLevel, message: string): void {

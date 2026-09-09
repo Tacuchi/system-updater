@@ -12,6 +12,7 @@ import { getVersion } from './lib/version.js';
 import { semantic, colors } from './theme.js';
 
 function Header({ sudoMode }: { sudoMode: boolean }) {
+  const { selfUpdate } = useMachine();
   return (
     <Box justifyContent="space-between" marginBottom={1}>
       <Box>
@@ -19,6 +20,16 @@ function Header({ sudoMode }: { sudoMode: boolean }) {
           @tacuchi/updater
         </Text>
         <Text color={colors.outline}> v{getVersion()}</Text>
+        {/* On the same line on purpose: the notice must not add a region to a
+            frame whose stability is an invariant of the update screen. */}
+        {selfUpdate ? (
+          // `warning`, NOT `unknown`: el ámbar está reservado a «no se pudo
+          // determinar» (DES-001@r1) y reusarlo acá lo vuelve a significar dos cosas.
+          <Text color={semantic.warning}>
+            {' '}
+            → v{selfUpdate.version} · {selfUpdate.howTo}
+          </Text>
+        ) : null}
       </Box>
       <Text color={sudoMode ? semantic.warning : colors.outline}>{sudoMode ? 'SUDO' : `${process.platform}`}</Text>
     </Box>

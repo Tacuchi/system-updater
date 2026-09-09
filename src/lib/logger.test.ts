@@ -9,6 +9,10 @@ import {
 } from './logger.js';
 import type { RunSummaryLog } from './logger.js';
 import type { CommandRecord, UpgradeResult } from '../managers/types.js';
+import { readFileSync } from 'node:fs';
+import { join, basename } from 'node:path';
+import { pruneLogs, unremovableCommand } from './log-retention.js';
+import type { RetentionDeps } from './log-retention.js';
 
 describe('logCommand', () => {
   it('records the executed command in the in-memory buffer', () => {
@@ -163,5 +167,79 @@ describe('un paquete fallido deja UNA entrada', () => {
     const before = getLogEntries().length;
     logResult(r);
     expect(getLogEntries().length).toBe(before + 1);
+  });
+});
+
+describe('retención del depósito por cantidad de corridas', () => {
+  // El depósito sembrado vive en fixtures/, por encima del límite y con archivos
+  // que este proceso no puede retirar — la forma del depósito real: 121 archivos
+  // desde marzo, 49 de ellos de root por las corridas elevadas.
+  const fixture = JSON.parse(readFileSync(join('fixtures', 'log-deposit.json'), 'utf-8')) as {
+    limit: number;
+    entries: { name: string; ageMinutes: number; unremovable: boolean }[];
+  };
+
+  function deposit() {
+    const now = Date.now();
+    const files = fixture.entries.map(e => e.name);
+    const blocked = new Set(fixture.entries.filter(e => e.unremovable).map(e => e.name));
+    const removed: string[] = [];
+    const deps: RetentionDeps = {
+      listFiles: () => files,
+      mtimeMs: file => {
+        const name = basename(file);
+        const entry = fixture.entries.find(e => e.name === name);
+        return now - (entry?.ageMinutes ?? 0) * 60_000;
+      },
+      remove: file => {
+        if (blocked.has(basename(file))) {
+          const err = new Error('EACCES') as NodeJS.ErrnoException;
+          err.code = 'EACCES';
+          throw err;
+        }
+        removed.push(basename(file));
+      },
+    };
+    return { deps, removed, blocked };
+  }
+
+  it('conserva las N corridas más recientes y retira las viejas', () => {
+    const { deps, removed } = deposit();
+    const report = pruneLogs('/dep', fixture.limit, deps);
+    expect(fixture.entries.length).toBeGreaterThan(fixture.limit);
+    expect(report.kept).toBe(fixture.limit);
+    expect(report.removed).toBe(fixture.entries.length - fixture.limit - 2);
+    // Las conservadas son las más nuevas: ninguna de ellas se intentó retirar.
+    const newest = fixture.entries.slice(0, fixture.limit).map(e => e.name);
+    expect(removed.some(r => newest.includes(r))).toBe(false);
+  });
+
+  it('informa los archivos que no puede retirar en vez de decir que los borró', () => {
+    const { deps, blocked } = deposit();
+    const report = pruneLogs('/dep', fixture.limit, deps);
+    expect(report.unremovable).toHaveLength(blocked.size);
+    expect(report.unremovable.every(u => u.reason === 'sin permiso')).toBe(true);
+  });
+
+  it('no borra nada cuando el depósito está por debajo del límite', () => {
+    const { deps, removed } = deposit();
+    const report = pruneLogs('/dep', 100, deps);
+    expect(report.removed).toBe(0);
+    expect(removed).toEqual([]);
+    expect(report.kept).toBe(fixture.entries.length);
+  });
+
+  it('un límite absurdo se acota a una corrida, nunca a cero', () => {
+    const { deps } = deposit();
+    expect(pruneLogs('/dep', 0, deps).kept).toBe(1);
+  });
+
+  it('en unix el informe trae el comando que los retira; en Windows ese caso no existe', () => {
+    expect(unremovableCommand(['/l/a.log'], 'darwin')).toBe("sudo rm -f '/l/a.log'");
+    expect(unremovableCommand(['/l/a.log'], 'linux')).toContain('sudo rm -f');
+    // Una consola elevada de Windows corre como el mismo usuario: el archivo que
+    // dejó una corrida elevada lo puede retirar una corrida normal.
+    expect(unremovableCommand(['C:/l/a.log'], 'win32')).toBeNull();
+    expect(unremovableCommand([], 'darwin')).toBeNull();
   });
 });

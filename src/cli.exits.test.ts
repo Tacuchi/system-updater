@@ -27,6 +27,7 @@ const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
 
 let tmpRoot: string;
 let previousLogDir: string | undefined;
+let previousConfigDir: string | undefined;
 
 beforeAll(() => {
   // Build unconditionally: a harness that would happily pass against a stale
@@ -40,12 +41,19 @@ beforeEach(() => {
   // Also for the in-process case: the quit-key route mounts the app for real, and
   // a test has no business appending to the deposit the user actually reads.
   previousLogDir = process.env['TACUCHI_UPDATER_LOG_DIR'];
+  previousConfigDir = process.env['TACUCHI_UPDATER_CONFIG_DIR'];
   process.env['TACUCHI_UPDATER_LOG_DIR'] = path.join(tmpRoot, 'inproc');
+  const inprocConfig = path.join(tmpRoot, 'inproc-config');
+  process.env['TACUCHI_UPDATER_CONFIG_DIR'] = inprocConfig;
+  fs.mkdirSync(inprocConfig, { recursive: true });
+  fs.writeFileSync(path.join(inprocConfig, 'config.json'), JSON.stringify({ selfCheck: false }), 'utf-8');
 });
 
 afterEach(() => {
   if (previousLogDir === undefined) delete process.env['TACUCHI_UPDATER_LOG_DIR'];
   else process.env['TACUCHI_UPDATER_LOG_DIR'] = previousLogDir;
+  if (previousConfigDir === undefined) delete process.env['TACUCHI_UPDATER_CONFIG_DIR'];
+  else process.env['TACUCHI_UPDATER_CONFIG_DIR'] = previousConfigDir;
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
@@ -64,7 +72,14 @@ function configDirWithOnly(enabled: string[]): string {
   const dir = path.join(tmpRoot, 'config');
   fs.mkdirSync(dir, { recursive: true });
   const enabledManagers = Object.fromEntries(ALL_DESCRIPTORS.map(d => [d.id, enabled.includes(d.id)]));
-  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ enabledManagers }, null, 2), 'utf-8');
+  // `selfCheck: false` because a test has no business querying the npm registry:
+  // it would make the suite depend on the network and ping a public service on
+  // every run.
+  fs.writeFileSync(
+    path.join(dir, 'config.json'),
+    JSON.stringify({ enabledManagers, selfCheck: false }, null, 2),
+    'utf-8',
+  );
   return dir;
 }
 

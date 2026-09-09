@@ -1,0 +1,181 @@
+{
+  "_why": "Deposito sembrado por encima del limite de retencion (30), con dos archivos que el proceso no puede retirar. Lo consume src/lib/logger.test.ts.",
+  "limit": 30,
+  "entries": [
+    {
+      "name": "system_updater_20260301_08_00_00.log",
+      "ageMinutes": 0,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260302_09_01_00.log",
+      "ageMinutes": 30,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260303_10_02_00.log",
+      "ageMinutes": 60,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260304_11_03_00.log",
+      "ageMinutes": 90,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260305_12_04_00.log",
+      "ageMinutes": 120,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260306_13_05_00.log",
+      "ageMinutes": 150,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260307_14_06_00.log",
+      "ageMinutes": 180,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260308_15_07_00.log",
+      "ageMinutes": 210,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260309_16_08_00.log",
+      "ageMinutes": 240,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260310_17_09_00.log",
+      "ageMinutes": 270,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260311_18_10_00.log",
+      "ageMinutes": 300,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260312_19_11_00.log",
+      "ageMinutes": 330,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260413_08_12_00.log",
+      "ageMinutes": 360,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260414_09_13_00.log",
+      "ageMinutes": 390,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260415_10_14_00.log",
+      "ageMinutes": 420,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260416_11_15_00.log",
+      "ageMinutes": 450,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260417_12_16_00.log",
+      "ageMinutes": 480,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260418_13_17_00.log",
+      "ageMinutes": 510,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260419_14_18_00.log",
+      "ageMinutes": 540,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260420_15_19_00.log",
+      "ageMinutes": 570,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260421_16_20_00.log",
+      "ageMinutes": 600,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260422_17_21_00.log",
+      "ageMinutes": 630,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260423_18_22_00.log",
+      "ageMinutes": 660,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260424_19_23_00.log",
+      "ageMinutes": 690,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260525_08_24_00.log",
+      "ageMinutes": 720,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260526_09_25_00.log",
+      "ageMinutes": 750,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260527_10_26_00.log",
+      "ageMinutes": 780,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260528_11_27_00.log",
+      "ageMinutes": 810,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260501_12_28_00.log",
+      "ageMinutes": 840,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260502_13_29_00.log",
+      "ageMinutes": 870,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260503_14_30_00.log",
+      "ageMinutes": 900,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260504_15_31_00.log",
+      "ageMinutes": 930,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260505_16_32_00.log",
+      "ageMinutes": 960,
+      "unremovable": false
+    },
+    {
+      "name": "system_updater_20260506_17_33_00.log",
+      "ageMinutes": 990,
+      "unremovable": true
+    },
+    {
+      "name": "system_updater_20260507_18_34_00.log",
+      "ageMinutes": 1020,
+      "unremovable": true
+    }
+  ]
+}

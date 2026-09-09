@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef, useState, useCallback } from 'react';
 import { useApp } from 'ink';
 import { appReducer, initialState } from '../state/app-reducer.js';
 import type { AppState, ManagerResult, ManagerPackageResult, UiFailure, PackageItem } from '../state/types.js';
@@ -20,6 +20,8 @@ import { dirname } from 'node:path';
 import { relaunchElevated, elevatedSummaryPath } from '../lib/elevation.js';
 import { onProcessCancel } from '../lib/cancellation.js';
 import { registerRunSummary, settleRun } from '../lib/run-closure.js';
+import { checkForNewerSelf } from '../lib/self-update.js';
+import { getVersion } from '../lib/version.js';
 
 /** Pure: project an engine UpgradeResult onto the UI ManagerResult shape. */
 export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResult {
@@ -125,6 +127,8 @@ export interface MachineValue {
   toggleEnabled: (id: string) => void;
   /** Leave the app: abort an in-flight run, kill its child tree, settle the log. */
   quitApp: () => void;
+  /** A newer updater than the one running, and how to get it. Null = nothing to say. */
+  selfUpdate: { version: string; howTo: string } | null;
 }
 
 const MachineContext = createContext<MachineValue | null>(null);
@@ -197,10 +201,26 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
   }, []);
 
   useEffect(() => {
-    initLogger();
+    initLogger(configRef.current.logRetentionRuns);
     setLanguage(configRef.current.language);
     void boot();
   }, [boot]);
+
+  // Is there a newer me? Fired and forgotten: no await anywhere on the flow's
+  // path, so a slow or unreachable registry cannot delay a single frame, and a
+  // failure only ever shows up in the log.
+  const [selfUpdate, setSelfUpdate] = useState<{ version: string; howTo: string } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void checkForNewerSelf(getVersion(), configRef.current.selfCheck).then(outcome => {
+      if (alive && outcome.newer && outcome.howTo) {
+        setSelfUpdate({ version: outcome.newer, howTo: outcome.howTo });
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Bridge OS signals (SIGINT/SIGBREAK, fired from cli.tsx) to the engine's
   // AbortController so Ctrl+C / Ctrl+Break cancel the run (→ tree-kill children),
@@ -522,6 +542,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
     setLang,
     toggleEnabled,
     quitApp,
+    selfUpdate,
   };
 }
 
