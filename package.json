@@ -46,6 +46,7 @@
     "tree-kill": "^1.2.2"
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "@types/react": "^19.0.0",
     "ink-testing-library": "^4.0.0",
     "react-devtools-core": "^7.0.1",
