@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { render } from 'ink-testing-library';
 import { g } from './lib/glyphs.js';
+import { closeLogger } from './lib/logger.js';
 
 // Mock detection so the smoke is hermetic + fast (no real package-manager spawns).
 //
@@ -105,17 +106,49 @@ afterAll(() => {
   else process.env['TACUCHI_UPDATER_LOG_DIR'] = previousLogDir;
   if (previousConfigDir === undefined) delete process.env['TACUCHI_UPDATER_CONFIG_DIR'];
   else process.env['TACUCHI_UPDATER_CONFIG_DIR'] = previousConfigDir;
-  rmSync(tmpLogRoot, { recursive: true, force: true });
+  // Montar la app abre el log DE VERDAD. Sin cerrarlo, Windows se niega a
+  // borrar un archivo con handle abierto y el borrado del temporal tumbaba el
+  // archivo entero con ENOTEMPTY, mientras las otras dos patas pasaban.
+  closeLogger();
+  rmSync(tmpLogRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 const tick = (ms = 60) => new Promise(r => setTimeout(r, ms));
+
+// Este archivo maneja la app React de verdad por cinco pantallas; no es una
+// prueba unitaria y el plazo de 5 s por defecto no le corresponde.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+
+/**
+ * Esperar a que el marco diga algo, con un plazo DE PARED.
+ *
+ * La primera versión de estos ayudantes contaba ticks (`for (let i = 0; i < 60;)`
+ * cada 40 ms): un presupuesto de ~2,4 s que se sostiene en una laptop ociosa y no
+ * en un runner corriendo 54 archivos a la vez. El mismo commit daba 376/376 local
+ * y fallaba las TRES patas de CI con
+ * `expected ' @tacuchi/updater v3.0.0 …' to contain 'COMPLETADO'`. Un plazo así
+ * de amplio no puede tambalear, y un cuelgue real sigue fallando — con el mensaje
+ * de abajo, que lleva el marco adentro en vez de dejar adivinando en qué pantalla
+ * se quedó.
+ */
+const WAIT_MS = 15_000;
+async function waitFor(lastFrame: () => string | undefined, needle: string, what: string): Promise<string> {
+  const deadline = Date.now() + WAIT_MS;
+  for (;;) {
+    const frame = lastFrame() ?? '';
+    if (frame.includes(needle)) return frame;
+    if (Date.now() > deadline) {
+      throw new Error(`${what}: esperaba "${needle}" y a los ${WAIT_MS} ms se ve:\n${frame}`);
+    }
+    await tick(25);
+  }
+}
 
 describe('App (linear flow) smoke', () => {
   it('mounts, renders the shell header, and walks detect → select', async () => {
     const { lastFrame, unmount } = render(<App sudoMode={false} />);
     expect(lastFrame() ?? '').toContain('@tacuchi/updater');
-    await tick(150);
-    const frame = lastFrame() ?? '';
+    const frame = await waitFor(lastFrame, '2.44', 'detect + scan');
     expect(frame).toContain('git');
     expect(frame).toContain('2.44');
     unmount();
@@ -123,19 +156,16 @@ describe('App (linear flow) smoke', () => {
 
   it('drives select → confirm → update → summary and reports real success', async () => {
     const { lastFrame, stdin, unmount } = render(<App sudoMode={false} />);
-    await tick(180); // detect + scan → select
+    await waitFor(lastFrame, 'Espacio marcar', 'detect + scan → select');
 
     stdin.write(' '); // toggle the cursor row (git)
-    await tick(30);
+    await tick(120);
     stdin.write('\r'); // enter → confirm
-    await tick(40);
-    expect(lastFrame() ?? '').toContain('Se ejecutará');
+    await waitFor(lastFrame, 'Se ejecutará', 'select → confirm');
 
     stdin.write('\r'); // enter → run
-    await tick(250); // run completes → RUN_DONE → summary
+    const frame = await waitFor(lastFrame, 'COMPLETADO', 'confirm → run → summary');
 
-    const frame = lastFrame() ?? '';
-    expect(frame).toContain('COMPLETADO');
     expect(frame).toContain('1'); // 1 upgraded
     unmount();
   });
@@ -148,19 +178,13 @@ describe('App (linear flow) smoke', () => {
  */
 async function toSummary() {
   const h = render(<App sudoMode={false} />);
-  for (let i = 0; i < 40; i++) {
-    if ((h.lastFrame() ?? '').includes('Espacio marcar')) break;
-    await tick(30);
-  }
+  await waitFor(h.lastFrame, 'Espacio marcar', 'toSummary: detect + scan → select');
   h.stdin.write('a'); // select every package
-  await tick(40);
+  await tick(120);
   h.stdin.write('\r'); // → confirm
-  await tick(40);
+  await waitFor(h.lastFrame, 'Se ejecutará', 'toSummary: select → confirm');
   h.stdin.write('\r'); // → run
-  for (let i = 0; i < 60; i++) {
-    if ((h.lastFrame() ?? '').includes('COMPLETADO')) break;
-    await tick(40);
-  }
+  await waitFor(h.lastFrame, 'COMPLETADO', 'toSummary: confirm → run → summary');
   await tick(60); // let the summary settle before pressing anything into it
   return h;
 }
@@ -168,11 +192,7 @@ async function toSummary() {
 /** Press a key and wait until the frame actually reflects it. */
 async function press(h: { stdin: { write: (s: string) => void }; lastFrame: () => string | undefined }, key: string, until: string) {
   h.stdin.write(key);
-  for (let i = 0; i < 30; i++) {
-    if ((h.lastFrame() ?? '').includes(until)) return;
-    await tick(30);
-  }
-  throw new Error(`la tecla '${key}' no llevó a "${until}"; se ve: ${(h.lastFrame() ?? '').slice(0, 200)}`);
+  await waitFor(h.lastFrame, until, `la tecla '${key}'`);
 }
 
 describe('el detalle por paquete (DES-001@r1)', () => {
@@ -232,10 +252,7 @@ describe('la fila del gestor en curso muestra porcentaje O tiempo, nunca ambos',
   it('el que reporta porcentaje muestra porcentaje; el que no, tiempo', async () => {
     const { lastFrame, frames, unmount } = render(<App sudoMode={false} nonInteractive />);
     // Esperar a que la pantalla de actualización esté visible con las dos filas.
-    for (let i = 0; i < 40; i++) {
-      if ((lastFrame() ?? '').includes('ACTUALIZANDO')) break;
-      await tick(20);
-    }
+    await waitFor(lastFrame, 'ACTUALIZANDO', 'run → updating');
     const updating = frames.filter(f => f.includes('ACTUALIZANDO'));
     expect(updating.length).toBeGreaterThan(0);
 

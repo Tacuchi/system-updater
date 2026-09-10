@@ -32,7 +32,10 @@ let previousConfigDir: string | undefined;
 beforeAll(() => {
   // Build unconditionally: a harness that would happily pass against a stale
   // dist/ is not evidence about the source anybody just changed.
-  execFileSync('npm', ['run', 'build'], { stdio: 'pipe' });
+  // En Windows el ejecutable es `npm.cmd`: `execFileSync` no usa shell, así que
+  // pedirle 'npm' dio `spawnSync npm ENOENT` y tumbó el archivo entero en la
+  // pata de Windows de CI.
+  execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build'], { stdio: 'pipe' });
   expect(fs.existsSync(DIST)).toBe(true);
 }, 180_000);
 
@@ -54,7 +57,7 @@ afterEach(() => {
   else process.env['TACUCHI_UPDATER_LOG_DIR'] = previousLogDir;
   if (previousConfigDir === undefined) delete process.env['TACUCHI_UPDATER_CONFIG_DIR'];
   else process.env['TACUCHI_UPDATER_CONFIG_DIR'] = previousConfigDir;
-  fs.rmSync(tmpRoot, { recursive: true, force: true });
+  fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 interface Launch {
