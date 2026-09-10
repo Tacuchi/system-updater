@@ -165,6 +165,31 @@ describe('appReducer', () => {
     expect(s.managers['gem']?.status).toBe('unknown');
   });
 
+  it('abrir el detalle dos veces no lo deja sin salida', () => {
+    const summary = apply(base(), detect, { type: 'RUN_DONE' });
+    expect(summary.phase).toBe('summary');
+
+    // La segunda apertura es lo que importa: si volviera a guardar el origen,
+    // `prevPhase` quedaría en 'detail' y el cierre no llevaría a ningún lado.
+    const abierto = apply(summary, { type: 'OPEN_DETAIL' }, { type: 'OPEN_DETAIL' });
+    expect(abierto.phase).toBe('detail');
+    expect(abierto.prevPhase).toBe('summary');
+    expect(appReducer(abierto, { type: 'CLOSE_DETAIL' }).phase).toBe('summary');
+  });
+
+  it('abrir los ajustes dos veces tampoco los deja sin salida', () => {
+    const summary = apply(base(), detect, { type: 'RUN_DONE' });
+    const abierto = apply(summary, { type: 'OPEN_SETTINGS' }, { type: 'OPEN_SETTINGS' });
+    expect(abierto.phase).toBe('settings');
+    expect(appReducer(abierto, { type: 'CLOSE_SETTINGS' }).phase).toBe('summary');
+  });
+
+  it('los ajustes abiertos DESDE el detalle vuelven al detalle', () => {
+    const enDetalle = apply(base(), detect, { type: 'RUN_DONE' }, { type: 'OPEN_DETAIL' });
+    const enAjustes = appReducer(enDetalle, { type: 'OPEN_SETTINGS' });
+    expect(appReducer(enAjustes, { type: 'CLOSE_SETTINGS' }).phase).toBe('detail');
+  });
+
   it('MGR_UNKNOWN cuenta aparte: ni hecho ni fallido', () => {
     const result = {
       status: 'unknown' as const,

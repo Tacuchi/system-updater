@@ -97,13 +97,22 @@ export function appReducer(state: AppState, action: Action): AppState {
 
     // Same shape as the settings overlay: a screen SWAP grows no region, which
     // is what keeps a long package list from having to be capped by hand.
+    //
+    // Abrir lo que YA está abierto no vuelve a guardar el origen. Si lo
+    // guardara, `prevPhase` pasaría a valer `'detail'` y el cierre devolvería a
+    // la misma pantalla: el detalle quedaría SIN SALIDA para siempre, y no hace
+    // falta nada raro para caer ahí —dos `d` seguidas alcanzan, y la repetición
+    // del teclado las produce sola—. Así se colgó CI, 74 pulsaciones seguidas
+    // sin mover un pixel.
     case 'OPEN_DETAIL':
+      if (state.phase === 'detail') return state;
       return { ...state, prevPhase: state.phase, phase: 'detail' };
 
     case 'CLOSE_DETAIL':
       return { ...state, phase: state.prevPhase };
 
     case 'OPEN_SETTINGS':
+      if (state.phase === 'settings') return state;
       return { ...state, prevPhase: state.phase, phase: 'settings' };
 
     case 'CLOSE_SETTINGS':
