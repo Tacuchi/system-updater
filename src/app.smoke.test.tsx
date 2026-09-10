@@ -20,6 +20,10 @@ const BREW_PACKAGES = Array.from({ length: 20 }, (_, i) =>
     : { name: `pkg-${i}`, currentVersion: `1.${i}.0`, newVersion: `1.${i}.1` },
 );
 
+// 20 de brew + `left-pad` de npm. El contador de la pantalla de selección es la
+// única prueba observable de que una tecla llegó a destino.
+const TOTAL_PACKAGES = BREW_PACKAGES.length + 1;
+
 vi.mock('./managers/registry.js', () => ({
   detectManagers: async () => [
     {
@@ -132,6 +136,58 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
  * se quedó.
  */
 const WAIT_MS = 15_000;
+
+/** Lo mínimo de un handle de ink-testing-library que estos ayudantes necesitan. */
+interface Handle {
+  stdin: { write: (s: string) => void };
+  lastFrame: () => string | undefined;
+}
+
+/**
+ * Mandar una tecla hasta que el marco demuestre que llegó.
+ *
+ * Ink 6 no suscribe cada `useInput` a `stdin`: los reparte desde un emisor
+ * interno, y cada hook se engancha ahí en un efecto de React. Cuando la pantalla
+ * aparece por una actualización ASÍNCRONA —`detect` → `scan` → `select` llega de
+ * una promesa— ese efecto se vacía DESPUÉS de que el marco ya está escrito, así
+ * que hay una ventana en la que el marco nuevo ya es observable y el teclado de
+ * esa pantalla todavía no está enchufado. El handler de `App`, que sí lo está,
+ * consume la tecla y la ignora: se DESCARTA sin error. La pantalla se quedaba en
+ * `0 / 21 seleccionados` para siempre, y el Enter siguiente no tenía nada que
+ * confirmar. Eso, y no la lentitud del runner, es lo que ponía a CI en rojo —las
+ * tres patas, una prueba por pata, siempre la primera que toca una tecla— con
+ * 376/376 acá.
+ *
+ * Medido en aislamiento (una raíz con su `useInput` más una pantalla montada por
+ * una promesa, la tecla escrita en el turno en que su marco se vuelve
+ * observable): 9 de 20 corridas la descartan, y el reenvío la recuperó en 20 de
+ * 20. En el montaje inicial NO pasa: ahí React vacía el efecto antes de que el
+ * marco se pueda leer, y por eso la versión anterior de este archivo pasaba en
+ * una laptop y no en un runner.
+ *
+ * Reenviar es seguro para TODAS las teclas que usa este archivo: `a` (marcar
+ * todo) es idempotente, y los interruptores (`espacio`, `d`) convergen porque se
+ * mira el marco antes de cada envío y se corta en cuanto la aguja aparece. El
+ * único Enter que NO se reenvía es el de la selección: un segundo Enter arrancaría
+ * la corrida y se saltaría la confirmación — y no hace falta, porque el contador
+ * ya probó que ese teclado está enchufado.
+ */
+async function pressUntil(h: Handle, key: string, needle: string, what: string): Promise<string> {
+  const deadline = Date.now() + WAIT_MS;
+  for (let sent = 0; ; sent++) {
+    if ((h.lastFrame() ?? '').includes(needle)) return h.lastFrame() ?? '';
+    if (Date.now() > deadline) {
+      throw new Error(
+        `${what}: ${JSON.stringify(key)} no llevó a "${needle}" en ${WAIT_MS} ms tras ${sent} envíos; se ve:\n${h.lastFrame() ?? ''}`,
+      );
+    }
+    h.stdin.write(key);
+    for (let i = 0; i < 8; i++) {
+      await tick(25);
+      if ((h.lastFrame() ?? '').includes(needle)) return h.lastFrame() ?? '';
+    }
+  }
+}
 async function waitFor(lastFrame: () => string | undefined, needle: string, what: string): Promise<string> {
   const deadline = Date.now() + WAIT_MS;
   for (;;) {
@@ -155,19 +211,17 @@ describe('App (linear flow) smoke', () => {
   });
 
   it('drives select → confirm → update → summary and reports real success', async () => {
-    const { lastFrame, stdin, unmount } = render(<App sudoMode={false} />);
-    await waitFor(lastFrame, 'Espacio marcar', 'detect + scan → select');
+    const h = render(<App sudoMode={false} />);
+    await waitFor(h.lastFrame, 'Espacio marcar', 'detect + scan → select');
 
-    stdin.write(' '); // toggle the cursor row (git)
-    await tick(120);
-    stdin.write('\r'); // enter → confirm
-    await waitFor(lastFrame, 'Se ejecutará', 'select → confirm');
+    // El espacio marca la fila del cursor (git), y el contador lo demuestra.
+    await pressUntil(h, ' ', `1 / ${TOTAL_PACKAGES} seleccionados`, 'marcar la fila del cursor');
+    h.stdin.write('\r'); // enter → confirm (un solo envío: el teclado ya probó estar vivo)
+    await waitFor(h.lastFrame, 'Se ejecutará', 'select → confirm');
 
-    stdin.write('\r'); // enter → run
-    const frame = await waitFor(lastFrame, 'COMPLETADO', 'confirm → run → summary');
-
+    const frame = await pressUntil(h, '\r', 'COMPLETADO', 'confirm → run → summary');
     expect(frame).toContain('1'); // 1 upgraded
-    unmount();
+    h.unmount();
   });
 });
 
@@ -179,20 +233,17 @@ describe('App (linear flow) smoke', () => {
 async function toSummary() {
   const h = render(<App sudoMode={false} />);
   await waitFor(h.lastFrame, 'Espacio marcar', 'toSummary: detect + scan → select');
-  h.stdin.write('a'); // select every package
-  await tick(120);
-  h.stdin.write('\r'); // → confirm
+  // `a` marca todo y es idempotente, así que se puede reenviar sin miedo.
+  await pressUntil(h, 'a', `${TOTAL_PACKAGES} / ${TOTAL_PACKAGES} seleccionados`, 'toSummary: marcar todo');
+  h.stdin.write('\r'); // → confirm (un solo envío: el teclado ya probó estar vivo)
   await waitFor(h.lastFrame, 'Se ejecutará', 'toSummary: select → confirm');
-  h.stdin.write('\r'); // → run
-  await waitFor(h.lastFrame, 'COMPLETADO', 'toSummary: confirm → run → summary');
-  await tick(60); // let the summary settle before pressing anything into it
+  await pressUntil(h, '\r', 'COMPLETADO', 'toSummary: confirm → run → summary');
   return h;
 }
 
 /** Press a key and wait until the frame actually reflects it. */
-async function press(h: { stdin: { write: (s: string) => void }; lastFrame: () => string | undefined }, key: string, until: string) {
-  h.stdin.write(key);
-  await waitFor(h.lastFrame, until, `la tecla '${key}'`);
+async function press(h: Handle, key: string, until: string): Promise<string> {
+  return pressUntil(h, key, until, `la tecla '${key}'`);
 }
 
 describe('el detalle por paquete (DES-001@r1)', () => {
@@ -228,11 +279,8 @@ describe('el detalle por paquete (DES-001@r1)', () => {
     expect(again).toBe(lines.length);
 
     // Y la cola de la lista es alcanzable: recorrerla no cambia el alto del marco.
-    stdin.write('j');
-    await tick(40);
-    const scrolled = lastFrame() ?? '';
+    const scrolled = await press({ stdin, lastFrame }, 'j', g.scrollUp);
     expect(scrolled.split('\n').length).toBe(lines.length);
-    expect(scrolled).toContain(g.scrollUp);
     unmount();
   });
 

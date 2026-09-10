@@ -32,10 +32,12 @@ let previousConfigDir: string | undefined;
 beforeAll(() => {
   // Build unconditionally: a harness that would happily pass against a stale
   // dist/ is not evidence about the source anybody just changed.
-  // En Windows el ejecutable es `npm.cmd`: `execFileSync` no usa shell, así que
-  // pedirle 'npm' dio `spawnSync npm ENOENT` y tumbó el archivo entero en la
-  // pata de Windows de CI.
-  execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build'], { stdio: 'pipe' });
+  // En Windows el ejecutable es `npm.cmd`, y `execFileSync` no usa shell: pedirle
+  // 'npm' dio `spawnSync npm ENOENT`, y pedirle 'npm.cmd' dio `EINVAL` porque
+  // desde el arreglo de CVE-2024-27980 Node se niega a lanzar un .cmd/.bat sin
+  // shell. `shell` en Windows es la ruta que queda, y los argumentos son
+  // literales nuestros, no entrada de nadie.
+  execFileSync('npm', ['run', 'build'], { stdio: 'pipe', shell: process.platform === 'win32' });
   expect(fs.existsSync(DIST)).toBe(true);
 }, 180_000);
 
