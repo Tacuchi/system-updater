@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import envPaths from 'env-paths';
 import type { Language } from '../i18n/index.js';
 
 export type Verbosity = 'debug' | 'info' | 'warn' | 'error';
@@ -77,14 +76,36 @@ export function normalizeConfig(parsed: Partial<UserConfig>): UserConfig {
 const APP = 'tacuchi-updater';
 
 /**
- * Config dir. Windows uses %APPDATA% (via env-paths) instead of a dotfile in the
+ * Los dos directorios de Windows, calculados acá en vez de delegados.
+ *
+ * `env-paths` resuelve contra el `process.platform` REAL, así que pedirle las
+ * rutas de win32 desde macOS o Linux devuelve las del host: el parámetro
+ * `platform` de las dos funciones de abajo era una promesa que nadie cumplía, y
+ * la prueba de la rama win32 pasaba en macOS (`~/Library/Logs` contiene «log»)
+ * y fallaba en Linux (`~/.local/state` no) con el MISMO código. Estas son las
+ * mismas dos rutas que env-paths construye para Windows, byte por byte
+ * (`%APPDATA%\<app>\Config` y `%LOCALAPPDATA%\<app>\Log`), con su mismo
+ * respaldo cuando la variable no está: se sigue leyendo el entorno del host, y
+ * eso es lo correcto en Windows, pero la FORMA de la ruta ya no depende de él.
+ */
+function windowsPaths(): { config: string; log: string } {
+  const home = os.homedir();
+  // `||` y no `??`: env-paths trata la variable vacía como ausente, y una ruta
+  // vacía dejaría el depósito en la raíz del disco.
+  const roaming = process.env['APPDATA'] || path.join(home, 'AppData', 'Roaming');
+  const local = process.env['LOCALAPPDATA'] || path.join(home, 'AppData', 'Local');
+  return { config: path.join(roaming, APP, 'Config'), log: path.join(local, APP, 'Log') };
+}
+
+/**
+ * Config dir. Windows uses %APPDATA% instead of a dotfile in the
  * home dir; macOS/Linux KEEP the legacy `~/.tacuchi-updater` so their behavior is
  * unchanged.
  */
 export function getConfigDir(platform: NodeJS.Platform = process.platform): string {
   const override = process.env['TACUCHI_UPDATER_CONFIG_DIR'];
   if (override) return override;
-  if (platform === 'win32') return envPaths(APP, { suffix: '' }).config;
+  if (platform === 'win32') return windowsPaths().config;
   return path.join(os.homedir(), '.tacuchi-updater');
 }
 
@@ -102,7 +123,7 @@ export function getConfigDir(platform: NodeJS.Platform = process.platform): stri
 export function getLogDir(platform: NodeJS.Platform = process.platform): string {
   const override = process.env['TACUCHI_UPDATER_LOG_DIR'];
   if (override) return override;
-  if (platform === 'win32') return envPaths(APP, { suffix: '' }).log;
+  if (platform === 'win32') return windowsPaths().log;
   return path.join(getConfigDir(platform), 'logs');
 }
 

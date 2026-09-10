@@ -45,6 +45,13 @@ export function initLogger(retentionRuns?: number): string {
   const stamp = now.toISOString().replace(/[T:]/g, '_').split('.')[0]?.replace(/-/g, '');
   const filename = `system_updater_${stamp}.log`;
 
+  // Un segundo init abandonaba el descriptor anterior: el archivo quedaba
+  // abierto para toda la vida del proceso, y en Windows un archivo con handle
+  // abierto no se puede borrar — el smoke fallaba su PROPIO teardown con
+  // ENOTEMPTY sobre su directorio temporal. Cerrar antes de abrir es también
+  // lo que hace que cada corrida tenga un solo depósito vivo.
+  closeLogger();
+
   // Single sink in the user's log dir (win32: %LOCALAPPDATA%, unix: ~/.tacuchi-updater/logs).
   // The previous second sink under process.cwd()/logs polluted whatever directory the
   // CLI was launched from and could EPERM; it has been removed.
