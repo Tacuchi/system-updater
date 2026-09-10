@@ -1,6 +1,6 @@
 {
   "name": "@tacuchi/updater",
-  "version": "2.2.1",
+  "version": "3.0.0",
   "description": "CLI multiplataforma para actualizar gestores de paquetes del sistema",
   "type": "module",
   "bin": {
