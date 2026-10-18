@@ -48,8 +48,10 @@ function tail(s: string, bytes: number): string {
 }
 
 function execaOptions(opts: RunOptions, all: boolean) {
+  if (!Number.isFinite(opts.timeoutMs) || opts.timeoutMs < 0) {
+    throw new TypeError('timeoutMs must be a finite, non-negative number');
+  }
   return {
-    timeout: opts.timeoutMs,
     reject: false as const,
     cwd: opts.cwd,
     env: opts.env,
@@ -59,25 +61,26 @@ function execaOptions(opts: RunOptions, all: boolean) {
   };
 }
 
-/**
- * On abort, kill the child's WHOLE tree — and be the ONLY thing that does.
- *
- * execa's `cancelSignal` used to run alongside this, and the two raced: execa
- * signals the direct child immediately, so by the time tree-kill asked `ps` for
- * that child's children the parent was already gone and the grandchildren had
- * been reparented to pid 1. Measured on macOS with a two-level fake upgrade: the
- * direct child died, `/bin/sleep` survived, tree-kill reported success. The
- * orphan is a `winget`/`choco`/`brew` installer still mutating the system with
- * nothing on screen, which is the whole reason this function exists.
- *
- * So cancellation is ours alone: no `cancelSignal` in the execa options, and
- * tree-kill walks a tree that is still intact when it looks at it.
- */
-function attachTreeKill(signal: AbortSignal | undefined, child: { pid?: number }): void {
-  if (!signal) return;
+// Own both timeout and cancellation: execa killing the parent first would orphan
+// descendants before tree-kill can discover them, leaving inherited pipes open.
+function attachTreeKill(opts: RunOptions, child: { pid?: number }) {
+  const { signal } = opts;
+  const lifetime = {
+    timedOut: false,
+    dispose(): void {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    },
+  };
   const onAbort = (): void => killTree(child.pid);
-  if (signal.aborted) onAbort();
-  else signal.addEventListener('abort', onAbort, { once: true });
+  const timer = opts.timeoutMs === 0 ? undefined : setTimeout(() => {
+    lifetime.timedOut = true;
+    // The deadline must also stop descendants that ignore SIGTERM.
+    killTree(child.pid, 'SIGKILL');
+  }, opts.timeoutMs);
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener('abort', onAbort, { once: true });
+  return lifetime;
 }
 
 /** Run a command to completion, capturing a structured CommandRecord. */
@@ -86,16 +89,20 @@ export async function runExec(cmd: string, args: string[], opts: RunOptions): Pr
   const tailBytes = opts.tailBytes ?? DEFAULT_TAIL_BYTES;
   const started = Date.now();
   const subprocess = execa(finalCmd, finalArgs, execaOptions(opts, false));
-  attachTreeKill(opts.signal, subprocess);
-  const result = await subprocess;
-  return {
-    cmd: [finalCmd, ...finalArgs].join(' '),
-    exitCode: result.exitCode ?? null,
-    durationMs: Date.now() - started,
-    timedOut: result.timedOut ?? false,
-    stdoutTail: tail(decodeSmart(result.stdout as Buffer | undefined), tailBytes),
-    stderrTail: tail(decodeSmart(result.stderr as Buffer | undefined), tailBytes),
-  };
+  const lifetime = attachTreeKill(opts, subprocess);
+  try {
+    const result = await subprocess;
+    return {
+      cmd: [finalCmd, ...finalArgs].join(' '),
+      exitCode: result.exitCode ?? null,
+      durationMs: Date.now() - started,
+      timedOut: lifetime.timedOut,
+      stdoutTail: tail(decodeSmart(result.stdout as Buffer | undefined), tailBytes),
+      stderrTail: tail(decodeSmart(result.stderr as Buffer | undefined), tailBytes),
+    };
+  } finally {
+    lifetime.dispose();
+  }
 }
 
 const WARN_RE = /error|fail|denied|errno|cannot|unable/i;
@@ -115,43 +122,47 @@ export async function* runStream(
   const tailBytes = opts.tailBytes ?? DEFAULT_TAIL_BYTES;
   const started = Date.now();
   const child = execa(finalCmd, finalArgs, { ...execaOptions(opts, true), stdout: 'pipe', stderr: 'pipe' });
-  attachTreeKill(opts.signal, child);
+  const lifetime = attachTreeKill(opts, child);
 
-  if (child.all) {
-    // Sniff-decode the merged byte stream incrementally (handles UTF-16 units
-    // split across chunks) and buffer partial lines until a newline arrives.
-    const decoder = new StreamDecoder();
-    let lineBuf = '';
-    const emit = function* (raw: string): Generator<ProgressEvent> {
-      const line = raw.replace(/\r$/, '');
-      if (!line) return;
-      const percent = percentParser?.(line);
-      if (percent !== undefined) {
-        yield { type: 'progress', message: line, percent };
-      } else {
-        yield { type: 'log', message: line, severity: WARN_RE.test(line) ? 'warn' : 'info' };
+  try {
+    if (child.all) {
+      // Sniff-decode the merged byte stream incrementally (handles UTF-16 units
+      // split across chunks) and buffer partial lines until a newline arrives.
+      const decoder = new StreamDecoder();
+      let lineBuf = '';
+      const emit = function* (raw: string): Generator<ProgressEvent> {
+        const line = raw.replace(/\r$/, '');
+        if (!line) return;
+        const percent = percentParser?.(line);
+        if (percent !== undefined) {
+          yield { type: 'progress', message: line, percent };
+        } else {
+          yield { type: 'log', message: line, severity: WARN_RE.test(line) ? 'warn' : 'info' };
+        }
+      };
+      for await (const chunk of child.all) {
+        lineBuf += decoder.write(chunk as Buffer);
+        let nl: number;
+        while ((nl = lineBuf.indexOf('\n')) >= 0) {
+          const raw = lineBuf.slice(0, nl);
+          lineBuf = lineBuf.slice(nl + 1);
+          yield* emit(raw);
+        }
       }
-    };
-    for await (const chunk of child.all) {
-      lineBuf += decoder.write(chunk as Buffer);
-      let nl: number;
-      while ((nl = lineBuf.indexOf('\n')) >= 0) {
-        const raw = lineBuf.slice(0, nl);
-        lineBuf = lineBuf.slice(nl + 1);
-        yield* emit(raw);
-      }
+      lineBuf += decoder.end();
+      if (lineBuf) yield* emit(lineBuf);
     }
-    lineBuf += decoder.end();
-    if (lineBuf) yield* emit(lineBuf);
-  }
 
-  const result = await child;
-  return {
-    cmd: [finalCmd, ...finalArgs].join(' '),
-    exitCode: result.exitCode ?? null,
-    durationMs: Date.now() - started,
-    timedOut: result.timedOut ?? false,
-    stdoutTail: tail(decodeSmart(result.stdout as Buffer | undefined), tailBytes),
-    stderrTail: tail(decodeSmart(result.stderr as Buffer | undefined), tailBytes),
-  };
+    const result = await child;
+    return {
+      cmd: [finalCmd, ...finalArgs].join(' '),
+      exitCode: result.exitCode ?? null,
+      durationMs: Date.now() - started,
+      timedOut: lifetime.timedOut,
+      stdoutTail: tail(decodeSmart(result.stdout as Buffer | undefined), tailBytes),
+      stderrTail: tail(decodeSmart(result.stderr as Buffer | undefined), tailBytes),
+    };
+  } finally {
+    lifetime.dispose();
+  }
 }

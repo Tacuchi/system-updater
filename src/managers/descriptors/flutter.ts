@@ -64,7 +64,7 @@ async function currentVersion(): Promise<string | undefined> {
 async function latestStable(platform: NodeJS.Platform): Promise<string | undefined> {
   return once(`flutter:latest:${platformKey(platform)}`, async () => {
     try {
-      const resp = await fetch(releasesUrl(platform));
+      const resp = await fetch(releasesUrl(platform), { signal: AbortSignal.timeout(10_000) });
       if (!resp.ok) return undefined;
       return findLatestStable(await resp.text());
     } catch {

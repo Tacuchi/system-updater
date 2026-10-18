@@ -1,5 +1,57 @@
-import { describe, it, expect } from 'vitest';
-import { parseFlutterVersion, findLatestStable } from './flutter.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { flutter, parseFlutterVersion, findLatestStable } from './flutter.js';
+import { resetCapabilities } from '../../lib/exec/capabilities.js';
+import type { OutdatedPackage } from '../types.js';
+
+const { execCommand } = vi.hoisted(() => ({ execCommand: vi.fn() }));
+vi.mock('../../lib/executor.js', () => ({ execCommand }));
+
+describe('consulta Flutter que no contesta', () => {
+  beforeEach(() => {
+    resetCapabilities();
+    vi.useFakeTimers();
+    execCommand.mockImplementation(async (_cmd: string, args: string[]) => ({
+      exitCode: 0,
+      stdout: args.includes('--machine')
+        ? JSON.stringify({ frameworkVersion: '3.47.4' })
+        : 'A new version of Flutter is available',
+      stderr: '',
+    }));
+    // Native AbortSignal timers bypass Vitest's clock; keep the actual abort
+    // contract while allowing the ten-second network stall to run instantly.
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation(delay => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException('Timeout', 'TimeoutError')), delay);
+      return controller.signal;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+    resetCapabilities();
+  });
+
+  it.each(['headers', 'body'])('abandona %s bloqueados y consulta el aviso del SDK', async stage => {
+    const stalled = (signal?: AbortSignal) => new Promise<string>((_resolve, reject) => {
+      signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+    });
+    vi.stubGlobal('fetch', async (_url: string, init?: { signal?: AbortSignal }) => {
+      if (stage === 'headers') await stalled(init?.signal);
+      return { ok: true, text: () => stalled(init?.signal) };
+    });
+    let observed: OutdatedPackage[] | undefined;
+    void flutter.escapeHatch!.listOutdated!({ platform: 'darwin', sudoMode: false, meta: {} })
+      .then(list => { observed = list; });
+
+    await vi.advanceTimersByTimeAsync(10_001);
+
+    expect(observed).toEqual([
+      { name: 'flutter-sdk', currentVersion: '3.47.4', newVersion: 'disponible' },
+    ]);
+  });
+});
 
 describe('parseFlutterVersion', () => {
   it('parses frameworkVersion from `flutter --version --machine` JSON', () => {

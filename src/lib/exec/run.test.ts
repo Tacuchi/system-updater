@@ -5,6 +5,37 @@ import type { ProgressEvent } from '../../managers/types.js';
 const NODE = process.execPath;
 const opts = { timeoutMs: 5000, sudo: false };
 
+describe('timeout con descendientes que mantienen la salida abierta', () => {
+  it.each(['runExec', 'runStream'] as const)('%s termina todo el árbol aunque el descendiente ignore SIGTERM', async runner => {
+    const descendant = `
+      process.on('SIGTERM', () => {});
+      console.log('descendant-pid=' + process.pid);
+      setTimeout(() => process.exit(0), 2500);
+    `;
+    const parent = `
+      const { spawn } = require('node:child_process');
+      spawn(process.execPath, ['-e', ${JSON.stringify(descendant)}], { stdio: 'inherit' });
+      setInterval(() => {}, 1000);
+    `;
+    const startedAt = performance.now();
+    const options = { timeoutMs: 300, sudo: false };
+    const result = runner === 'runExec'
+      ? await runExec(NODE, ['-e', parent], options)
+      : await (async () => {
+          const generator = runStream(NODE, ['-e', parent], options);
+          let next = await generator.next();
+          while (!next.done) next = await generator.next();
+          return next.value;
+        })();
+
+    expect(result.timedOut).toBe(true);
+    expect(performance.now() - startedAt).toBeLessThan(1500);
+    const descendantPid = Number(result.stdoutTail.match(/descendant-pid=(\d+)/)?.[1]);
+    expect(descendantPid).toBeGreaterThan(0);
+    expect(() => process.kill(descendantPid, 0)).toThrow();
+  });
+});
+
 describe('runExec', () => {
   it('captures stdout and a zero exit code', async () => {
     const rec = await runExec(NODE, ['-e', "process.stdout.write('hello')"], opts);
