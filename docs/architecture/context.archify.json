@@ -8,7 +8,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/Tacuchi/system-updater.git",
-      "revision": "46335b4ce29674fe7d7c07e6427d138e3bf872fe",
+      "revision": "52a79d15d89ee445e0c2981f260b6d65b8b5d396",
       "provider": "github",
       "link_mode": "web"
     }
@@ -18,7 +18,7 @@
       "id": "persona",
       "type": "external",
       "label": "Persona operadora",
-      "sublabel": "Terminal o ejecución automática",
+      "sublabel": "Teclado o salida por líneas",
       "pos": [
         40,
         250
@@ -30,13 +30,13 @@
       "sources": [
         {
           "path": "src/cli.tsx",
-          "line": 11,
+          "line": 16,
           "end_line": 29
         },
         {
           "path": "src/cli.tsx",
-          "line": 81,
-          "end_line": 87
+          "line": 74,
+          "end_line": 83
         }
       ]
     },
@@ -55,19 +55,19 @@
       ],
       "sources": [
         {
-          "path": "package.json",
-          "line": 4,
-          "end_line": 15
+          "path": "src/cli.tsx",
+          "line": 74,
+          "end_line": 83
         },
         {
           "path": "src/managers/engine.ts",
-          "line": 241,
-          "end_line": 284
+          "line": 239,
+          "end_line": 291
         },
         {
           "path": "src/hooks/use-app-machine.tsx",
-          "line": 205,
-          "end_line": 225
+          "line": 206,
+          "end_line": 226
         }
       ]
     },
@@ -181,8 +181,9 @@
       "dot": "cyan",
       "title": "Un flujo en la terminal",
       "items": [
-        "La ejecución interactiva pide selección y confirmación. Sin TTY o con --yes, confirma automáticamente.",
-        "Los gestores se ejecutan como subprocesos y usan sus propios repositorios y credenciales."
+        "La entrada sin TTY o --yes automatiza selección y confirmación. Stdout sin TTY recibe eventos y resumen por líneas.",
+        "Q y Esc preguntan antes de cancelar una corrida; Ctrl+C cancela de inmediato. Los gestores son subprocesos locales.",
+        "La cabecera reúne marca, versión y paso. El tema informado elige tokens claros u oscuros; sin informe se usa oscuro."
       ]
     },
     {

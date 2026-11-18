@@ -1,6 +1,6 @@
 # Arquitectura de system-updater
 
-Revisado el 2026-11-18 contra la versión 3.0.1 (commit `46335b4`).
+Revisado el 2026-11-18 contra la versión 3.0.1 (commit `52a79d1`).
 
 Este documento describe interfaz, motor, gestores, archivos locales, construcción y comprobaciones.
 Excluye la implementación de herramientas externas y sus repositorios; todos los valores son los de por defecto.
@@ -17,7 +17,7 @@ En resumen:
 ## 1. Propósito y metas de calidad
 
 `@tacuchi/updater` permite detectar pendientes, seleccionar, confirmar, actualizar y revisar resultados.
-La disponibilidad se comprueba mediante comandos de detección; la [guía de uso](docs/uso.md) enumera los gestores.
+La [guía de uso](docs/uso.md) enumera gestores, detección y controles.
 
 Qué no es:
 
@@ -31,7 +31,6 @@ Qué no es:
 | Concurrencia controlada | Los gestores administrativos tienen un carril serial y los ordinarios comparten puestos. |
 | Cierre auditable | El motor o una salida registra una sola terminación antes de cancelar por señal. |
 
-Los límites de permisos se precisan en las reglas.
 CI comprueba tipos, pruebas y construcción en Linux, macOS y Windows.
 
 ## 2. Contexto y alcance
@@ -42,7 +41,7 @@ CI comprueba tipos, pruebas y construcción en Linux, macOS y Windows.
 
 | Interfaz externa | Dirección | Cuándo ocurre |
 |---|---|---|
-| Persona y terminal | Entrada y salida local | Argumentos, teclado, progreso, detalle y resumen. |
+| Persona y terminal | Entrada y salida local | Argumentos y teclado; tema informado por terminal, progreso y resumen o salida por líneas. |
 | Gestores instalados | Subprocesos locales | Detección, pendientes, actualización y verificación según plataforma. |
 | Repositorios de gestores | Saliente desde cada gestor | Sus comandos consultan o descargan con destinos y credenciales propios. |
 | Registro público npm | HTTPS saliente desde Node.js | Al arrancar, según preferencias y caché. |
@@ -51,7 +50,7 @@ CI comprueba tipos, pruebas y construcción en Linux, macOS y Windows.
 | Sistema de permisos | Local | Unix relanza con `--sudo`; Windows detecta elevación y ofrece relanzar desde Confirmar. |
 
 Las consultas propias son lecturas HTTP, sin envío del registro; véanse [destinos y cachés](docs/config-y-logs.md#consultas-y-privacidad).
-La ausencia de telemetría propia no describe los gestores ni la sincronización del sistema.
+La ausencia de telemetría propia no describe las herramientas externas.
 
 ## 3. Bloques de construcción
 
@@ -59,13 +58,15 @@ La ausencia de telemetría propia no describe los gestores ni la sincronización
 
 [Versión interactiva](https://tacuchi.github.io/system-updater/architecture/containers.html).
 
-Interfaz y motor son módulos del mismo proceso Node.js; el diagrama separa aplicación, subprocesos y archivos.
-El registro conserva las detecciones indeterminadas para que ninguna ausencia de respuesta se presente como disponibilidad confirmada.
+Interfaz y motor comparten proceso Node.js; el diagrama separa subprocesos y archivos.
+El registro conserva las detecciones indeterminadas sin presentarlas como disponibilidad confirmada.
+La cabecera reúne marca, versión y paso; las pistas y sus atajos nacen de una tabla común.
+Los tokens distinguen tema claro y oscuro; sin informe se usa oscuro.
 El [mapa de módulos](docs/desarrollo.md#mapa-de-módulos) detalla responsabilidades y ubicaciones.
 
 | Bloque | Responsabilidad |
 |---|---|
-| Entrada e interfaz | Lee argumentos, determina elevación y modo automático, registra señales y presenta una pantalla por fase. |
+| Entrada e interfaz | Lee argumentos e idioma, determina elevación, tema y modo; presenta pantallas o líneas según stdout. |
 | Máquina de aplicación | Coordina detección, selección, motor, preferencias y cierre. |
 | Registro y descriptores | Selecciona gestores compatibles y adapta comandos, analizadores y excepciones. |
 | Motor de ejecución | Planifica tareas, ejecuta procesos y decodifica salida. |
@@ -92,16 +93,18 @@ Los carriles conservan los efectos y permisos reales de los gestores, sin aislar
 
 Detectar y actualizar:
 
-1. La CLI procesa ayuda y versión, determina elevación y TTY, y monta Ink con ambos valores tras el posible relanzamiento Unix.
+1. La CLI carga el idioma y procesa ayuda y versión; tras la elevación elige tema y salida según TTY.
 2. La máquina lee preferencias, inicializa el registro y detecta gestores compatibles en paralelo.
-3. Lista pendientes de disponibles habilitados y presenta aparte los indeterminados.
+3. Lista pendientes habilitados, conserva indeterminados y permite reintentar una detección fallida o volver a buscar.
 4. La persona selecciona y confirma; el controlador lo hace automáticamente cuando corresponde.
 5. Agrupa paquetes por gestor y entrega tareas al motor con cancelación y concurrencia configuradas.
 6. Cada adaptador obtiene pendientes previos, ejecuta comandos y verifica después; la reconciliación calcula actualizados, fallidos o indeterminados para resumen y diagnóstico.
-7. El motor cierra con su contabilidad sin esperar el resumen renderizado, que en Windows intenta guardar otro JSON.
+7. El motor cierra con su contabilidad; las pantallas o líneas presentan el resultado. Windows intenta guardar otro JSON.
 
-Cancelar y salir aborta la corrida y termina árboles de procesos; los [controles y códigos](docs/uso.md#cancelación-y-salida) detallan sus variantes.
-La comprobación de versión propia corre aparte sin bloquear estos recorridos.
+Durante una corrida, Q y Esc preguntan antes de cancelar; Ctrl+C aborta inmediatamente.
+La confirmación muestra qué gestores se detendrían y después indica cancelación en curso; los [controles y códigos](docs/uso.md#cancelación-y-salida) detallan sus variantes.
+Con stdout redirigido se escriben eventos y resumen sin redibujo ni pistas de teclado.
+La versión nueva aparece como número en cabecera y como comando en Resumen, sin bloquear el recorrido.
 
 ## 5. Vista de despliegue
 
@@ -118,7 +121,7 @@ La comprobación de versión propia corre aparte sin bloquear estos recorridos.
 Los [límites y opciones](docs/config-y-logs.md#límites-y-opciones) explican plazos, retención, captura y valores adicionales.
 Requiere npm, Node.js >=18 y gestores accesibles en `PATH`; la elevación depende del sistema operativo.
 La distribución usa npm e incluye `LICENSE` con la licencia MIT.
-No hay publicación automática en CI ni servicio, contenedor o puerto de aplicación.
+CI no publica automáticamente; no hay servicio, contenedor ni puerto de aplicación.
 El [proceso de construcción](docs/desarrollo.md#construcción-y-comprobación) detalla herramientas y dependencias.
 
 ## 6. Conceptos transversales
@@ -134,11 +137,14 @@ Datos y privacidad:
 | ¿Cómo ver exactamente lo enviado? | El [registro](docs/config-y-logs.md#datos-del-diagnóstico) muestra comandos, sondeos, resultados y colas, sin capturar cada solicitud o cuerpo; no hay visor propio de red. |
 | ¿Cómo se apaga? | [Preferencias de red](docs/config-y-logs.md#consultas-y-privacidad), cancelación o salida, sin interruptor global para procesos externos. |
 
+El idioma configurado rige desde el primer frame, incluida la CLI.
+El modo sin color conserva glifos y palabras; ASCII sustituye los glifos incompatibles.
+Las [opciones de presentación](docs/config-y-logs.md#presentación-de-la-terminal) detallan tema, color y ancho.
 Los gestores heredan su entorno y administran repositorios y credenciales.
 Los [permisos y riesgos](docs/uso.md#permisos-y-riesgos) explican elevación y el caso Flutter.
 Los [datos del diagnóstico](docs/config-y-logs.md#datos-del-diagnóstico) requieren revisión antes de compartirlos.
-Las garantías sobre datos locales describen el código propio; cada herramienta externa conserva su política de red y almacenamiento.
-El guardado local y sus alternativas ante errores se describen en [persistencia](docs/config-y-logs.md#persistencia).
+Cada herramienta externa conserva su política de red y almacenamiento.
+El guardado y sus alternativas están en [persistencia](docs/config-y-logs.md#persistencia).
 `logTailBytes` limita las colas de stdout/stderr en bytes UTF-8, también en implementaciones especiales.
 El recorte conserva caracteres completos; los [detalles de captura](docs/config-y-logs.md#config-y-logs) explican su configuración.
 
@@ -164,21 +170,24 @@ No registrado aún:
 
 ## Anexo: evidencia
 
-Los números de línea refieren al commit `46335b4`. El texto de arriba no enlaza al código a propósito.
+Los números de línea refieren al commit `52a79d1`. El texto de arriba no enlaza al código a propósito.
 
 | Sección | Evidencia |
 |---|---|
-| 1. Propósito | `package.json:4-15`, `src/app.tsx:40-61`, `src/managers/descriptors/index.ts:31-63`, `src/managers/registry.ts:14-22` |
-| 1. Qué no es | `src/cli.tsx:81-87`, `src/managers/descriptors/go-lang.ts:64-85`, `src/managers/descriptors/apt.ts:36-40`, `src/lib/exec/run.ts:119-129`. La búsqueda de llamadas de escucha en el código propio no muestra un servidor. |
+| 1. Propósito | `package.json:4-15`, `src/app.tsx:14-35`, `src/managers/descriptors/index.ts:31-63`, `src/managers/registry.ts:14-22` |
+| 1. Qué no es | `src/cli.tsx:74-83`, `src/managers/descriptors/go-lang.ts:64-85`, `src/managers/descriptors/apt.ts:36-40`, `src/lib/exec/run.ts:119-129`. La búsqueda de llamadas de escucha en el código propio no muestra un servidor. |
 | 1. Metas | `src/lib/result/verify.ts:32-73`, `src/managers/engine.ts:213-218`, `src/lib/exec/engine.ts:95-114`, `src/lib/run-closure.ts:33-53`, `.github/workflows/ci.yml:9-43` |
-| 2. Contexto | `src/cli.tsx:42-87`, `src/managers/registry.ts:14-41`, `src/lib/self-update.ts:83-91`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73` |
-| 3. Bloques | `src/app.tsx:1-13`, `src/hooks/use-app-machine.tsx:144-160`, `src/managers/descriptor.ts:25-73`, `src/lib/exec/engine.ts:95-114`, `src/lib/logger.ts:31-78` |
-| 3. Reglas | `src/managers/registry.ts:14-41`, `src/managers/engine.ts:204-218`, `src/managers/engine.ts:265-308`, `src/lib/result/verify.ts:50-73`, `src/lib/exec/engine.ts:101-114` |
-| 4. Actualización | `src/cli.tsx:15-87`, `src/hooks/use-app-machine.tsx:169-225`, `src/hooks/use-app-machine.tsx:432-468`, `src/managers/engine.ts:221-284`, `src/lib/exec/engine.ts:101-114` |
-| 4. Salida | `src/screens/update.tsx:89-94`, `src/hooks/use-app-machine.tsx:489-507`, `src/lib/exec/run.ts:68-87`, `src/lib/signals.ts:15-22`, `src/lib/signals.ts:80-90` |
+| 2. Contexto | `src/cli.tsx:36-83`, `src/managers/registry.ts:14-41`, `src/lib/self-update.ts:83-91`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73` |
+| 3. Bloques | `src/app.tsx:47-62`, `src/hooks/use-app-machine.tsx:144-160`, `src/managers/descriptor.ts:25-74`, `src/lib/exec/engine.ts:95-114`, `src/lib/logger.ts:31-78` |
+| 3. Reglas | `src/managers/registry.ts:14-41`, `src/managers/engine.ts:204-218`, `src/managers/engine.ts:272-315`, `src/lib/result/verify.ts:50-73`, `src/lib/exec/engine.ts:101-114` |
+| 4. Actualización | `src/cli.tsx:16-83`, `src/hooks/use-app-machine.tsx:170-226`, `src/hooks/use-app-machine.tsx:434-455`, `src/managers/engine.ts:221-291`, `src/lib/exec/engine.ts:101-114` |
+| 4. Salida | `src/screens/update.tsx:82-85`, `src/hooks/use-app-machine.tsx:397-400`, `src/hooks/use-app-machine.tsx:502-512`, `src/lib/exec/run.ts:68-87`, `src/lib/signals.ts:80-90` |
 | 5. Despliegue | `package.json:4-24`, `package.json:36-57`, `src/lib/config.ts:35-74`, `src/lib/config.ts:91-144`, `.github/workflows/ci.yml:3-43` |
 | 6. Privacidad | `src/lib/self-update.ts:83-91`, `src/lib/self-update.ts:109-137`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73`, `src/lib/logger.ts:246-280`. La búsqueda de `fetch` y URL identifica esas consultas; no implementa subida de registros ni captura de red. |
-| 6. Seguridad y persistencia | `src/cli.tsx:42-79`, `src/lib/exec/run.ts:19-42`, `src/lib/elevation.ts:27-63`, `src/lib/config.ts:134-175`, `src/lib/run-closure.ts:33-53` |
-| 6. Colas de salida | `src/lib/config.ts:64-67`, `src/managers/engine.ts:78-85`, `src/managers/engine.ts:241-250`, `src/lib/exec/run.ts:45-53`, `src/managers/descriptors/winget.ts:93-101` |
+| 6. Seguridad y persistencia | `src/cli.tsx:36-69`, `src/lib/exec/run.ts:19-42`, `src/lib/elevation.ts:27-63`, `src/lib/config.ts:134-175`, `src/lib/run-closure.ts:33-53` |
+| 6. Colas de salida | `src/lib/config.ts:64-67`, `src/managers/engine.ts:78-85`, `src/managers/engine.ts:241-258`, `src/lib/exec/run.ts:45-53`, `src/managers/descriptors/winget.ts:93-101` |
 | 7. Decisiones | `src/lib/result/verify.ts:32-36`, `src/lib/exec/engine.ts:95-99`, `src/lib/run-closure.ts:4-13`, `src/lib/log-retention.ts:4-14`, `src/lib/self-update.ts:6-13` |
-| README y desarrollo | `package.json:4-24`, `package.json:37-57`, `src/cli.tsx:11-39`, `src/screens/select.tsx:36-46`, `.github/workflows/ci.yml:3-55` |
+| README y desarrollo | `package.json:4-24`, `package.json:37-57`, `src/cli.tsx:16-29`, `src/screens/select.tsx:35-45`, `.github/workflows/ci.yml:3-55` |
+| 3. Presentación | `src/theme.ts:2-24`, `src/lib/terminal-theme.ts:17-41`, `src/components/step-header.tsx:10-28`, `src/screens/keys.tsx:8-44`, `src/components/line-output.tsx:5-27` |
+| 4. Progreso | `src/screens/update.tsx:37-115`, `src/state/app-reducer.ts:127-165`, `src/hooks/use-app-machine.tsx:338-355`, `src/managers/descriptors/brew.ts:7-9`, `src/managers/engine.ts:239-258` |
+| 6. Idioma y glifos | `src/hooks/use-app-machine.tsx:145-151`, `src/cli.tsx:16-29`, `src/lib/glyphs.ts:14-24`, `src/lib/display-counts.ts:1-25` |

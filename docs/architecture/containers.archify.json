@@ -8,7 +8,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/Tacuchi/system-updater.git",
-      "revision": "46335b4ce29674fe7d7c07e6427d138e3bf872fe",
+      "revision": "52a79d15d89ee445e0c2981f260b6d65b8b5d396",
       "provider": "github",
       "link_mode": "web"
     },
@@ -25,7 +25,7 @@
       "id": "persona",
       "type": "external",
       "label": "Persona operadora",
-      "sublabel": "Terminal / --yes",
+      "sublabel": "Teclado / entrada automática",
       "pos": [
         30,
         265
@@ -37,8 +37,13 @@
       "sources": [
         {
           "path": "src/cli.tsx",
-          "line": 81,
-          "end_line": 87
+          "line": 74,
+          "end_line": 83
+        },
+        {
+          "path": "src/lib/terminal-theme.ts",
+          "line": 17,
+          "end_line": 41
         }
       ]
     },
@@ -46,7 +51,7 @@
       "id": "interfaz",
       "type": "frontend",
       "label": "Interfaz y estado",
-      "sublabel": "React · Ink · reducer",
+      "sublabel": "Pantallas · líneas · tema",
       "pos": [
         330,
         260
@@ -58,18 +63,18 @@
       "sources": [
         {
           "path": "src/app.tsx",
-          "line": 40,
-          "end_line": 61
+          "line": 38,
+          "end_line": 62
         },
         {
-          "path": "src/hooks/use-app-machine.tsx",
-          "line": 144,
-          "end_line": 160
+          "path": "src/screens/update.tsx",
+          "line": 77,
+          "end_line": 115
         },
         {
-          "path": "src/hooks/use-app-machine.tsx",
-          "line": 205,
-          "end_line": 225
+          "path": "src/components/line-output.tsx",
+          "line": 5,
+          "end_line": 27
         }
       ]
     },
@@ -90,7 +95,7 @@
         {
           "path": "src/managers/engine.ts",
           "line": 221,
-          "end_line": 284
+          "end_line": 291
         },
         {
           "path": "src/lib/exec/engine.ts",
@@ -260,8 +265,8 @@
         },
         {
           "path": "src/managers/descriptors/brew.ts",
-          "line": 39,
-          "end_line": 43
+          "line": 42,
+          "end_line": 46
         }
       ]
     }
@@ -321,8 +326,9 @@
       "dot": "violet",
       "title": "Un proceso de aplicación",
       "items": [
-        "Interfaz, estado, descriptores y motor son módulos del mismo proceso Node.js. Los gestores son procesos separados.",
-        "El carril de administradores es serial; los demás usan concurrencia acotada. --yes o ausencia de TTY automatizan la confirmación."
+        "Interfaz, estado y motor comparten proceso Node.js. La entrada sin TTY o --yes automatiza la confirmación.",
+        "Stdout sin TTY recibe líneas sin redibujo ni pistas. La interfaz interactiva usa marca, pasos y tokens por tema.",
+        "Q/Esc piden confirmar antes de cancelar; Ctrl+C es inmediato. La ejecución conserva los carriles ordinario y administrativo."
       ]
     },
     {

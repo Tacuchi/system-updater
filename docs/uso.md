@@ -24,16 +24,54 @@ El código también marca `softwareupdate` y `go-lang` como gestores con requisi
 Go solo se actualiza automáticamente mediante Homebrew en macOS; Linux y Windows muestran una descarga manual.
 Algunos gestores ejecutan operaciones globales aunque selecciones paquetes; revisa el comando del gestor.
 
-Con teclado: flechas o `j`/`k` recorren paquetes; espacio alterna la selección.
-`A` selecciona todo, `N` limpia, `Enter` confirma y `S` abre preferencias.
-`Q` sale y cancela una corrida activa; `Esc` cancela desde Actualizar.
-Sin TTY o con `--yes`, `-y` o `--all`, el flujo selecciona y confirma automáticamente.
-El modo automático termina con 1 si el contador de fallos es positivo; con 0 en otro caso.
-Un estado indeterminado debe revisarse en el resumen y registro, aunque el código de salida sea 0.
+## Pantallas y controles
+
+La cabecera reúne marca, versión y paso en una sola línea.
+Las pistas muestran las teclas disponibles y pasan a varias líneas cuando falta ancho.
+El idioma configurado se aplica desde el inicio, incluida la ayuda de la CLI.
+
+| Pantalla | Controles y resultado |
+|---|---|
+| Detectar | Un fallo muestra motivo y registro; `R` reintenta y `Q` sale. |
+| Seleccionar | Flechas o `J`/`K` recorren; espacio marca, `A` marca todo y `N` limpia. `Enter` sigue; sin marcas, avisa. `S` abre Ajustes. |
+| Confirmar | `Enter` o `Y` actualiza; `Esc` vuelve. `E` ofrece elevación cuando corresponde en Windows. Los gestores manuales aparecen aparte. |
+| Actualizar | Muestra tiempo total, paquetes resueltos y tiempo por gestor; Homebrew puede indicar el paquete en curso. `Q` o `Esc` preguntan antes de cancelar. |
+| Resumen | `R` vuelve a buscar; `D` abre el detalle cuando hay paquetes. Los fallos parciales se distinguen del éxito. |
+| Detalle | Flechas o `J`/`K` recorren; `D` o `Esc` vuelven al resumen. |
+| Ajustes | Flechas o `J`/`K` recorren gestores; espacio habilita o deshabilita, `L` cambia idioma y `Esc` vuelve. |
+
+Fuera de Actualizar, `Q` sale. `Ctrl+C` cancela y sale inmediatamente desde cualquier pantalla.
+Cuando todo está al día, `R` vuelve a buscar y `S` abre Ajustes.
+La selección muestra cuántos paquetes están marcados sobre el total disponible.
+El resumen conserva siempre el total actualizado; omite categorías vacías y nombra los resultados sin determinar.
+Si se conoce una versión nueva, la cabecera muestra su número y el resumen ofrece el comando para instalarla.
+La nota de contraseña solo aparece si algún gestor elegido puede solicitarla.
+
+## Ejecución automática y salida redirigida
+
+Sin entrada TTY, o con `--yes`, `-y` o `--all`, el flujo selecciona y confirma automáticamente.
+Si stdout no es TTY, escribe líneas de eventos, un resultado por gestor y el resumen final.
+Esa salida no lleva redibujo, controles de cursor ni pistas de teclado.
+Para redirigir solo stdout, combina la redirección con `--yes`:
+
+```sh
+updater --yes > resultado.txt
+```
+
+El modo automático termina con 1 si hay fallos o falla la detección; con 0 en otro caso.
+Un resultado sin determinar debe revisarse aunque el código de salida sea 0.
+El registro completo conserva el diagnóstico en ambos modos.
 
 ## Cancelación y salida
 
-La cancelación usa `AbortController`; los plazos de actualización también terminan el árbol de procesos, no solo el padre.
+Durante Actualizar, `Q` y `Esc` abren una pregunta que nombra los gestores que se detendrían.
+La corrida continúa mientras respondes: `S` confirma en español y `Y` en inglés.
+`N` o `Esc` vuelven sin cancelar; `Enter` no confirma.
+Después de confirmar, las filas activas muestran que están cancelando hasta que termina el proceso.
+La pregunta conserva el espacio reservado de las pistas.
+
+`Ctrl+C` conserva la salida inmediata, sin pregunta.
+La cancelación usa `AbortController`; los plazos también terminan el árbol de procesos, no solo el padre.
 Una señal atendida programa la salida tras 200 ms de gracia, sin opción pública para cambiarla.
 Los códigos de señal son 130 para cancelación, 143 para `SIGTERM` y 129 para `SIGHUP`.
 

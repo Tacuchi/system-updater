@@ -14,7 +14,7 @@ Campos:
 
 | Campo | Por omisión | Qué hace |
 |---|---|---|
-| `language` | `es` | Idioma de la interfaz (`es` \| `en`), editable desde preferencias. |
+| `language` | `es` | Idioma desde el primer frame y en la CLI (`es` \| `en`), editable desde Ajustes. |
 | `enabledManagers` | `{}` | `enabledManagers[id]: false` desactiva desde configuración o preferencias; lo que no está, está habilitado. |
 | `concurrency` | `4` | Puestos ordinarios entre 1 y 8; el carril administrativo siempre es serial. |
 | `timeoutsMs` | `{}` | Espera máxima por gestor, en ms. |
@@ -59,6 +59,29 @@ informa una sola vez.
 Dos variables de entorno mueven esas rutas, y existen para que las pruebas puedan lanzar el binario
 real sin tocar tus datos: `TACUCHI_UPDATER_CONFIG_DIR` y `TACUCHI_UPDATER_LOG_DIR`.
 
+
+## Presentación de la terminal
+
+La paleta usa roles semánticos y tokens claros u oscuros de la marca.
+Antes de tomar el teclado, el arranque consulta `COLORFGBG` y, si no está definido, OSC 11 seguido de DA1.
+La espera máxima es 150 ms; restaura el modo de entrada al terminar.
+Solo consulta en modo interactivo con stdin y stdout TTY.
+Sin informe, en modo automático o sin TTY, usa el tema oscuro.
+En tema claro, la lima se reserva al relleno; acción y éxito usan el color de texto.
+
+- `NO_COLOR` conserva palabras y glifos sin depender del color para distinguir estados.
+- `TACUCHI_ASCII=1` fuerza glifos de respaldo; `0` fuerza el juego Unicode.
+- `TERM=dumb` activa el respaldo cuando no hay una elección explícita.
+- Windows sin `WT_SESSION` usa ASCII por omisión.
+
+La cabecera ocupa una línea; sin color o en ASCII, la marca se lee con un guion bajo final.
+La interfaz limita el ancho a 100 columnas y adapta las pistas a 80 y 60.
+Las rutas del registro usan `~` cuando corresponde y elipsis central si falta espacio.
+Los [tokens y glifos](DESIGN.md) describen el vocabulario visual implementado.
+
+El idioma guardado prevalece sobre la detección inicial del entorno.
+La versión nueva se anuncia solo con su número en la cabecera; el comando aparece en Resumen.
+Las [opciones de uso](uso.md#ejecución-automática-y-salida-redirigida) distinguen automatización de entrada y salida por líneas.
 
 ## Datos del diagnóstico
 

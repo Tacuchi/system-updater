@@ -52,7 +52,9 @@ En Windows, `--sudo` no eleva: abre la terminal como Administrador o usa `E` en 
 
 ### Qué puedes recorrer
 
-Detección, selección de paquetes, confirmación, actualización y resumen; incluye preferencias y detalle.
+Detección con reintento, selección de paquetes, confirmación, actualización y resumen; incluye Ajustes y Detalle.
+La cabecera reúne marca y paso; durante una corrida, Q y Esc preguntan antes de cancelar.
+Ctrl+C cancela y sale de inmediato. La presentación adapta tema, glifos y pistas a la terminal.
 La [guía de uso](docs/uso.md) conserva la lista de 27 gestores y explica los controles y límites.
 
 ### Comandos
@@ -66,6 +68,8 @@ updater --version
 ```
 
 `--yes`, `-y`, `--all` o una entrada sin TTY seleccionan y confirman automáticamente.
+Con stdout redirigido, se escriben eventos y resumen por líneas, sin redibujo ni atajos.
+Usa `updater --yes > resultado.txt` para seleccionar y confirmar al redirigir la salida.
 Revisa el resumen: un estado indeterminado puede terminar con código de salida 0.
 
 ### Desarrollo y comprobaciones
