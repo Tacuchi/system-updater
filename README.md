@@ -92,4 +92,4 @@ Para trabajar en el código, consulta [desarrollo](docs/desarrollo.md).
 
 ## Licencia
 
-MIT
+[MIT](LICENSE)
