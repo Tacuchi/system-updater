@@ -93,7 +93,7 @@ export const goLang: ManagerDescriptor = {
 
       const args = ['upgrade', 'go'];
       yield { type: 'log', message: `brew ${args.join(' ')}` };
-      const rec = yield* runStream('brew', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
+      const rec = yield* runStream('brew', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal, tailBytes: ctx.logTailBytes });
       commands.push(rec);
       logger.logCommand(rec);
 

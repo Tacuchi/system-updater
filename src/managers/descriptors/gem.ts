@@ -99,7 +99,7 @@ export const gem: ManagerDescriptor = {
       if (target.length) {
         const args = updateArgs(target, useSudo);
         yield { type: 'log', message: `${useSudo ? 'sudo ' : ''}gem ${args.join(' ')}` };
-        const rec = yield* runStream('gem', args, { timeoutMs: 300_000, sudo: useSudo, signal: ctx.signal });
+        const rec = yield* runStream('gem', args, { timeoutMs: 300_000, sudo: useSudo, signal: ctx.signal, tailBytes: ctx.logTailBytes });
         commands.push(rec);
         logger.logCommand(rec);
       }

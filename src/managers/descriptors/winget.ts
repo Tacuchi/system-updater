@@ -94,7 +94,7 @@ export const winget: ManagerDescriptor = {
 
       const run = async function* (args: string[]): AsyncGenerator<ProgressEvent, void> {
         yield { type: 'log', message: `winget ${args.join(' ')}` };
-        const rec = yield* runStream('winget', args, { timeoutMs: 600_000, sudo: false, signal: ctx.signal });
+        const rec = yield* runStream('winget', args, { timeoutMs: 600_000, sudo: false, signal: ctx.signal, tailBytes: ctx.logTailBytes });
         commands.push(rec);
         logger.logCommand(rec);
       };

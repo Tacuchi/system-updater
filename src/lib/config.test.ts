@@ -26,6 +26,15 @@ describe('normalizeConfig', () => {
     expect(normalizeConfig({ concurrency: NaN }).concurrency).toBe(4);
   });
 
+  it.each([0, -1, NaN, Infinity, -Infinity])('defaults an invalid log tail byte limit (%s)', value => {
+    expect(normalizeConfig({ logTailBytes: value }).logTailBytes).toBe(16384);
+  });
+
+  it('normalizes positive log tail byte limits to at least one whole byte', () => {
+    expect(normalizeConfig({ logTailBytes: 0.1 }).logTailBytes).toBe(1);
+    expect(normalizeConfig({ logTailBytes: 7.6 }).logTailBytes).toBe(8);
+  });
+
   it('preserves per-manager timeouts and toggles', () => {
     const c = normalizeConfig({ timeoutsMs: { brew: 600000 }, managers: { pip: { enabled: false } } });
     expect(c.timeoutsMs['brew']).toBe(600000);

@@ -57,7 +57,8 @@ Reglas: una sola operación **bulk** por upgrade (sin bucles por paquete); probe
 
 ## Config y Logs
 
-- Config: `~/.tacuchi-updater/config.json` — `enabledManagers`, `language`, `verbosity`, **`concurrency`** (default 4, clamp 1–8), **`timeoutsMs`** (por gestor), **`logTailBytes`** (16384), **`managers`** (enable/timeout por gestor). `normalizeConfig()` aplica defaults + clamp.
+- Config: `~/.tacuchi-updater/config.json` — `enabledManagers`, `language`, `verbosity`, **`concurrency`** (default 4, clamp 1–8), **`timeoutsMs`** (por gestor), **`logTailBytes`** (16384 bytes UTF-8 por stdout/stderr), **`managers`** (enable/timeout por gestor). `normalizeConfig()` aplica defaults + clamp.
+- `logTailBytes`: el motor lo pasa al ejecutor, incluidas las implementaciones especiales vía `ManagerCtx`. Conserva caracteres completos al recortar la cola. Los valores positivos se redondean con mínimo 1; los inválidos usan 16384. El comportamiento por omisión para ASCII permanece igual. No limita la salida en vivo ni el búfer completo del subproceso.
 - Logs: `~/.tacuchi-updater/logs/system_updater_YYYYMMDD_HHMMSS.log`. Formato: `2026-03-26 15:30:00 [INFO ] SystemUpdater - mensaje`. Ahora se registra **cada comando ejecutado** (exit code, duración, tail de stdout/stderr) → "por qué falló" siempre responsable desde el log.
 
 ## Testing

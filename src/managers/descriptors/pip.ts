@@ -116,7 +116,7 @@ export const pip: ManagerDescriptor = {
       if (target.length) {
         const args = [...baseArgs, 'install', '--user', '--upgrade', ...flags, ...target];
         yield { type: 'log', message: `${cmd} ${args.join(' ')}` };
-        const rec = yield* runStream(cmd, args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
+        const rec = yield* runStream(cmd, args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal, tailBytes: ctx.logTailBytes });
         commands.push(rec);
         logger.logCommand(rec);
       }

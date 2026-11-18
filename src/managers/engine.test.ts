@@ -6,6 +6,7 @@ import type { ManagerDescriptor } from './descriptor.js';
 import type { CommandRecord, OutdatedPackage, ProgressEvent, UpgradeResult } from './types.js';
 import { normalizeConfig } from '../lib/config.js';
 import { getLogEntries } from '../lib/logger.js';
+import { runStream } from '../lib/exec/run.js';
 
 const cfg = normalizeConfig({});
 
@@ -84,6 +85,27 @@ async function drain(gen: AsyncGenerator<ProgressEvent, UpgradeResult>) {
 }
 
 describe('fromDescriptor', () => {
+  it.each([7, 16384])('keeps the configured output tail of %i bytes through the real executor', async limit => {
+    const output = 'x'.repeat(17000) + 'done';
+    const descriptor: ManagerDescriptor = {
+      ...fooDescriptor,
+      upgradeCmd: () => ({
+        cmd: process.execPath,
+        args: ['-e', 'process.stdout.write(process.argv[1]); process.stderr.write(process.argv[1])', output],
+      }),
+    };
+    const mgr = fromDescriptor(descriptor, normalizeConfig({ logTailBytes: limit }), {
+      async execCommand() { return ran(''); },
+      runStream,
+    });
+
+    const { result } = await drain(mgr.upgrade(['a']));
+
+    expect(result.commands).toHaveLength(1);
+    expect(result.commands![0]!.stdoutTail).toBe(output.slice(-limit));
+    expect(result.commands![0]!.stderrTail).toBe(output.slice(-limit));
+  });
+
   it('detects availability and parses the version', async () => {
     const mgr = fromDescriptor(fooDescriptor, cfg, makeDeps({ version: '1.2.3', outdatedQueue: [] }));
     expect(await mgr.detect()).toEqual({ available: true, version: '1.2.3' });

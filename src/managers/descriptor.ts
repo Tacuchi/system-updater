@@ -18,6 +18,8 @@ export interface ManagerCtx {
   meta: Record<string, unknown>;
   /** Abort signal — wire into runStream so the user can cancel (Esc). */
   signal?: AbortSignal;
+  /** Configured UTF-8 output tail limit; omitted contexts use the executor default. */
+  logTailBytes?: number;
 }
 
 /**

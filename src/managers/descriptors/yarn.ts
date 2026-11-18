@@ -142,7 +142,7 @@ export const yarn: ManagerDescriptor = {
             ? ['global', 'upgrade', ...packages]
             : ['global', 'upgrade'];
         yield { type: 'log', message: `yarn ${args.join(' ')}` };
-        const rec = yield* runStream('yarn', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
+        const rec = yield* runStream('yarn', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal, tailBytes: ctx.logTailBytes });
         commands.push(rec);
         logger.logCommand(rec);
       }

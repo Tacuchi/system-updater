@@ -13,6 +13,7 @@ import type { PercentParser } from '../lib/exec/percent.js';
 import { execCommand as realExecCommand } from '../lib/executor.js';
 import type { ExecResult } from '../lib/executor.js';
 import { runStream as realRunStream } from '../lib/exec/run.js';
+import type { RunOptions } from '../lib/exec/run.js';
 import { reconcile } from '../lib/result/verify.js';
 import * as logger from '../lib/logger.js';
 import { ListingUnavailableError, requireListing } from './listing.js';
@@ -23,7 +24,7 @@ export interface ExecDeps {
   runStream(
     cmd: string,
     args: string[],
-    opts: { timeoutMs: number; sudo: boolean; signal?: AbortSignal },
+    opts: RunOptions,
     percentParser?: PercentParser,
   ): AsyncGenerator<ProgressEvent, CommandRecord>;
 }
@@ -80,6 +81,7 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
     sudoMode,
     meta: {},
     signal,
+    logTailBytes: cfg.logTailBytes,
   });
 
   const upgradeTimeout = cfg.timeoutsMs[d.id] ?? d.defaultTimeoutMs ?? UPGRADE_TIMEOUT;
@@ -241,7 +243,7 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
         const rec = yield* deps.runStream(
           spec.cmd,
           spec.args,
-          { timeoutMs: spec.timeout ?? upgradeTimeout, sudo: sudoFor(spec, c), signal: c.signal },
+          { timeoutMs: spec.timeout ?? upgradeTimeout, sudo: sudoFor(spec, c), signal: c.signal, tailBytes: cfg.logTailBytes },
           pp,
         );
         commands.push(rec);

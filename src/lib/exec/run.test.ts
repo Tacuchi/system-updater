@@ -5,6 +5,35 @@ import type { ProgressEvent } from '../../managers/types.js';
 const NODE = process.execPath;
 const opts = { timeoutMs: 5000, sudo: false };
 
+describe.each(['runExec', 'runStream'] as const)('%s UTF-8 output tails', runner => {
+  it.each([
+    [1, ''],
+    [3, ''],
+    [4, '🙂'],
+    [5, '🙂'],
+    [7, '界🙂'],
+    [8, '界🙂'],
+    [9, 'é界🙂'],
+  ])('keeps complete characters within a %i-byte limit', async (limit, expected) => {
+    const output = 'prefixé界🙂';
+    const args = ['-e', 'process.stdout.write(process.argv[1]); process.stderr.write(process.argv[1])', output];
+    const options = { ...opts, tailBytes: limit };
+    const result = runner === 'runExec'
+      ? await runExec(NODE, args, options)
+      : await (async () => {
+          const generator = runStream(NODE, args, options);
+          let next = await generator.next();
+          while (!next.done) next = await generator.next();
+          return next.value;
+        })();
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdoutTail).toBe(expected);
+    expect(result.stderrTail).toBe(expected);
+    expect(Buffer.byteLength(result.stdoutTail, 'utf8')).toBeLessThanOrEqual(limit);
+  });
+});
+
 describe('timeout con descendientes que mantienen la salida abierta', () => {
   it.each(['runExec', 'runStream'] as const)('%s termina todo el árbol aunque el descendiente ignore SIGTERM', async runner => {
     const descendant = `

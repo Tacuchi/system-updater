@@ -71,7 +71,7 @@ export const angular: ManagerDescriptor = {
       if (target.length) {
         const args = ['install', '-g', `${PACKAGE}@latest`];
         yield { type: 'log', message: `npm ${args.join(' ')}` };
-        const rec = yield* runStream('npm', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
+        const rec = yield* runStream('npm', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal, tailBytes: ctx.logTailBytes });
         commands.push(rec);
         logger.logCommand(rec);
       }

@@ -1,13 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { parseWingetOutdated, winget } from './winget.js';
 import type { ManagerCtx } from '../descriptor.js';
+import { fromDescriptor } from '../engine.js';
+import { normalizeConfig } from '../../lib/config.js';
+import { runStream } from '../../lib/exec/run.js';
 
 // Mock the spawn surface so the escape-hatch upgrade loop runs without a real
 // `winget` binary (it's win32-only and absent on the dev/CI mac).
 vi.mock('../../lib/exec/run.js', () => ({
-  runStream: async function* () {
+  runStream: vi.fn(async function* () {
     return { cmd: 'winget', exitCode: 0, durationMs: 1, timedOut: false, stdoutTail: '', stderrTail: '' };
-  },
+  }),
 }));
 vi.mock('../../lib/executor.js', () => ({
   execCommand: async () => ({ exitCode: 0, stdout: '', stderr: '' }),
@@ -88,5 +91,19 @@ describe('winget upgrade progress (loop index → percent)', () => {
 
   it('emits 100% for a single selected package', async () => {
     expect(await drainPercents(['OnlyOne'])).toEqual([100]);
+  });
+
+  it('passes the configured byte limit from the engine to escape-hatch commands', async () => {
+    vi.mocked(runStream).mockClear();
+    const manager = fromDescriptor(winget, normalizeConfig({ logTailBytes: 7 }));
+    const generator = manager.upgrade(['OnlyOne']);
+    let next = await generator.next();
+    while (!next.done) next = await generator.next();
+
+    expect(runStream).toHaveBeenCalledExactlyOnceWith(
+      'winget',
+      expect.any(Array),
+      expect.objectContaining({ tailBytes: 7 }),
+    );
   });
 });

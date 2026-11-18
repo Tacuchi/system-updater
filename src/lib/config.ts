@@ -18,7 +18,7 @@ export interface UserConfig {
   concurrency: number;
   /** Per-manager upgrade timeout override, keyed by manager id. */
   timeoutsMs: Record<string, number>;
-  /** Max bytes of stdout/stderr kept per command for logs/diagnosis. */
+  /** Max UTF-8 bytes of each output kept per command for logs/diagnosis. */
   logTailBytes: number;
   /** Per-manager settings (enable/disable, timeout). */
   managers: Record<string, ManagerConfig>;
@@ -62,8 +62,8 @@ export function normalizeConfig(parsed: Partial<UserConfig>): UserConfig {
     managers: { ...DEFAULTS.managers, ...parsed.managers },
     concurrency: clampConcurrency(parsed.concurrency),
     logTailBytes:
-      typeof parsed.logTailBytes === 'number' && parsed.logTailBytes > 0
-        ? Math.round(parsed.logTailBytes)
+      typeof parsed.logTailBytes === 'number' && Number.isFinite(parsed.logTailBytes) && parsed.logTailBytes > 0
+        ? Math.max(1, Math.round(parsed.logTailBytes))
         : DEFAULTS.logTailBytes,
     logRetentionRuns:
       typeof parsed.logRetentionRuns === 'number' && parsed.logRetentionRuns >= 1

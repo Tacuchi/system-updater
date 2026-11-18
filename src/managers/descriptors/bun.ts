@@ -74,7 +74,7 @@ export const bun: ManagerDescriptor = {
       const args =
         packages && packages.length ? ['update', '-g', ...packages] : ['update', '-g'];
       yield { type: 'log', message: `bun ${args.join(' ')}` };
-      const rec = yield* runStream('bun', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
+      const rec = yield* runStream('bun', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal, tailBytes: ctx.logTailBytes });
       commands.push(rec);
       logger.logCommand(rec);
 

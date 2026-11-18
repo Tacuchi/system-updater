@@ -116,7 +116,7 @@ export const pipx: ManagerDescriptor = {
         // Single bulk command — pipx upgrades every managed application at once.
         const args = ['upgrade-all'];
         yield { type: 'log', message: `pipx ${args.join(' ')}` };
-        const rec = yield* runStream('pipx', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal });
+        const rec = yield* runStream('pipx', args, { timeoutMs: 300_000, sudo: false, signal: ctx.signal, tailBytes: ctx.logTailBytes });
         commands.push(rec);
         logger.logCommand(rec);
       }

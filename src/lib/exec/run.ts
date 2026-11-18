@@ -12,7 +12,7 @@ export interface RunOptions {
   signal?: AbortSignal;
   cwd?: string;
   env?: Record<string, string>;
-  /** Max chars kept from each of stdout/stderr in the CommandRecord. */
+  /** Max UTF-8 bytes kept per output in the CommandRecord; omit split characters. */
   tailBytes?: number;
 }
 
@@ -43,8 +43,12 @@ export function withSudo(cmd: string, args: string[], sudo: boolean): [string, s
 }
 
 function tail(s: string, bytes: number): string {
-  if (!s) return '';
-  return s.length > bytes ? s.slice(-bytes) : s;
+  if (Buffer.byteLength(s, 'utf8') <= bytes) return s;
+  const encoded = Buffer.from(s, 'utf8');
+  let start = encoded.length - bytes;
+  // A suffix can begin inside a UTF-8 character; discard its continuation bytes.
+  while (start < encoded.length && (encoded[start]! & 0xc0) === 0x80) start += 1;
+  return encoded.subarray(start).toString('utf8');
 }
 
 function execaOptions(opts: RunOptions, all: boolean) {

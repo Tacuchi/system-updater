@@ -18,9 +18,17 @@ Campos:
 | `enabledManagers` | `{}` | `enabledManagers[id]: false` desactiva desde configuración o preferencias; lo que no está, está habilitado. |
 | `concurrency` | `4` | Puestos ordinarios entre 1 y 8; el carril administrativo siempre es serial. |
 | `timeoutsMs` | `{}` | Espera máxima por gestor, en ms. |
-| `logTailBytes` | `16384` | Campo declarado de configuración; el ejecutor usa un límite fijo de 16384 caracteres por salida y el motor no le pasa este campo. |
+| `logTailBytes` | `16384` | Máximo de bytes UTF-8 conservados por stdout/stderr en cada comando de actualización, incluidas las implementaciones especiales. |
 | `logRetentionRuns` | `30` | Corridas conservadas, mínimo 1, por **cantidad** y no por antigüedad, porque llegan en ráfagas. |
 | `selfCheck` | `true` | Consultar a npm sin bloquear si hay una versión más nueva. Una respuesta completada se reutiliza 24 h; un fallo se registra y permite reintentar en la siguiente corrida. |
+
+`logTailBytes` se redondea al entero más cercano, con un mínimo de 1 para valores positivos.
+Los valores no numéricos, no finitos o no positivos usan 16384.
+El recorte conserva el final de cada salida, medido en UTF-8 después de decodificarla.
+Si empieza dentro de un carácter multibyte, omite ese carácter para conservar texto válido.
+La cola puede ocupar menos bytes que el límite, o quedar vacía si el último carácter no cabe.
+Para salida ASCII, el valor por omisión conserva exactamente los mismos 16384 caracteres que antes.
+Este límite afecta al registro del comando; no limita la salida en vivo ni el búfer completo del subproceso.
 
 El registro anota cada sondeo de presencia, cada listado de pendientes y cada comando ejecutado con su
 salida, y **termina siempre con una línea de cierre que declara cómo terminó la corrida** — completa,
@@ -73,7 +81,7 @@ Ver el tráfico exacto requiere inspección externa.
 | Homebrew | 1200000 ms | Valor del descriptor. |
 | Actualización de Flutter | 600000 ms | Implementación especial; no usa el plazo configurado del adaptador genérico. |
 | Consulta de versión propia | 4000 ms | Plazo de la petición GET. |
-| Captura de actualización | 16384 caracteres por stdout/stderr | `tailBytes` del ejecutor de actualización. |
+| Captura de actualización | `logTailBytes` bytes UTF-8 por stdout/stderr; 16384 por omisión | El motor pasa la configuración a `tailBytes`, también en implementaciones especiales. |
 
 ### Rutas adicionales
 
