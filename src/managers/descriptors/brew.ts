@@ -4,6 +4,9 @@ import { makeFractionParser } from '../../lib/exec/percent.js';
 
 // `brew upgrade` prints "==> Upgrading N/M formulae" as it walks the queue.
 const brewUpgradePercent = makeFractionParser(/Upgrading (\d+)\/(\d+)/);
+export function parseBrewPackage(line: string): string | undefined {
+  return line.match(/^==> (?:Upgrading|Installing) ([a-zA-Z][\w@./+-]*)(?:\s|$)/)?.[1];
+}
 
 interface BrewOutdatedEntry {
   name: string;
@@ -42,4 +45,5 @@ export const brew: ManagerDescriptor = {
   upgradeCmd: pkgs => ({ cmd: 'brew', args: pkgs && pkgs.length ? ['upgrade', ...pkgs] : ['upgrade'] }),
   postUpgradeCmds: () => [{ cmd: 'brew', args: ['cleanup'] }],
   percentParser: line => brewUpgradePercent(line),
+  packageParser: parseBrewPackage,
 };

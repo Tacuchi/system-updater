@@ -21,6 +21,8 @@ export type ManagerStatus =
   | 'uptodate' // nothing to update
   | 'queued' // selected, waiting to run
   | 'running' // upgrading now
+  | 'cancelling'
+  | 'partial'
   | 'done' // upgraded successfully
   | 'failed' // upgrade failed
   | 'skipped' // readonly / no-sudo → manual command
@@ -79,6 +81,8 @@ export interface ManagerEntry {
 }
 
 export interface RunState {
+  startedAt?: number;
+  finishedAt?: number;
   queue: string[];
   doneCount: number;
   failedCount: number;

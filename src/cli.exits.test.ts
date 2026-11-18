@@ -41,6 +41,28 @@ beforeAll(() => {
   expect(fs.existsSync(DIST)).toBe(true);
 }, 180_000);
 
+describe('CLI language and redirected text', () => {
+  for (const language of ['es', 'en']) it(`uses configured ${language} in help and keeps version numeric`, () => {
+    const directory = path.join(tmpRoot, 'cli-language');
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, 'config.json'), JSON.stringify({ language, selfCheck: false }));
+    const env = { ...process.env, LANG: language === 'es' ? 'en_US.UTF-8' : 'es_ES.UTF-8', TACUCHI_UPDATER_CONFIG_DIR: directory };
+    const help = execFileSync(process.execPath, [DIST, '--help'], { encoding: 'utf8', env });
+    expect(help).toContain(language === 'es' ? 'Uso:' : 'Usage:');
+    expect(help).not.toContain(language === 'es' ? 'Usage:' : 'Uso:');
+    const version = execFileSync(process.execPath, [DIST, '--version'], { encoding: 'utf8', env });
+    expect(version.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+  it('writes no cursor sequences when stdout is redirected without CI', async () => {
+    const { child, exited } = launch(['--yes']);
+    let output = '';
+    child.stdout!.on('data', chunk => { output += chunk.toString(); });
+    await exited;
+    expect(output).toMatch(/Resumen|Summary/);
+    expect(output).not.toMatch(/\x1b|Q salir|Q quit|Ctrl\+C/);
+  });
+});
+
 beforeEach(() => {
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'updater-exits-'));
   // Also for the in-process case: the quit-key route mounts the app for real, and
@@ -101,6 +123,7 @@ function launch(args: string[], pathDir?: string, enabled: string[] = []): Launc
     Path: searchPath,
   };
   delete env['VITEST'];
+  delete env['CI'];
   const child = spawn(process.execPath, [DIST, ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] });
   // Drain both pipes: a full stdout buffer would block the child mid-run, and
   // Ink writes a frame per redraw.

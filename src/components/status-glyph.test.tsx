@@ -52,7 +52,7 @@ describe('el estado «no se pudo determinar» se ve como tal', () => {
 
   it('cada estado tiene exactamente un glifo de una celda: ninguna fila cambia de alto', () => {
     const statuses: ManagerStatus[] = [
-      'pending', 'scanning', 'outdated', 'uptodate', 'queued', 'running', 'done', 'failed', 'skipped', 'unknown',
+      'pending', 'scanning', 'outdated', 'uptodate', 'queued', 'running', 'cancelling', 'partial', 'done', 'failed', 'skipped', 'unknown',
     ];
     for (const status of statuses) {
       const frame = (render(<StatusGlyph status={status} />).lastFrame() ?? '').trim();

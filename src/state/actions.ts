@@ -29,7 +29,7 @@ export type Action =
   | { type: 'OPEN_SETTINGS' }
   | { type: 'CLOSE_SETTINGS' }
   | { type: 'RESCAN' }
-  | { type: 'RUN_START'; queue: string[] }
+  | { type: 'RUN_START'; queue: string[]; at?: number }
   | { type: 'MGR_QUEUED'; id: string }
   | { type: 'MGR_RUNNING'; id: string; at: number }
   | { type: 'MGR_PROGRESS'; id: string; percent?: number; currentPackage?: string }
@@ -37,7 +37,8 @@ export type Action =
   | { type: 'MGR_FAILED'; id: string; result: ManagerResult }
   | { type: 'MGR_SKIPPED'; id: string; manualCommand: string }
   | { type: 'MGR_UNKNOWN'; id: string; result: ManagerResult }
-  | { type: 'RUN_DONE' }
+  | { type: 'RUN_CANCEL' }
+  | { type: 'RUN_DONE'; at?: number }
   | { type: 'SET_LANGUAGE'; lang: Language }
   | { type: 'TOGGLE_ENABLED'; id: string }
   | { type: 'BATCH'; actions: Action[] };

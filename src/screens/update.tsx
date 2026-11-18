@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
-import { useSafeInput } from '../hooks/use-safe-input.js';
-import { StepHeader } from '../components/step-header.js';
+import { useScreenKeys, KeyHints } from './keys.js';
 import { StatusGlyph, RunningGlyph, statusColor } from '../components/status-glyph.js';
 import { semantic } from '../theme.js';
 import { g } from '../lib/glyphs.js';
@@ -24,16 +23,7 @@ export function formatElapsed(ms: number): string {
   return `${s}s`;
 }
 
-/**
- * How long the running manager has been running (DES-001@r1).
- *
- * It self-ticks for the same reason the spinner does: run state changes fire
- * once, on purpose, so nothing else would move this number. One second, not one
- * frame: it is a duration, not an animation. It lives in the row's SAME detail
- * slot as the percent and never both, so a row's width never depends on which
- * manager is running — 25 of the 27 report no percentage at all, which is why
- * that slot used to be empty for minutes at a time.
- */
+/** Tick elapsed time independently of manager output. */
 function Elapsed({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -67,9 +57,6 @@ function Row({ e, width }: { e: ManagerEntry; width: number }) {
         <Text color={statusColor(e.status)}>{t('status', e.status)}</Text>
       </Box>
       <Text color={semantic.muted}>
-        {/* Percent when the manager reports one, elapsed time when it does not.
-            Never both: the slot is one, and the row's width must not depend on
-            which manager happens to be running. */}
         {e.status === 'running' ? (
           e.percent > 0 ? (
             `${e.percent}%`
@@ -82,41 +69,37 @@ function Row({ e, width }: { e: ManagerEntry; width: number }) {
           clip(detail, Math.max(0, width - 33))
         )}
       </Text>
+      {e.status === 'running' && <Text color={semantic.muted}> {e.percent > 0 && e.startedAt ? <Elapsed startedAt={e.startedAt} /> : ''} {clip(e.currentPackage ?? '', Math.max(0, width - 45))}</Text>}
     </Box>
   );
 }
 
 export function UpdateScreen() {
-  const { state, cancelRun } = useMachine();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  const { state, cancelRun, quitApp } = useMachine();
 
-  useSafeInput((_input, key) => {
-    if (key.escape) cancelRun();
-  });
+  const [asking, setAsking] = useState(false);
+  const commands = useScreenKeys(asking ? {
+    confirmCancel: () => { setAsking(false); cancelRun(); }, continueRun: () => setAsking(false), ctrlC: quitApp,
+  } : { cancel: () => setAsking(true), quit: () => setAsking(true), ctrlC: quitApp });
+  const activeNames = state.run.queue.filter(id => ['running', 'queued'].includes(state.managers[id]?.status ?? '')).map(managerName);
 
   const total = state.run.queue.length;
+  const packagesDone = state.run.queue.reduce((sum, id) => { const result = state.managers[id]?.result; return sum + (result?.upgraded ?? 0) + (result?.failed ?? 0) + (result?.skipped ?? 0); }, 0);
+  const canPrompt = state.run.queue.some(id => {
+    const entry = state.managers[id];
+    if (entry?.requiresAdmin && !state.sudoMode) return false;
+    return entry?.requiresAdmin || (process.platform !== 'win32' && ['brew', 'gem', 'pip', 'pipx'].includes(id));
+  });
   const finished =
     state.run.doneCount + state.run.failedCount + state.run.skippedCount + state.run.unknownCount;
   const width = Math.min((process.stdout.columns ?? 90) - 4, 92);
 
   return (
     <Box flexDirection="column">
-      <StepHeader phase={state.phase} />
       <Box marginBottom={1}>
-        <Text color={semantic.text} bold>
-          {finished}/{total}
-          {'   '}
-        </Text>
-        <Text color={semantic.success}>
-          {g.done} {state.run.doneCount}
-          {'  '}
-        </Text>
-        <Text color={semantic.error}>
-          {g.failed} {state.run.failedCount}
-          {'  '}
-        </Text>
-        <Text color={semantic.warning}>
-          {g.skipped} {state.run.skippedCount}
-        </Text>
+        <Text color={semantic.text}>{finished}/{total} {g.separator} {packagesDone} {t('ui', 'of')} {state.selection.size} {t('ui', state.selection.size === 1 ? 'packageOne' : 'packageMany')} {g.separator} {formatElapsed(now - (state.run.startedAt ?? now))}</Text>
       </Box>
 
       {state.run.queue.map(id => {
@@ -125,8 +108,11 @@ export function UpdateScreen() {
       })}
 
       <Box marginTop={1} flexDirection="column">
-        <Text color={semantic.muted}>{t('ui', 'updatingHint')}</Text>
-        <Text color={semantic.muted}>{t('ui', 'passwordNote')}</Text>
+        <Box height={3} flexDirection="column">
+          {asking && <Box height={2}><Text color={semantic.warning} wrap="truncate-end">{t('ui', 'cancelQuestion')} {activeNames.join(', ')}</Text></Box>}
+          <KeyHints commands={commands} />
+        </Box>
+        {canPrompt && <Text color={semantic.muted}>{t('ui', 'passwordNote')}</Text>}
       </Box>
     </Box>
   );

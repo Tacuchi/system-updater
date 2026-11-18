@@ -21,6 +21,14 @@ const detect: Action = {
 };
 
 describe('appReducer', () => {
+  it('clears a detection failure before retrying and rescans without old selection', () => {
+    const failed = appReducer(base(), { type: 'DETECT_FAILED', error: 'EACCES' });
+    expect(appReducer(failed, { type: 'BOOT_DONE' }).error).toBeUndefined();
+    const next = appReducer({ ...failed, selection: new Set(['stale']) }, { type: 'RESCAN' });
+    expect(next.error).toBeUndefined();
+    expect(next.phase).toBe('detecting');
+    expect(next.selection.size).toBe(0);
+  });
   it('boots into detecting', () => {
     expect(appReducer(base(), { type: 'BOOT_DONE' }).phase).toBe('detecting');
   });

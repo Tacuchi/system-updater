@@ -1,4 +1,9 @@
 import React from 'react';
+import { Writable } from 'node:stream';
+import { loadConfig } from './lib/config.js';
+import { setLanguage, t } from './i18n/index.js';
+import { setTerminalTheme } from './theme.js';
+import { detectTerminalTheme } from './lib/terminal-theme.js';
 import { render } from 'ink';
 import { execaSync } from 'execa';
 import App from './app.js';
@@ -8,29 +13,14 @@ import { getVersion } from './lib/version.js';
 import { settleRun } from './lib/run-closure.js';
 import { answerSignal, signalRoutes } from './lib/signals.js';
 
+setLanguage(loadConfig().language);
+
 const args = process.argv.slice(2);
 const sudoRequested = args.includes('--sudo') || args.includes('-s');
 const isRoot = process.getuid?.() === 0;
 
 if (args.includes('--help') || args.includes('-h')) {
-  console.log(`
-  @tacuchi/updater — CLI para actualizar gestores de paquetes
-
-  Uso:
-    updater              Modo normal (sin permisos de admin)
-    updater --sudo       Ejecutar con permisos de administrador
-    updater --help       Mostrar esta ayuda
-
-  Flags:
-    -s, --sudo           Permite actualizar gestores que requieren admin
-                         (softwareupdate, apt, dnf, pacman, snap)
-    -y, --yes, --all     Modo no-interactivo: actualiza todo sin teclado
-                         (automático cuando stdin no es un TTY / CI / pipe)
-    -h, --help           Mostrar ayuda
-    -v, --version        Mostrar versión
-
-  Tip: ejecuta siempre la última versión con  npx @tacuchi/updater@latest
-  `);
+  console.log(t('cli', 'help'));
   process.exit(0);
 }
 
@@ -44,7 +34,7 @@ if (args.includes('--version') || args.includes('-v')) {
 // aparece ANTES de que Ink tome el terminal, y todos los subprocesos
 // corren como root sin necesitar sudo individualmente.
 if (sudoRequested && !isRoot && process.platform !== 'win32') {
-  console.log('\x1b[35m» Modo SUDO: ingresa tu contraseña para continuar...\x1b[0m');
+  console.log(t('cli', 'sudoPrompt'));
   try {
     const scriptPath = process.argv[1] ?? '';
     const isDevMode = scriptPath.endsWith('.tsx') || scriptPath.endsWith('.ts');
@@ -62,7 +52,7 @@ if (sudoRequested && !isRoot && process.platform !== 'win32') {
     });
     process.exit(result.exitCode ?? 0);
   } catch {
-    console.error('\x1b[31m✗ No se pudo autenticar sudo. Continuando sin permisos elevados.\x1b[0m');
+    console.error(t('cli', 'sudoFailure'));
   }
 }
 
@@ -73,7 +63,7 @@ if (sudoRequested && !isRoot && process.platform !== 'win32') {
 const elevated = await isElevated();
 if (process.platform === 'win32' && sudoRequested && !elevated) {
   console.log(
-    '\x1b[33m» En Windows --sudo no eleva. Abrí la terminal como Administrador (se detecta automáticamente).\x1b[0m',
+    t('cli', 'windowsAdmin'),
   );
 }
 const sudoMode = process.platform === 'win32' ? elevated : isRoot || sudoRequested;
@@ -84,7 +74,13 @@ const sudoMode = process.platform === 'win32' ? elevated : isRoot || sudoRequest
 const nonInteractive =
   !process.stdin.isTTY || args.includes('--yes') || args.includes('-y') || args.includes('--all');
 
-const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteractive} />);
+setTerminalTheme(await detectTerminalTheme({ interactive: !nonInteractive }));
+
+const redirected = !process.stdout.isTTY;
+const lineOutput = redirected ? (line: string) => { process.stdout.write(line); } : undefined;
+// Ink still supplies the hook lifecycle; only the line writer reaches the pipe.
+const sink = redirected ? new Writable({ write(_chunk, _encoding, done) { done(); } }) : process.stdout;
+const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteractive} lineOutput={lineOutput} />, { exitOnCtrlC: false, stdout: sink as NodeJS.WriteStream });
 
 // Which signals exist is the platform's business, so the table is the platform's
 // too — SIGBREAK only exists on Windows, and SIGHUP (the window closing) was not

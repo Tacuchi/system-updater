@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseBrewOutdated, brew } from './brew.js';
+import { parseBrewOutdated, parseBrewPackage, brew } from './brew.js';
 
 const ctx = { platform: 'darwin' as NodeJS.Platform, sudoMode: false, meta: {} };
 
@@ -24,6 +24,12 @@ describe('parseBrewOutdated', () => {
 });
 
 describe('brew.percentParser', () => {
+  it('recognizes handwritten package lines without interpreting counters as names', () => {
+    expect(parseBrewPackage('==> Upgrading python@3.12 3.12.4 -> 3.12.7')).toBe('python@3.12');
+    expect(parseBrewPackage('==> Installing git')).toBe('git');
+    expect(parseBrewPackage('==> Upgrading 3/10 formulae')).toBeUndefined();
+    expect(parseBrewPackage('==> Downloading archive')).toBeUndefined();
+  });
   it('reads "==> Upgrading N/M" as a percentage', () => {
     expect(brew.percentParser?.('==> Upgrading 1/1', ctx)).toBe(100);
     expect(brew.percentParser?.('==> Upgrading 3/10 formulae', ctx)).toBe(30);

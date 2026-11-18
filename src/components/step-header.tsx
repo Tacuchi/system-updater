@@ -1,64 +1,29 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { semantic } from '../theme.js';
-import { g } from '../lib/glyphs.js';
+import { semantic, terminalTheme } from '../theme.js';
+import { ASCII, g } from '../lib/glyphs.js';
 import { t } from '../i18n/index.js';
+import { useMachine } from '../hooks/use-app-machine.js';
+import { getVersion } from '../lib/version.js';
 import type { Phase } from '../state/types.js';
-
-// The 4 visible steps of the linear flow (settings is an overlay, summary is terminal).
-const STEP: Partial<Record<Phase, { n: number; key: 'detecting' | 'scanning' | 'select' | 'confirm' | 'updating' }>> = {
-  detecting: { n: 1, key: 'detecting' },
-  scanning: { n: 1, key: 'scanning' },
-  select: { n: 2, key: 'select' },
-  confirm: { n: 3, key: 'confirm' },
-  updating: { n: 4, key: 'updating' },
-};
-
-export function StepHeader({ phase }: { phase: Phase }) {
-  if (phase === 'summary') {
-    return (
-      <Box marginBottom={1}>
-        <Text color={semantic.success} bold>
-          {g.stepOn} {t('flow', 'summary')}
-        </Text>
-      </Box>
-    );
-  }
-  if (phase === 'detail') {
-    return (
-      <Box marginBottom={1}>
-        <Text color={semantic.action} bold>
-          {g.stepOn} {t('flow', 'detail')}
-        </Text>
-      </Box>
-    );
-  }
-  if (phase === 'settings') {
-    return (
-      <Box marginBottom={1}>
-        <Text color={semantic.action} bold>
-          {g.stepOn} {t('flow', 'settings')}
-        </Text>
-      </Box>
-    );
-  }
-  const step = STEP[phase];
-  if (!step) return null;
-
-  return (
-    <Box marginBottom={1}>
-      {[1, 2, 3, 4].map(i => (
-        <Text key={i} color={i === step.n ? semantic.action : semantic.muted} bold={i === step.n}>
-          {i === step.n ? g.stepOn : g.stepOff}{' '}
-        </Text>
-      ))}
-      <Text color={semantic.muted}>
-        {'  '}
-        {t('flow', 'step')} {step.n}/4 ·{' '}
-      </Text>
-      <Text color={semantic.action} bold>
-        {t('flow', step.key)}
-      </Text>
-    </Box>
-  );
+const steps: Partial<Record<Phase, number>> = { boot: 1, detecting: 1, scanning: 1, select: 2, confirm: 3, updating: 4 };
+export function StepHeader() {
+  const { state, selfUpdate } = useMachine();
+  const width = Math.min(process.stdout.columns ?? 100, 100) - 2;
+  const key = state.phase === 'boot' ? 'detecting' : state.phase;
+  const label = t('flow', key);
+  const step = steps[state.phase];
+  let product = ` updater ${getVersion()}${selfUpdate ? ` ${g.arrow} ${selfUpdate.version}` : ''}`;
+  let right = step ? `${t('flow', 'step')} ${step}/4 ${g.separator} ${label}` : label;
+  if (8 + product.length + right.length + 1 > width) product = product.replace(' updater', '');
+  if (8 + product.length + right.length + 1 > width && step) right = `${step}/4 ${g.separator} ${label}`;
+  const available = width - 8 - product.length - 1;
+  if (right.length > available) right = right.slice(0, Math.max(0, available - g.ellipsis.length)) + g.ellipsis;
+  const gap = ' '.repeat(Math.max(1, width - 8 - product.length - right.length));
+  const plainLogo = ASCII || process.env['NO_COLOR'] !== undefined;
+  return <Box marginBottom={1}>
+    <Text bold color={semantic.text}>tacuchi</Text>
+    {plainLogo ? <Text>_</Text> : <Text color={terminalTheme === 'light' ? semantic.text : semantic.logoFill} backgroundColor={terminalTheme === 'light' ? semantic.logoFill : undefined}>{g.logo}</Text>}
+    <Text color={semantic.muted}>{product}{gap}{right}</Text>
+  </Box>;
 }

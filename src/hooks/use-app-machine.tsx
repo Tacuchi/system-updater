@@ -143,9 +143,10 @@ export function useMachine(): MachineValue {
 
 export function useAppMachine(sudoMode: boolean, nonInteractive = false): MachineValue {
   const configRef = useRef<UserConfig>(loadConfig());
-  const [state, dispatch] = useReducer(appReducer, undefined, () =>
-    initialState(configRef.current, sudoMode),
-  );
+  const [state, dispatch] = useReducer(appReducer, undefined, () => {
+    setLanguage(configRef.current.language);
+    return initialState(configRef.current, sudoMode);
+  });
   const detectedRef = useRef<DetectedManager[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   // The engine's own accounting of the run so far. Every exit route reads the
@@ -264,7 +265,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
         })),
     });
 
-    dispatch({ type: 'RUN_START', queue });
+    dispatch({ type: 'RUN_START', queue, at: Date.now() });
     const ac = new AbortController();
     abortRef.current = ac;
     const logRef = getLogFilePath() ?? undefined;
@@ -343,8 +344,8 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
         // newline and shifts the cursor), corrupting Ink and stacking frames.
         // While a manager just runs, the screen stays still and any prompt shows
         // cleanly below it.
-        if (e.event?.percent !== undefined) {
-          enqueue({ type: 'MGR_PROGRESS', id, percent: e.event.percent });
+        if (e.event?.percent !== undefined || e.event?.package !== undefined) {
+          enqueue({ type: 'MGR_PROGRESS', id, percent: e.event.percent, currentPackage: e.event.package });
         } else if (!e.event) {
           enqueue({ type: 'MGR_RUNNING', id, at: Date.now() });
         }
@@ -380,7 +381,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
       })
       .finally(() => {
         flush(); // drain any buffered events before settling
-        dispatch({ type: 'RUN_DONE' });
+        dispatch({ type: 'RUN_DONE', at: Date.now() });
         abortRef.current = null;
         // THIS is the run's settlement, and it is where the log closes — not the
         // render of the Summary screen. A closure written here survives the user
@@ -394,6 +395,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
   }, [state.selection, sudoMode]);
 
   const cancelRun = useCallback(() => {
+    dispatch({ type: 'RUN_CANCEL' });
     abortRef.current?.abort();
   }, []);
 
@@ -431,6 +433,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
 
   useEffect(() => {
     if (!nonInteractive) return;
+    if (state.error) { finishNonInteractive(1); return; }
     if (state.phase === 'select') {
       const hasOutdated = state.order.some(id => (state.managers[id]?.outdated.length ?? 0) > 0);
       if (!hasOutdated) finishNonInteractive(0);
@@ -444,6 +447,7 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
   }, [
     nonInteractive,
     state.phase,
+    state.error,
     state.selection.size,
     state.run.failedCount,
     state.order,

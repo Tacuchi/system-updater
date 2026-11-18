@@ -64,6 +64,7 @@ export interface ManagerDescriptor {
   /** Manual command shown for readonly / no-sudo managers. */
   manualCommand?: (ctx: ManagerCtx) => string;
   percentParser?: (line: string, ctx: ManagerCtx) => number | undefined;
+  packageParser?: (line: string, ctx: ManagerCtx) => string | undefined;
 
   /** Escape hatches for managers that cannot be expressed declaratively. */
   escapeHatch?: Partial<{

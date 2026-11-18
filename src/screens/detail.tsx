@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import { useMachine, summarizeRun } from '../hooks/use-app-machine.js';
-import { useSafeInput } from '../hooks/use-safe-input.js';
-import { StepHeader } from '../components/step-header.js';
+import { useScreenKeys, KeyHints } from './keys.js';
 import { StatusGlyph } from '../components/status-glyph.js';
 import { semantic, colors } from '../theme.js';
 import { g } from '../lib/glyphs.js';
@@ -52,7 +51,7 @@ interface Row {
 }
 
 export function DetailScreen() {
-  const { state, closeDetail } = useMachine();
+  const { state, closeDetail, quitApp } = useMachine();
   const [offset, setOffset] = useState(0);
 
   const summary = summarizeRun(state);
@@ -85,15 +84,11 @@ export function DetailScreen() {
   // and nothing else. The arrows only MOVE the window: scrolling a read-only
   // list is still a reading, and without it the tail of a long list would be
   // unreachable, which defeats the screen.
-  useSafeInput((input, key) => {
-    if (input === 'd' || input === 'D') closeDetail();
-    else if (key.downArrow || input === 'j') setOffset(o => Math.min(maxOffset, o + 1));
-    else if (key.upArrow || input === 'k') setOffset(o => Math.max(0, o - 1));
-  });
+  const commands = useScreenKeys({ detail: closeDetail, back: closeDetail,
+    down: () => setOffset(o => Math.min(maxOffset, o + 1)), up: () => setOffset(o => Math.max(0, o - 1)), quit: quitApp });
 
   return (
     <Box flexDirection="column">
-      <StepHeader phase={state.phase} />
       {/* Both indicators are ALWAYS a line, blank when there is nothing on that
           side: making them conditional changed the frame's height by up to two
           rows as the reader scrolled, which is the stacking this screen exists
@@ -132,7 +127,7 @@ export function DetailScreen() {
         {start + visible.length < rows.length ? `${g.scrollDown} ${rows.length - start - visible.length}` : ' '}
       </Text>
       <Box marginTop={1}>
-        <Text color={semantic.muted}>{t('ui', 'detailBack')}</Text>
+        <KeyHints commands={commands} />
       </Box>
     </Box>
   );

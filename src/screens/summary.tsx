@@ -2,11 +2,12 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { useMachine, summarizeRun } from '../hooks/use-app-machine.js';
 import type { RunSummaryManager } from '../hooks/use-app-machine.js';
-import { useSafeInput } from '../hooks/use-safe-input.js';
-import { StepHeader } from '../components/step-header.js';
+import { useScreenKeys, KeyHints } from './keys.js';
 import { StatusGlyph } from '../components/status-glyph.js';
 import { semantic } from '../theme.js';
 import { getLogFilePath } from '../lib/logger.js';
+import { compactPath } from '../lib/display-path.js';
+import { countText, summaryText } from '../lib/display-counts.js';
 import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
 import type { ManagerStatus } from '../state/types.js';
@@ -29,7 +30,7 @@ function versionDelta(m: RunSummaryManager): string {
   }
   // Just the count: the column is data, and the key that opens the list belongs
   // in the hint line, not inside a value.
-  return `${ups.length} ${t('ui', 'upgraded')}`;
+  return countText(ups.length, 'upgraded');
 }
 
 /** One fixed-width row per manager: status · name · counts · version delta · duration. */
@@ -71,19 +72,16 @@ function ManagerRow({ m }: { m: RunSummaryManager }) {
 }
 
 export function SummaryScreen() {
-  const { state, rescan, openDetail } = useMachine();
+  const { state, rescan, openDetail, quitApp, selfUpdate } = useMachine();
 
-  useSafeInput((input) => {
-    if (input === 'r' || input === 'R') rescan();
-    // The same key that closes it in the detail screen. `d` collides with
-    // neither quit nor rescan, the only two keys this screen already had.
-    else if (input === 'd' || input === 'D') openDetail();
-  });
+
 
   const summary = summarizeRun(state);
-  const { upgraded, failed, skipped, unknown } = summary;
-  const hasErrors = failed > 0;
+  const { failed } = summary;
+  const hasErrors = failed > 0 || state.run.failedCount > 0;
   const hasPackages = summary.managers.some(m => (m.packages ?? []).length > 0);
+
+  const commands = useScreenKeys({ ...(hasPackages ? { detail: openDetail } : {}), retry: rescan, quit: quitApp });
 
   // Failure/manual/reboot detail lives on the entry results, not in summarizeRun.
   const failures: { manager: string; package?: string; message: string; kind?: string }[] = [];
@@ -110,7 +108,6 @@ export function SummaryScreen() {
 
   return (
     <Box flexDirection="column">
-      <StepHeader phase={state.phase} />
       <Box marginBottom={1}>
         <Text color={hasErrors ? semantic.error : semantic.success} bold>
           {hasErrors ? `${g.failed} ${t('ui', 'withErrors')}` : `${g.done} ${t('ui', 'allDone')}`}
@@ -121,7 +118,7 @@ export function SummaryScreen() {
       {undetermined.length > 0 && (
         <Box flexDirection="column" marginBottom={1}>
           <Text color={semantic.unknown}>
-            {g.unknown} {undetermined.length} {t('ui', 'undeterminedCount')}:{' '}
+            {g.unknown} {countText(undetermined.length, 'unknown')}:{' '}
             {undetermined.map(id => managerName(id)).join(', ')}
           </Text>
         </Box>
@@ -140,15 +137,7 @@ export function SummaryScreen() {
       )}
 
       <Box marginBottom={1}>
-        <Text color={semantic.success}>{upgraded} {t('ui', 'upgraded')}</Text>
-        <Text color={semantic.muted}>  ·  </Text>
-        <Text color={hasErrors ? semantic.error : semantic.muted}>{failed} {t('ui', 'failed')}</Text>
-        <Text color={semantic.muted}>  ·  </Text>
-        <Text color={semantic.warning}>{skipped} {t('ui', 'skipped')}</Text>
-        <Text color={semantic.muted}>  ·  </Text>
-        <Text color={unknown > 0 ? semantic.unknown : semantic.muted}>
-          {unknown} {t('ui', 'undeterminedTotal')}
-        </Text>
+        <Text color={semantic.text}>{summaryText(summary)}</Text>
       </Box>
 
       {summary.managers.length > 0 && (
@@ -165,13 +154,12 @@ export function SummaryScreen() {
             <Text key={i} color={semantic.error} wrap="truncate-end">
               {g.failed} {managerName(f.manager)}
               {f.package ? <Text color={semantic.text}> {f.package}</Text> : null}
-              {f.kind ? <Text color={semantic.muted}> · {f.kind}</Text> : null}
+              {f.kind ? <Text color={semantic.muted}> {g.separator} {f.kind}</Text> : null}
             </Text>
           ))}
           {failures.some(f => f.kind === 'TIMEOUT') && (
             <Text color={semantic.warning}>
-              {g.info} Un TIMEOUT suele indicar un paquete que pide interacción (ej. un cask que requiere cerrar la app
-              o sudo). Actualízalo manualmente en una terminal.
+              {g.info} {t('ui', 'timeoutNote')}
             </Text>
           )}
         </Box>
@@ -180,17 +168,18 @@ export function SummaryScreen() {
       {reboots.length > 0 && (
         <Box marginBottom={1}>
           <Text color={semantic.warning}>
-            {g.reboot} Reinicio pendiente: {reboots.map(r => `${managerName(r.manager)} (${r.state})`).join(', ')}
+            {g.reboot} {t('ui', 'rebootPending')}: {reboots.map(r => `${managerName(r.manager)} (${t('ui', r.state === 'required' ? 'rebootRequired' : r.state === 'initiated' ? 'rebootInitiated' : 'rebootDeferred')})`).join(', ')}
           </Text>
         </Box>
       )}
 
+      {selfUpdate && <Text color={semantic.warning}>{selfUpdate.howTo}</Text>}
       {/* Log path is ALWAYS shown now (was hasErrors-only); muted on a clean run. */}
       <Text color={semantic.muted}>
-        {t('ui', 'logAt')} {getLogFilePath() ?? '~/.tacuchi-updater/logs/'}
+        {t('ui', 'logAt')} {compactPath(getLogFilePath() ?? '~/.tacuchi-updater/logs/', Math.min(process.stdout.columns ?? 100, 100) - 4 - t('ui', 'logAt').length)}
       </Text>
       <Box marginTop={1}>
-        <Text color={semantic.muted}>{hasPackages ? t('ui', 'detailHint') : t('ui', 'summaryHint')}</Text>
+        <KeyHints commands={commands} />
       </Box>
     </Box>
   );

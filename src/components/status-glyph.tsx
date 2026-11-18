@@ -13,7 +13,9 @@ interface GlyphSpec {
 // Static (no spinner timers) on purpose: animation comes from real state changes,
 // which keeps Ink's frame height stable and avoids redraw drift/stacking. Glyphs
 // come from the shared set so they degrade to ASCII on legacy Windows consoles.
-const SPECS: Record<ManagerStatus, GlyphSpec> = {
+function specs(): Record<ManagerStatus, GlyphSpec> { return {
+  cancelling: { glyph: g.running, color: semantic.warning },
+  partial: { glyph: g.partial, color: semantic.error },
   pending: { glyph: g.pending, color: semantic.muted },
   scanning: { glyph: g.scanning, color: semantic.action },
   outdated: { glyph: g.outdated, color: semantic.warning },
@@ -28,14 +30,14 @@ const SPECS: Record<ManagerStatus, GlyphSpec> = {
   // spec lands here with the domain state because this table is exhaustive over
   // ManagerStatus, so the state cannot exist without it.
   unknown: { glyph: g.unknown, color: semantic.unknown },
-};
+}; }
 
 export function statusColor(status: ManagerStatus): string {
-  return SPECS[status].color;
+  return specs()[status].color;
 }
 
 export function StatusGlyph({ status }: { status: ManagerStatus }) {
-  const spec = SPECS[status];
+  const spec = specs()[status];
   return <Text color={spec.color}>{spec.glyph}</Text>;
 }
 
@@ -55,5 +57,5 @@ export function RunningGlyph() {
     return () => clearInterval(t);
   }, []);
   const frame = NO_ANIM ? g.running : spinnerFrames[i] ?? g.running;
-  return <Text color={SPECS.running.color}>{frame}</Text>;
+  return <Text color={specs().running.color}>{frame}</Text>;
 }

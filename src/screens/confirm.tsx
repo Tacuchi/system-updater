@@ -1,15 +1,14 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
-import { useSafeInput } from '../hooks/use-safe-input.js';
-import { StepHeader } from '../components/step-header.js';
+import { useScreenKeys, KeyHints } from './keys.js';
 import { semantic } from '../theme.js';
 import { g } from '../lib/glyphs.js';
 import { parseSelectionKey } from '../state/types.js';
 import { t, managerName } from '../i18n/index.js';
 
 export function ConfirmScreen() {
-  const { state, startRun, goSelect, sudoMode, relaunch } = useMachine();
+  const { state, startRun, goSelect, sudoMode, relaunch, quitApp } = useMachine();
 
   // group selected package keys by manager id
   const byManager = new Map<string, number>();
@@ -23,20 +22,15 @@ export function ConfirmScreen() {
   const needsElevation =
     process.platform === 'win32' && !sudoMode && [...byManager.keys()].some(id => state.managers[id]?.requiresAdmin);
 
-  useSafeInput((input, key) => {
-    if ((input === 'e' || input === 'E') && needsElevation) relaunch();
-    else if (key.return || input === 'y' || input === 'Y') startRun();
-    else if (key.escape) goSelect();
-  });
+  const commands = useScreenKeys({ start: startRun, back: goSelect, ...(needsElevation ? { elevate: relaunch } : {}), quit: quitApp });
 
+  const active = [...byManager.entries()].filter(([id]) => !state.managers[id]?.requiresAdmin || sudoMode);
+  const skipped = [...byManager.entries()].filter(([id]) => state.managers[id]?.requiresAdmin && !sudoMode);
   return (
     <Box flexDirection="column">
-      <StepHeader phase={state.phase} />
-      <Text color={semantic.text}>{t('ui', 'willRun')}</Text>
+      <Text color={semantic.text}>{t('ui', 'willRun')} {active.reduce((sum, [, count]) => sum + count, 0)} {t('ui', active.reduce((sum, [, count]) => sum + count, 0) === 1 ? 'packageOne' : 'packageMany')}</Text>
       <Box flexDirection="column" marginTop={1} marginBottom={1}>
-        {[...byManager.entries()].map(([id, count]) => {
-          const m = state.managers[id];
-          const willSkip = m?.requiresAdmin && !sudoMode;
+        {active.map(([id, count]) => {
           return (
             <Box key={id}>
               <Text color={semantic.action}>{g.bullet} </Text>
@@ -45,20 +39,17 @@ export function ConfirmScreen() {
                   {managerName(id)}
                 </Text>
               </Box>
-              <Text color={semantic.muted}>{count} paquete(s)</Text>
-              {willSkip && (
-                <Text color={semantic.warning}>
-                  {process.platform === 'win32' ? ' · requiere admin → manual' : ' · requiere sudo → manual'}
-                </Text>
-              )}
+              <Text color={semantic.muted}>{count} {t('ui', count === 1 ? 'packageOne' : 'packageMany')}</Text>
+
             </Box>
           );
         })}
       </Box>
-      <Text color={semantic.muted}>{t('ui', 'confirmHint')}</Text>
-      {needsElevation && (
-        <Text color={semantic.warning}>E · relanzar como Administrador (1 UAC) para los gestores que lo requieren</Text>
-      )}
+      {skipped.length > 0 && <Box flexDirection="column" marginBottom={1}>
+        <Text color={semantic.warning}>{t('ui', process.platform === 'win32' ? 'adminManual' : 'sudoManual')}:</Text>
+        {skipped.map(([id, count]) => <Text key={id} color={semantic.warning}>{g.skipped} {managerName(id)} {count} {t('ui', count === 1 ? 'packageOne' : 'packageMany')}</Text>)}
+      </Box>}
+      <KeyHints commands={commands} />
     </Box>
   );
 }

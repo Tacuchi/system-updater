@@ -21,6 +21,9 @@ export function shouldUseAscii(env: NodeJS.ProcessEnv, platform: NodeJS.Platform
 }
 
 export interface Glyphs {
+  separator: string;
+  logo: string;
+  partial: string;
   pending: string;
   scanning: string;
   outdated: string;
@@ -45,6 +48,9 @@ export interface Glyphs {
 }
 
 const UNICODE: Glyphs = {
+  separator: '·',
+  logo: '▂',
+  partial: '!',
   pending: '·',
   scanning: '◌',
   outdated: '›',
@@ -69,6 +75,9 @@ const UNICODE: Glyphs = {
 };
 
 const ASCII_GLYPHS: Glyphs = {
+  separator: '|',
+  logo: '_',
+  partial: '!',
   pending: '.',
   scanning: 'o',
   outdated: '>',

@@ -1,14 +1,17 @@
 import React from 'react';
+import { useScreenKeys, KeyHints } from './keys.js';
+import { compactPath } from '../lib/display-path.js';
+import { getLogFilePath } from '../lib/logger.js';
 import { Box, Text } from 'ink';
 import { useMachine } from '../hooks/use-app-machine.js';
-import { StepHeader } from '../components/step-header.js';
 import { StatusGlyph } from '../components/status-glyph.js';
 import { semantic, colors } from '../theme.js';
 import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
 
 export function DetectScreen() {
-  const { state } = useMachine();
+  const { state, rescan, quitApp } = useMachine();
+  const commands = useScreenKeys({ ...(state.error ? { retry: rescan } : {}), quit: quitApp });
   const scanning = state.phase === 'scanning';
 
   const done = state.order.filter(id => {
@@ -18,9 +21,14 @@ export function DetectScreen() {
     return s === 'outdated' || s === 'uptodate' || s === 'unknown';
   }).length;
 
+  if (state.error) return <Box flexDirection="column">
+    <Text color={semantic.error}>{g.failed} {t('ui', 'detectionFailed')}</Text>
+    <Text color={semantic.text}>{state.error}</Text>
+    <Text color={semantic.muted}>{t('ui', 'logAt')} {compactPath(getLogFilePath() ?? '', Math.min(process.stdout.columns ?? 100, 100) - 4 - t('ui', 'logAt').length)}</Text>
+    <KeyHints commands={commands} />
+  </Box>;
   return (
     <Box flexDirection="column">
-      <StepHeader phase={state.phase} />
       <Box marginBottom={1}>
         <Text color={semantic.text}>
           {scanning ? t('ui', 'scanning') : t('ui', 'detecting')}
@@ -58,6 +66,7 @@ export function DetectScreen() {
             </Box>
           );
         })}
+      <KeyHints commands={commands} />
     </Box>
   );
 }

@@ -240,12 +240,19 @@ export function fromDescriptor(d: ManagerDescriptor, cfg: UserConfig, deps: Exec
 
       const runOne = async function* (spec: CommandSpec): AsyncGenerator<ProgressEvent, void> {
         yield { type: 'log', message: `${spec.cmd} ${spec.args.join(' ')}` };
-        const rec = yield* deps.runStream(
+        const stream = deps.runStream(
           spec.cmd,
           spec.args,
           { timeoutMs: spec.timeout ?? upgradeTimeout, sudo: sudoFor(spec, c), signal: c.signal, tailBytes: cfg.logTailBytes },
           pp,
         );
+        let item = await stream.next();
+        while (!item.done) {
+          const currentPackage = d.packageParser?.(item.value.message, c);
+          yield currentPackage ? { ...item.value, type: 'progress' as const, package: currentPackage } : item.value;
+          item = await stream.next();
+        }
+        const rec = item.value;
         commands.push(rec);
         logger.logCommand(rec);
       };

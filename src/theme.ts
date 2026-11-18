@@ -1,98 +1,24 @@
-// Tokens del sistema de diseño "Neon Brutalist" / "The Kinetic Console"
-// Referencia: docs/DESIGN.md
-
-export const colors = {
-  // Superficies (fondo)
-  surface: '#131313',
-  surfaceContainer: '#201f1f',
-  surfaceContainerLow: '#1c1b1b',
-  surfaceContainerHigh: '#2a2a2a',
-  surfaceContainerHighest: '#353534',
-  surfaceContainerLowest: '#0e0e0e',
-
-  // Primario (púrpura)
-  primary: '#c9bfff',
-  primaryContainer: '#6a49f8',
-  onPrimary: '#131313',
-  onPrimaryContainer: '#f0e9ff',
-
-  // Secundario (rosa)
-  secondary: '#ffade0',
-  secondaryContainer: '#7a3060',
-  onSecondary: '#131313',
-  onSecondaryContainer: '#ffd8ef',
-
-  // Terciario (verde - señal de éxito/activo)
-  tertiary: '#31e368',
-  tertiaryContainer: '#005229',
-  onTertiary: '#131313',
-  onTertiaryContainer: '#adffd0',
-
-  // Error
-  error: '#ffb4ab',
-  errorContainer: '#93000a',
-  onError: '#690005',
-  onErrorContainer: '#ffdad6',
-
-  // Texto
-  onSurface: '#e5e2e1',
-  onSurfaceVariant: '#a09d9c',
-
-  // Ámbar — reservado al estado «no se pudo determinar»
-  unknown: '#f0b429',
-
-  // Bordes
-  outlineVariant: '#484556',
-  outline: '#6f6d70',
+export type TerminalTheme = 'light' | 'dark';
+export const tokens = {
+  dark: { text: '#e6e6e2', muted: '#a3a39b', accent: '#bff278' },
+  light: { text: '#111111', muted: '#5c5c56', accent: '#bce489' },
+  logo: '#b6f23c', error: '#ffb4ab', warning: '#ffade0', unknown: '#f0b429',
 } as const;
-
-// Paleta SEMÁNTICA — el flujo lineal usa solo estos 5 roles para reducir el
-// ruido visual (antes se mezclaban primary/secondary/tertiary sin lógica clara).
-export const semantic = {
-  action: colors.primary, // foco / acción primaria (púrpura)
-  success: colors.tertiary, // verde
-  error: colors.error, // rojo
-  warning: colors.secondary, // rosa (admin / skipped / atención)
-  // Ámbar — «no se pudo determinar». NO puede reusar `muted`, que hoy significa
-  // «al día»: eso es exactamente confundir «no lo sé» con «está bien»
-  // (DES-001@r1). Se distingue a la vez del rosa de advertencia y del gris.
-  unknown: colors.unknown,
-  text: colors.onSurface,
-  muted: colors.onSurfaceVariant,
-} as const;
-
-// Caracteres Unicode para bordes (estilo "Ghost Border")
-export const box = {
-  topLeft: '┌',
-  topRight: '┐',
-  bottomLeft: '└',
-  bottomRight: '┘',
-  horizontal: '─',
-  vertical: '│',
-  // Doble
-  dTopLeft: '╔',
-  dTopRight: '╗',
-  dBottomLeft: '╚',
-  dBottomRight: '╝',
-  dHorizontal: '═',
-  dVertical: '║',
-  // Bloques para progress bar
-  blockFull: '█',
-  blockDark: '▓',
-  blockMedium: '▒',
-  blockLight: '░',
-  // Indicadores
-  bullet: '›',
-  dot: '•',
-  arrow: '→',
-  check: '✓',
-  cross: '✗',
-} as const;
-
-// Tamaños de espaciado
-export const spacing = {
-  xs: 1,
-  sm: 2,
-  md: 4,
-  lg: 8,
-} as const;
+export function themeFor(mode: TerminalTheme) {
+  const palette = tokens[mode];
+  return {
+    text: palette.text, muted: palette.muted,
+    action: mode === 'light' ? palette.text : palette.accent,
+    success: mode === 'light' ? palette.text : palette.accent,
+    error: tokens.error, warning: tokens.warning, unknown: tokens.unknown,
+    accentFill: palette.accent, logoFill: tokens.logo,
+  };
+}
+export const semantic = themeFor('dark');
+export let terminalTheme: TerminalTheme = 'dark';
+export const colors = { outline: semantic.muted };
+export function setTerminalTheme(mode: TerminalTheme): void {
+  terminalTheme = mode;
+  Object.assign(semantic, themeFor(mode));
+  colors.outline = semantic.muted;
+}

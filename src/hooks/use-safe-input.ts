@@ -1,4 +1,5 @@
 import { useInput, useStdin } from 'ink';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 
 type InputHandler = Parameters<typeof useInput>[0];
 type InputOptions = NonNullable<Parameters<typeof useInput>[1]>;
@@ -14,6 +15,10 @@ type InputOptions = NonNullable<Parameters<typeof useInput>[1]>;
  * raw mode, so the hook is still called unconditionally (Rules of Hooks).
  */
 export function useSafeInput(handler: InputHandler, options?: InputOptions): void {
+  const latestHandler = useRef(handler);
+  useLayoutEffect(() => { latestHandler.current = handler; }, [handler]);
+  // Re-subscribing after every frame left a gap where the next key was lost.
+  const stableHandler = useCallback<InputHandler>((input, key) => latestHandler.current(input, key), []);
   const { isRawModeSupported } = useStdin();
   // `isRawModeSupported` is Ink's `stdin.isTTY`, which is UNDEFINED (not false)
   // for a pipe or /dev/null — and Ink only skips raw mode when `isActive` is
@@ -21,5 +26,5 @@ export function useSafeInput(handler: InputHandler, options?: InputOptions): voi
   // exactly the streams it exists to protect, and a piped run died on
   // "Raw mode is not supported" before it could do anything. Coerce it.
   const active = (options?.isActive ?? true) && isRawModeSupported === true;
-  useInput(handler, { ...options, isActive: active });
+  useInput(stableHandler, { ...options, isActive: active });
 }

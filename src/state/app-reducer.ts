@@ -47,7 +47,7 @@ function allOutdatedKeys(state: AppState): string[] {
 export function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'BOOT_DONE':
-      return { ...state, phase: 'detecting' };
+      return { ...state, phase: 'detecting', error: undefined };
 
     case 'DETECT_DONE': {
       const managers: Record<string, ManagerEntry> = {};
@@ -134,7 +134,7 @@ export function appReducer(state: AppState, action: Action): AppState {
         ...state,
         phase: 'updating',
         managers,
-        run: { queue: action.queue, doneCount: 0, failedCount: 0, skippedCount: 0, unknownCount: 0 },
+        run: { startedAt: action.at, queue: action.queue, doneCount: 0, failedCount: 0, skippedCount: 0, unknownCount: 0 },
       };
     }
 
@@ -160,8 +160,8 @@ export function appReducer(state: AppState, action: Action): AppState {
 
     case 'MGR_DONE':
       return {
-        ...patch(state, action.id, e => ({ ...e, status: 'done', percent: 100, result: action.result })),
-        run: { ...state.run, doneCount: state.run.doneCount + 1 },
+        ...patch(state, action.id, e => ({ ...e, status: action.result.failed > 0 ? 'partial' : 'done', percent: 100, result: action.result })),
+        run: { ...state.run, doneCount: state.run.doneCount + (action.result.failed > 0 ? 0 : 1), failedCount: state.run.failedCount + (action.result.failed > 0 ? 1 : 0) },
       };
 
     case 'MGR_FAILED':
@@ -184,8 +184,11 @@ export function appReducer(state: AppState, action: Action): AppState {
         run: { ...state.run, unknownCount: state.run.unknownCount + 1 },
       };
 
+    case 'RUN_CANCEL':
+      return { ...state, managers: Object.fromEntries(Object.entries(state.managers).map(([id, entry]) => [id, entry.status === 'running' ? { ...entry, status: 'cancelling' as const } : entry])) };
+
     case 'RUN_DONE':
-      return { ...state, phase: 'summary' };
+      return { ...state, phase: 'summary', run: { ...state.run, finishedAt: action.at } };
 
     case 'SET_LANGUAGE':
       return { ...state, config: { ...state.config, language: action.lang } };

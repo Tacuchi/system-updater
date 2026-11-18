@@ -12,7 +12,7 @@ import { closeLogger } from './lib/logger.js';
 // TWO managers on purpose: one that reports a percentage and one that does not.
 // 25 of the 27 real managers report none, which is why the row's detail slot sat
 // empty for minutes — and it is the only way to check that the slot shows a
-// percentage OR a time and never both. `brew` carries twenty packages so the
+// percentage alongside elapsed time. `brew` carries twenty packages so the
 // per-package detail screen has a real list to render.
 const BREW_PACKAGES = Array.from({ length: 20 }, (_, i) =>
   i === 0
@@ -203,7 +203,7 @@ async function waitFor(lastFrame: () => string | undefined, needle: string, what
 describe('App (linear flow) smoke', () => {
   it('mounts, renders the shell header, and walks detect → select', async () => {
     const { lastFrame, unmount } = render(<App sudoMode={false} />);
-    expect(lastFrame() ?? '').toContain('@tacuchi/updater');
+    expect(lastFrame() ?? '').toContain('tacuchi');
     const frame = await waitFor(lastFrame, '2.44', 'detect + scan');
     expect(frame).toContain('git');
     expect(frame).toContain('2.44');
@@ -215,7 +215,7 @@ describe('App (linear flow) smoke', () => {
     await waitFor(h.lastFrame, 'Espacio marcar', 'detect + scan → select');
 
     // El espacio marca la fila del cursor (git), y el contador lo demuestra.
-    await pressUntil(h, ' ', `1 / ${TOTAL_PACKAGES} seleccionados`, 'marcar la fila del cursor');
+    await pressUntil(h, ' ', `1 de ${TOTAL_PACKAGES} marcado`, 'marcar la fila del cursor');
     h.stdin.write('\r'); // enter → confirm (un solo envío: el teclado ya probó estar vivo)
     await waitFor(h.lastFrame, 'Se ejecutará', 'select → confirm');
 
@@ -234,7 +234,7 @@ async function toSummary() {
   const h = render(<App sudoMode={false} />);
   await waitFor(h.lastFrame, 'Espacio marcar', 'toSummary: detect + scan → select');
   // `a` marca todo y es idempotente, así que se puede reenviar sin miedo.
-  await pressUntil(h, 'a', `${TOTAL_PACKAGES} / ${TOTAL_PACKAGES} seleccionados`, 'toSummary: marcar todo');
+  await pressUntil(h, 'a', `${TOTAL_PACKAGES} de ${TOTAL_PACKAGES} marcados`, 'toSummary: marcar todo');
   h.stdin.write('\r'); // → confirm (un solo envío: el teclado ya probó estar vivo)
   await waitFor(h.lastFrame, 'Se ejecutará', 'toSummary: select → confirm');
   await pressUntil(h, '\r', 'COMPLETADO', 'toSummary: confirm → run → summary');
@@ -296,8 +296,8 @@ describe('el detalle por paquete (DES-001@r1)', () => {
   });
 });
 
-describe('la fila del gestor en curso muestra porcentaje O tiempo, nunca ambos', () => {
-  it('el que reporta porcentaje muestra porcentaje; el que no, tiempo', async () => {
+describe('la fila del gestor en curso conserva el tiempo junto al progreso', () => {
+  it('cada gestor muestra tiempo y el porcentaje aparece cuando lo reporta', async () => {
     const { lastFrame, frames, unmount } = render(<App sudoMode={false} nonInteractive />);
     // Esperar a que la pantalla de actualización esté visible con las dos filas.
     await waitFor(lastFrame, 'ACTUALIZANDO', 'run → updating');
@@ -309,8 +309,8 @@ describe('la fila del gestor en curso muestra porcentaje O tiempo, nunca ambos',
         if (!line.includes('ACTUALIZANDO')) continue;
         const hasPercent = /\d+%/.test(line);
         const hasElapsed = /\d+(s|m\d\ds|h\d\dm)\b/.test(line);
-        // Los dos a la vez harían que el ancho de la fila dependa del gestor.
-        expect(hasPercent && hasElapsed).toBe(false);
+        if (line.includes('Homebrew')) expect(hasPercent).toBe(true);
+        expect(hasElapsed).toBe(true);
       }
     }
     unmount();

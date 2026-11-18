@@ -84,6 +84,13 @@ async function drain(gen: AsyncGenerator<ProgressEvent, UpgradeResult>) {
   return { events, result: next.value };
 }
 
+it('carries recognized package names through the existing progress stream', async () => {
+  const deps = makeDeps({ outdatedQueue: ['git 1 2', ''], lines: ['==> Upgrading git 1 -> 2'] });
+  const manager = fromDescriptor({ ...fooDescriptor, packageParser: line => line.match(/^==> Upgrading (\w+)/)?.[1] }, cfg, deps);
+  const { events } = await drain(manager.upgrade(['git']));
+  expect(events.some(event => event.type === 'progress' && event.package === 'git')).toBe(true);
+});
+
 describe('fromDescriptor', () => {
   it.each([7, 16384])('keeps the configured output tail of %i bytes through the real executor', async limit => {
     const output = 'x'.repeat(17000) + 'done';
