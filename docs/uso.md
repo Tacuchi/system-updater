@@ -30,3 +30,18 @@ Con teclado: flechas o `j`/`k` recorren paquetes; espacio alterna la selección.
 Sin TTY o con `--yes`, `-y` o `--all`, el flujo selecciona y confirma automáticamente.
 El modo automático termina con 1 si el contador de fallos es positivo; con 0 en otro caso.
 Un estado indeterminado debe revisarse en el resumen y registro, aunque el código de salida sea 0.
+
+## Cancelación y salida
+
+La cancelación usa `AbortController`; los plazos de actualización también terminan el árbol de procesos, no solo el padre.
+Una señal atendida programa la salida tras 200 ms de gracia, sin opción pública para cambiarla.
+Los códigos de señal son 130 para cancelación, 143 para `SIGTERM` y 129 para `SIGHUP`.
+
+## Permisos y riesgos
+
+- En Unix, `--sudo` autentica antes de montar Ink.
+- Los comandos sin requisito de elevación vuelven al usuario original cuando existe `SUDO_USER`.
+- Windows comprueba la consola con `is-admin` y solicita UAC mediante PowerShell.
+- El relanzamiento Windows informa si abrió la nueva consola, no el resultado de esa corrida.
+- Su comentario mantiene pendiente validar argumentos y traspaso del resumen en Windows real.
+- Flutter ejecuta `upgrade --force` desde su descriptor; puede afectar cambios locales de su instalación.

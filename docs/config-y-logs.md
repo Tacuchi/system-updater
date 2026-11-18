@@ -14,12 +14,12 @@ Campos:
 
 | Campo | Por omisión | Qué hace |
 |---|---|---|
-| `language` | `es` | Idioma de la interfaz (`es` \| `en`). |
-| `enabledManagers` | `{}` | Gestores desactivados explícitamente. Lo que no está, está habilitado. |
-| `concurrency` | `4` | Gestores actualizados en paralelo (se acota a 1..8). |
+| `language` | `es` | Idioma de la interfaz (`es` \| `en`), editable desde preferencias. |
+| `enabledManagers` | `{}` | `enabledManagers[id]: false` desactiva desde configuración o preferencias; lo que no está, está habilitado. |
+| `concurrency` | `4` | Puestos ordinarios entre 1 y 8; el carril administrativo siempre es serial. |
 | `timeoutsMs` | `{}` | Espera máxima por gestor, en ms. |
 | `logTailBytes` | `16384` | Campo declarado de configuración; el ejecutor usa un límite fijo de 16384 caracteres por salida y el motor no le pasa este campo. |
-| `logRetentionRuns` | `30` | Cuántas corridas de registro se conservan. Por **cantidad** y no por antigüedad, porque las corridas llegan en ráfagas. |
+| `logRetentionRuns` | `30` | Corridas conservadas, mínimo 1, por **cantidad** y no por antigüedad, porque llegan en ráfagas. |
 | `selfCheck` | `true` | Consultar a npm sin bloquear si hay una versión más nueva. Una respuesta completada se reutiliza 24 h; un fallo se registra y permite reintentar en la siguiente corrida. |
 
 El registro anota cada sondeo de presencia, cada listado de pendientes y cada comando ejecutado con su
@@ -52,9 +52,55 @@ Dos variables de entorno mueven esas rutas, y existen para que las pruebas pueda
 real sin tocar tus datos: `TACUCHI_UPDATER_CONFIG_DIR` y `TACUCHI_UPDATER_LOG_DIR`.
 
 
-Los registros contienen identificadores de proceso y usuario, plataforma, versión de Node y salida de comandos.
+## Datos del diagnóstico
+
+Los registros contienen PID, UID, `SUDO_USER`, plataforma, versión de Node y salida de comandos.
 No se implementa ocultación de datos sensibles en esas salidas; revísalos antes de compartirlos.
-El archivo de versión propia se llama `self-check.json` y comparte el directorio de preferencias.
-En Windows, el resumen también se escribe en `%LOCALAPPDATA%\tacuchi-updater\last-run-summary.json`.
-Su retención no tiene una caducidad programada; se sobrescribe al llegar al resumen.
-Las demás opciones y límites están en [ARCHITECTURE.md](../ARCHITECTURE.md#5-vista-de-despliegue).
+Ver el tráfico exacto requiere inspección externa.
+
+## Límites y opciones
+
+- `verbosity: info` y `managers: {}` se conservan al normalizar la configuración.
+- La ruta documentada usa `enabledManagers` y `timeoutsMs`; no se deduce un filtro de registro por `verbosity`.
+
+### Plazos y captura
+
+| Qué | Valor | Cómo se determina |
+|---|---|---|
+| Detección genérica | 5000 ms | Comando del descriptor. |
+| Listado genérico | 30000 ms | Comando del descriptor. |
+| Actualización genérica | 600000 ms | `timeoutsMs[id]` prevalece sobre el descriptor. |
+| Homebrew | 1200000 ms | Valor del descriptor. |
+| Actualización de Flutter | 600000 ms | Implementación especial; no usa el plazo configurado del adaptador genérico. |
+| Consulta de versión propia | 4000 ms | Plazo de la petición GET. |
+| Captura de actualización | 16384 caracteres por stdout/stderr | `tailBytes` del ejecutor de actualización. |
+
+### Rutas adicionales
+
+- Si faltan `APPDATA` o `LOCALAPPDATA`, Windows usa `~/AppData/Roaming` o `~/AppData/Local`, respectivamente.
+- `TACUCHI_UPDATER_LOG_DIR` prevalece para el registro; en Unix, `logs/` queda bajo el directorio de configuración.
+- Cada inicialización genera `system_updater_<marca-temporal>.log`, sin opción propia para cambiar el nombre.
+- Al alcanzar Resumen en Windows se intenta sobrescribir `%LOCALAPPDATA%\tacuchi-updater\last-run-summary.json` con los resultados.
+- Esa ruta interna recurre a `TEMP` o al directorio actual como respaldo; no usa las variables de preferencias y registros.
+
+## Consultas y privacidad
+
+- `selfCheck: false` evita la consulta propia a npm.
+- La respuesta completada abre la ventana de caché; un fallo no la abre.
+- Go consulta `https://go.dev/VERSION?m=text` una vez por proceso.
+- Flutter consulta `storage.googleapis.com`, con manifiesto por plataforma y caché por proceso.
+- Desactivar Go o Flutter evita sus listados y consultas de versión; la detección de comandos sigue ocurriendo.
+- Los comandos de gestores pueden usar red incluso al listar pendientes.
+
+## Persistencia
+
+- Configuración y caché JSON no tienen borrado programado.
+- El guardado intenta archivo temporal y renombrado; ciertos bloqueos de Windows permiten escritura directa.
+- Si falla la lectura o escritura inicial de preferencias, se usan valores en memoria.
+- Windows intenta copiar la configuración antigua cuando falta el destino; no migra los registros.
+- La poda ordena archivos `.log` por modificación y no garantiza retirar los rechazados por permisos.
+- `self-check.json` comparte el directorio de preferencias y conserva la fecha completada y la última versión conocida.
+- Un fallo de consulta no actualiza esa fecha.
+- El resumen Windows se sobrescribe sin caducidad programada.
+- El cierre escribe sincrónicamente y cierra el descriptor; si no pudo abrirse el registro, es de mejor esfuerzo.
+- No existe garantía ante terminación forzada ni protocolo de recuperación tras apagado.
