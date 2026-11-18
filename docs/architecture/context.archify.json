@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Contexto de system-updater",
+    "locale": "es",
+    "output": "docs/architecture/context.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Tacuchi/system-updater.git",
+      "revision": "d078deb0318da6cec727781c6cdd028d828ed672",
+      "provider": "github",
+      "link_mode": "web"
+    }
+  },
+  "components": [
+    {
+      "id": "persona",
+      "type": "external",
+      "label": "Persona operadora",
+      "sublabel": "Terminal o ejecución automática",
+      "pos": [
+        40,
+        250
+      ],
+      "size": [
+        190,
+        80
+      ],
+      "sources": [
+        {
+          "path": "src/cli.tsx",
+          "line": 11,
+          "end_line": 29
+        },
+        {
+          "path": "src/cli.tsx",
+          "line": 81,
+          "end_line": 87
+        }
+      ]
+    },
+    {
+      "id": "updater",
+      "type": "backend",
+      "label": "system-updater",
+      "sublabel": "Detectar · confirmar · verificar",
+      "pos": [
+        420,
+        180
+      ],
+      "size": [
+        270,
+        220
+      ],
+      "sources": [
+        {
+          "path": "package.json",
+          "line": 2,
+          "end_line": 16
+        },
+        {
+          "path": "src/managers/engine.ts",
+          "line": 239,
+          "end_line": 281
+        },
+        {
+          "path": "src/hooks/use-app-machine.tsx",
+          "line": 205,
+          "end_line": 225
+        }
+      ]
+    },
+    {
+      "id": "gestores",
+      "type": "external",
+      "label": "Gestores del sistema",
+      "sublabel": "27 descriptores · filtro por SO",
+      "pos": [
+        880,
+        250
+      ],
+      "size": [
+        220,
+        80
+      ],
+      "sources": [
+        {
+          "path": "src/managers/descriptors/index.ts",
+          "line": 31,
+          "end_line": 63
+        },
+        {
+          "path": "src/managers/registry.ts",
+          "line": 14,
+          "end_line": 22
+        }
+      ]
+    },
+    {
+      "id": "npm",
+      "type": "cloud",
+      "label": "Registro npm",
+      "sublabel": "Versión del propio updater",
+      "pos": [
+        445,
+        10
+      ],
+      "size": [
+        220,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/lib/self-update.ts",
+          "line": 83,
+          "end_line": 91
+        },
+        {
+          "path": "src/lib/self-update.ts",
+          "line": 109,
+          "end_line": 137
+        }
+      ]
+    },
+    {
+      "id": "sdk",
+      "type": "cloud",
+      "label": "Versiones Go y Flutter",
+      "sublabel": "go.dev · manifiesto de Flutter",
+      "pos": [
+        440,
+        550
+      ],
+      "size": [
+        230,
+        80
+      ],
+      "sources": [
+        {
+          "path": "src/managers/descriptors/go-lang.ts",
+          "line": 23,
+          "end_line": 33
+        },
+        {
+          "path": "src/managers/descriptors/flutter.ts",
+          "line": 49,
+          "end_line": 73
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "iniciar",
+      "from": "persona",
+      "to": "updater",
+      "label": "Teclado / argumentos"
+    },
+    {
+      "id": "comandos",
+      "from": "updater",
+      "to": "gestores",
+      "label": "Detectar / actualizar"
+    },
+    {
+      "id": "propia-version",
+      "from": "updater",
+      "to": "npm",
+      "label": "HTTPS · selfCheck"
+    },
+    {
+      "id": "versiones-sdk",
+      "from": "updater",
+      "to": "sdk",
+      "label": "HTTPS · SDK detectado"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Un flujo en la terminal",
+      "items": [
+        "La ejecución interactiva pide selección y confirmación. Sin TTY o con --yes, confirma automáticamente.",
+        "Los gestores se ejecutan como subprocesos y usan sus propios repositorios y credenciales."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Persistencia y alcance",
+      "items": [
+        "Preferencias, caché de versión y registros se guardan en archivos locales. No hay servidor de la aplicación.",
+        "selfCheck se puede desactivar. Go y Flutter consultan sus versiones al listar pendientes si están detectados y habilitados."
+      ]
+    }
+  ]
+}

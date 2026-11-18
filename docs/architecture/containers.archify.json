@@ -1,0 +1,360 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Contenedores de system-updater",
+    "locale": "es",
+    "output": "docs/architecture/containers.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Tacuchi/system-updater.git",
+      "revision": "d078deb0318da6cec727781c6cdd028d828ed672",
+      "provider": "github",
+      "link_mode": "web"
+    },
+    "legend": {
+      "entries": {
+        "database": {
+          "label": "Archivos locales"
+        }
+      }
+    }
+  },
+  "components": [
+    {
+      "id": "persona",
+      "type": "external",
+      "label": "Persona operadora",
+      "sublabel": "Terminal / --yes",
+      "pos": [
+        30,
+        265
+      ],
+      "size": [
+        160,
+        80
+      ],
+      "sources": [
+        {
+          "path": "src/cli.tsx",
+          "line": 81,
+          "end_line": 87
+        }
+      ]
+    },
+    {
+      "id": "interfaz",
+      "type": "frontend",
+      "label": "Interfaz y estado",
+      "sublabel": "React · Ink · reducer",
+      "pos": [
+        330,
+        260
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "src/app.tsx",
+          "line": 40,
+          "end_line": 61
+        },
+        {
+          "path": "src/hooks/use-app-machine.tsx",
+          "line": 144,
+          "end_line": 160
+        },
+        {
+          "path": "src/hooks/use-app-machine.tsx",
+          "line": 205,
+          "end_line": 225
+        }
+      ]
+    },
+    {
+      "id": "motor",
+      "type": "backend",
+      "label": "Motor y cierre",
+      "sublabel": "Descriptores · verificación",
+      "pos": [
+        670,
+        260
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "src/managers/engine.ts",
+          "line": 219,
+          "end_line": 281
+        },
+        {
+          "path": "src/lib/exec/engine.ts",
+          "line": 95,
+          "end_line": 114
+        },
+        {
+          "path": "src/lib/run-closure.ts",
+          "line": 41,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "procesos",
+      "type": "backend",
+      "label": "Gestores locales",
+      "sublabel": "Subprocesos · execa",
+      "pos": [
+        1010,
+        260
+      ],
+      "size": [
+        200,
+        90
+      ],
+      "sources": [
+        {
+          "path": "src/lib/exec/run.ts",
+          "line": 115,
+          "end_line": 125
+        },
+        {
+          "path": "src/lib/exec/run.ts",
+          "line": 19,
+          "end_line": 42
+        },
+        {
+          "path": "src/managers/descriptors/apt.ts",
+          "line": 28,
+          "end_line": 40
+        }
+      ]
+    },
+    {
+      "id": "preferencias",
+      "type": "database",
+      "label": "Preferencias y caché",
+      "sublabel": "config.json · self-check.json",
+      "pos": [
+        330,
+        510
+      ],
+      "size": [
+        200,
+        80
+      ],
+      "sources": [
+        {
+          "path": "src/lib/config.ts",
+          "line": 158,
+          "end_line": 190
+        },
+        {
+          "path": "src/lib/self-update.ts",
+          "line": 58,
+          "end_line": 80
+        }
+      ]
+    },
+    {
+      "id": "logs",
+      "type": "database",
+      "label": "Registros de corrida",
+      "sublabel": "Archivos .log · cierre único",
+      "pos": [
+        670,
+        510
+      ],
+      "size": [
+        200,
+        80
+      ],
+      "sources": [
+        {
+          "path": "src/lib/logger.ts",
+          "line": 31,
+          "end_line": 46
+        },
+        {
+          "path": "src/lib/logger.ts",
+          "line": 58,
+          "end_line": 78
+        },
+        {
+          "path": "src/lib/run-closure.ts",
+          "line": 41,
+          "end_line": 53
+        }
+      ]
+    },
+    {
+      "id": "npm",
+      "type": "cloud",
+      "label": "Registro npm",
+      "sublabel": "Versión propia",
+      "pos": [
+        330,
+        25
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/lib/self-update.ts",
+          "line": 83,
+          "end_line": 91
+        }
+      ]
+    },
+    {
+      "id": "sdk",
+      "type": "cloud",
+      "label": "Go y Flutter",
+      "sublabel": "Versiones publicadas",
+      "pos": [
+        670,
+        25
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/managers/descriptors/go-lang.ts",
+          "line": 23,
+          "end_line": 33
+        },
+        {
+          "path": "src/managers/descriptors/flutter.ts",
+          "line": 49,
+          "end_line": 73
+        }
+      ]
+    },
+    {
+      "id": "repositorios",
+      "type": "external",
+      "label": "Repositorios de paquetes",
+      "sublabel": "Configurados en cada gestor",
+      "pos": [
+        1010,
+        25
+      ],
+      "size": [
+        200,
+        70
+      ],
+      "sources": [
+        {
+          "path": "src/managers/descriptors/apt.ts",
+          "line": 36,
+          "end_line": 40
+        },
+        {
+          "path": "src/managers/descriptors/brew.ts",
+          "line": 39,
+          "end_line": 43
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "entrada",
+      "from": "persona",
+      "to": "interfaz",
+      "label": "Teclas / argumentos"
+    },
+    {
+      "id": "ejecutar",
+      "from": "interfaz",
+      "to": "motor",
+      "label": "Confirmar / cerrar"
+    },
+    {
+      "id": "subprocesos",
+      "from": "motor",
+      "to": "procesos",
+      "label": "Ejecutar / verificar"
+    },
+    {
+      "id": "preferencias-io",
+      "from": "interfaz",
+      "to": "preferencias",
+      "label": "Leer / guardar"
+    },
+    {
+      "id": "log-io",
+      "from": "motor",
+      "to": "logs",
+      "label": "Registrar / cerrar"
+    },
+    {
+      "id": "consulta-npm",
+      "from": "interfaz",
+      "to": "npm",
+      "label": "HTTPS · selfCheck"
+    },
+    {
+      "id": "consulta-sdk",
+      "from": "motor",
+      "to": "sdk",
+      "label": "HTTPS · SDK habilitado"
+    },
+    {
+      "id": "red-gestores",
+      "from": "procesos",
+      "to": "repositorios",
+      "label": "Red del gestor"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "violet",
+      "title": "Un proceso de aplicación",
+      "items": [
+        "Interfaz, estado, descriptores y motor son módulos del mismo proceso Node.js. Los gestores son procesos separados.",
+        "El carril de administradores es serial; los demás usan concurrencia acotada. --yes o ausencia de TTY automatizan la confirmación."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Privilegios y archivos",
+      "items": [
+        "Unix: --sudo relanza antes de Ink; los comandos de usuario vuelven al usuario original cuando procede. Windows detecta la consola elevada.",
+        "Los archivos son locales. La ejecución de los gestores puede modificar paquetes y configuración del sistema."
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Máquina local",
+      "wraps": [
+        "interfaz",
+        "motor",
+        "procesos",
+        "preferencias",
+        "logs"
+      ],
+      "pad": 30
+    },
+    {
+      "kind": "security-group",
+      "label": "Proceso Node.js · system-updater",
+      "wraps": [
+        "interfaz",
+        "motor"
+      ],
+      "pad": 16
+    }
+  ]
+}

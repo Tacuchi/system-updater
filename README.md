@@ -1,93 +1,94 @@
 # @tacuchi/updater
 
+> Interfaz de terminal para actualizar gestores de paquetes de macOS, Linux y Windows en un solo flujo.
+
 TUI multiplataforma para actualizar **todos** los gestores de paquetes de tu sistema desde un solo flujo. macOS · Linux · Windows. Sin permisos de administrador (salvo los gestores que los exigen).
+
+## Instalación
+
+### Antes de instalar: lo que necesitas
+
+Node.js >=18 y npm, según el manifiesto, y los gestores que quieras actualizar.
+La interfaz con teclado requiere una terminal TTY; sin ella, el flujo se confirma automáticamente.
+
+### Instalar el paquete
+
+```sh
+npm install -g @tacuchi/updater
+```
+
+También puedes ejecutarlo sin instalación global:
 
 ```bash
 npx @tacuchi/updater          # ejecutar sin instalar
-npx @tacuchi/updater --sudo   # incluir gestores que requieren admin (apt, dnf, pacman, snap, choco)
+npx @tacuchi/updater --sudo   # macOS/Linux: relanzar con permisos de administrador
 ```
 
-## Qué hace
+### Preparar una copia propia
 
-Un flujo lineal claro: **Detectar → Seleccionar → Confirmar → Actualizar → Resumen**.
+No necesita configurar un servicio. Las preferencias se crean al necesitarlas por primera vez.
+La guía de [preferencias y diagnóstico](docs/config-y-logs.md) explica cómo editarlas.
 
-- Detecta automáticamente los gestores instalados y busca actualizaciones en paralelo.
-- Verás spinners mientras trabaja y un resumen inequívoco al terminar (qué se actualizó, qué falló y **por qué**, con la ruta del log).
-- Verificación real: cada actualización se confirma re-listando paquetes desactualizados — un fallo nunca se reporta como éxito.
+### Actualización
 
-## Gestores soportados (27)
-
-- **Sistema**: brew, softwareupdate, apt, dnf, pacman
-- **Lenguajes/runtimes**: npm, pnpm, yarn, bun, pip, pipx, conda, gem, composer, angular
-- **Apps/tiendas**: winget, choco, flatpak, snap, mas, scoop
-- **SDK/toolchains**: rustup, cargo, mise, asdf, flutter, go
-
-Los gestores que requieren admin (apt, dnf, pacman, snap, choco) se actualizan con `--sudo`; sin permisos muestran el comando manual en vez de fallar en silencio.
-
-## Desarrollo
-
-```bash
-npm install
-npm run dev        # ejecutar sin compilar (tsx)
-npm test           # vitest
-npm run typecheck  # tsc --noEmit
-npm run build      # tsup → dist/cli.js
+```sh
+npm install -g @tacuchi/updater@latest
 ```
 
-La arquitectura (motor de ejecución, modelo de descriptores, máquina de estados) está documentada en [`CLAUDE.md`](./CLAUDE.md) y el sistema de diseño en [`docs/DESIGN.md`](./docs/DESIGN.md).
+### Desinstalar
 
-## Config y logs
+```sh
+npm uninstall -g @tacuchi/updater
+```
 
-El archivo de preferencias **se crea con sus valores por omisión la primera vez que se necesita**, así
-que siempre hay algo que leer y editar.
+La desinstalación del paquete no incluye una rutina para retirar preferencias o registros.
 
-| | macOS / Linux | Windows |
-|---|---|---|
-| Preferencias | `~/.tacuchi-updater/config.json` | `%APPDATA%\tacuchi-updater\config.json` |
-| Registros | `~/.tacuchi-updater/logs/` | `%LOCALAPPDATA%\tacuchi-updater\Logs\` |
+### Plataformas
 
-Campos:
+macOS, Linux y Windows. Cada descriptor declara dónde se ofrece y qué permisos necesita.
+En Windows, `--sudo` no eleva: abre la terminal como Administrador o usa `E` en Confirmar.
 
-| Campo | Por omisión | Qué hace |
-|---|---|---|
-| `language` | `es` | Idioma de la interfaz (`es` \| `en`). |
-| `enabledManagers` | `{}` | Gestores desactivados explícitamente. Lo que no está, está habilitado. |
-| `concurrency` | `4` | Gestores actualizados en paralelo (se acota a 1..8). |
-| `timeoutsMs` | `{}` | Espera máxima por gestor, en ms. |
-| `logTailBytes` | `16384` | Cuánta salida de cada comando se guarda en el registro. |
-| `logRetentionRuns` | `30` | Cuántas corridas de registro se conservan. Por **cantidad** y no por antigüedad, porque las corridas llegan en ráfagas. |
-| `selfCheck` | `true` | Consultar a npm, **a lo sumo una vez cada 24 h y sin bloquear**, si hay una versión más nueva del updater. Un fallo de red no detiene ni demora la corrida: sólo queda anotado en el registro. |
+## Uso
 
-El registro anota cada sondeo de presencia, cada listado de pendientes y cada comando ejecutado con su
-salida, y **termina siempre con una línea de cierre que declara cómo terminó la corrida** — completa,
-cancelada, interrumpida, fallida o cedida a una consola elevada.
+### Qué puedes recorrer
 
-Las señales que se atienden dependen del sistema: `SIGINT` (Ctrl+C), `SIGTERM` y `SIGHUP` en los tres,
-más `SIGBREAK` (Ctrl+Break) en Windows, donde existe. Cerrar la ventana de la consola llega como
-`SIGHUP` y deja su línea de cierre: se escribe de forma **sincrónica** y **antes** de cancelar la
-corrida, así que no gasta el margen que el sistema da antes de matar el proceso. En Windows ese margen
-es de **5000 ms** (`SPI_GETHUNGAPPTIMEOUT`) y escribir el cierre mide **0,08 ms**. La verificación corre
-en la matriz: el paso *Probe* de `windows-latest` lanza el binario en su propia consola y la cierra.
+Detección, selección de paquetes, confirmación, actualización y resumen; incluye preferencias y detalle.
+La [guía de uso](docs/uso.md) conserva la lista de 27 gestores y explica los controles y límites.
 
-**Límite conocido, y está documentado como imposible, no como pendiente:** cerrar sesión, reiniciar o
-apagar Windows **no entrega ninguna señal**. libuv mapea a `SIGHUP` sólo `CTRL_CLOSE_EVENT` e ignora
-`CTRL_LOGOFF_EVENT` y `CTRL_SHUTDOWN_EVENT`, y `node.exe` enlaza `user32`, lo que según la
-documentación de `SetConsoleCtrlHandler` impide que el manejador se llame para esos dos. Una corrida
-terminada por un apagado no deja línea de cierre. Cubrirlo necesitaría un registro que confirme cada
-línea, no mejor evidencia.
+### Comandos
 
-Los registros que sobran y no se pueden retirar se informan con la causa que ese sistema tiene: en
-unix es la propiedad del archivo —los dejó una corrida elevada— y viene con el comando que los
-retira; en Windows una consola elevada corre como el mismo usuario, así que la propiedad nunca es el
-motivo y un rechazo ahí significa que el archivo está bloqueado por otro proceso.
+```sh
+updater
+updater --sudo
+updater --yes
+updater --help
+updater --version
+```
 
-Las corridas que sobran del límite de retención se retiran al arrancar, y lo que no se pudo retirar se
-informa una sola vez.
+`--yes`, `-y`, `--all` o una entrada sin TTY seleccionan y confirman automáticamente.
+Revisa el resumen: un estado indeterminado puede terminar con código de salida 0.
 
-Dos variables de entorno mueven esas rutas, y existen para que las pruebas puedan lanzar el binario
-real sin tocar tus datos: `TACUCHI_UPDATER_CONFIG_DIR` y `TACUCHI_UPDATER_LOG_DIR`.
+### Desarrollo y comprobaciones
+
+La guía de [desarrollo](docs/desarrollo.md) conserva los comandos de instalación, pruebas y construcción.
+La guía de [preferencias y diagnóstico](docs/config-y-logs.md) reúne configuración, registros y señales.
+
+## Cómo funciona
+
+Un proceso Node.js presenta la interfaz con React e Ink y coordina descriptores de gestores.
+El motor ejecuta comandos locales y compara los pendientes antes y después de actualizar.
+Preferencias y registros quedan en archivos locales; los gestores usan su propia configuración de red.
+
+![Diagrama de contexto de system-updater](docs/architecture/context.svg)
+
+El cuadro completo está en [ARCHITECTURE.md](ARCHITECTURE.md).
 
 El script Python original se conserva en `legacy/updater_simple.py` como referencia histórica.
+
+## Contribuir
+
+Se aceptan issues y pull requests.
+Para trabajar en el código, consulta [desarrollo](docs/desarrollo.md).
 
 ## Licencia
 
