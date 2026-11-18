@@ -8,7 +8,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/Tacuchi/system-updater.git",
-      "revision": "d078deb0318da6cec727781c6cdd028d828ed672",
+      "revision": "46335b4ce29674fe7d7c07e6427d138e3bf872fe",
       "provider": "github",
       "link_mode": "web"
     },
@@ -89,8 +89,8 @@
       "sources": [
         {
           "path": "src/managers/engine.ts",
-          "line": 219,
-          "end_line": 281
+          "line": 221,
+          "end_line": 284
         },
         {
           "path": "src/lib/exec/engine.ts",
@@ -120,8 +120,8 @@
       "sources": [
         {
           "path": "src/lib/exec/run.ts",
-          "line": 115,
-          "end_line": 125
+          "line": 119,
+          "end_line": 129
         },
         {
           "path": "src/lib/exec/run.ts",

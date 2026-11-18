@@ -1,6 +1,6 @@
 # Arquitectura de system-updater
 
-Revisado el 2026-11-18 contra la versión 3.0.1 (commit `d078deb`).
+Revisado el 2026-11-18 contra la versión 3.0.1 (commit `46335b4`).
 
 Este documento describe interfaz, motor, gestores, archivos locales, construcción y comprobaciones.
 Excluye la implementación de herramientas externas y sus repositorios; todos los valores son los de por defecto.
@@ -117,7 +117,8 @@ La comprobación de versión propia corre aparte sin bloquear estos recorridos.
 
 Los [límites y opciones](docs/config-y-logs.md#límites-y-opciones) explican plazos, retención, captura y valores adicionales.
 Requiere npm, Node.js >=18 y gestores accesibles en `PATH`; la elevación depende del sistema operativo.
-La distribución usa npm, sin publicación automática en CI ni servicio, contenedor o puerto de aplicación.
+La distribución usa npm e incluye `LICENSE` con la licencia MIT.
+No hay publicación automática en CI ni servicio, contenedor o puerto de aplicación.
 El [proceso de construcción](docs/desarrollo.md#construcción-y-comprobación) detalla herramientas y dependencias.
 
 ## 6. Conceptos transversales
@@ -138,6 +139,8 @@ Los [permisos y riesgos](docs/uso.md#permisos-y-riesgos) explican elevación y e
 Los [datos del diagnóstico](docs/config-y-logs.md#datos-del-diagnóstico) requieren revisión antes de compartirlos.
 Las garantías sobre datos locales describen el código propio; cada herramienta externa conserva su política de red y almacenamiento.
 El guardado local y sus alternativas ante errores se describen en [persistencia](docs/config-y-logs.md#persistencia).
+`logTailBytes` limita las colas de stdout/stderr en bytes UTF-8, también en implementaciones especiales.
+El recorte conserva caracteres completos; los [detalles de captura](docs/config-y-logs.md#config-y-logs) explican su configuración.
 
 ## 7. Decisiones
 
@@ -161,20 +164,21 @@ No registrado aún:
 
 ## Anexo: evidencia
 
-Los números de línea refieren al commit `d078deb`. El texto de arriba no enlaza al código a propósito.
+Los números de línea refieren al commit `46335b4`. El texto de arriba no enlaza al código a propósito.
 
 | Sección | Evidencia |
 |---|---|
-| 1. Propósito | `package.json:4-16`, `src/app.tsx:40-61`, `src/managers/descriptors/index.ts:31-63`, `src/managers/registry.ts:14-22` |
-| 1. Qué no es | `src/cli.tsx:81-87`, `src/managers/descriptors/go-lang.ts:64-85`, `src/managers/descriptors/apt.ts:36-40`, `src/lib/exec/run.ts:115-125`. La búsqueda de llamadas de escucha en el código propio no muestra un servidor. |
-| 1. Metas | `src/lib/result/verify.ts:32-73`, `src/managers/engine.ts:211-216`, `src/lib/exec/engine.ts:95-114`, `src/lib/run-closure.ts:33-53`, `.github/workflows/ci.yml:9-43` |
+| 1. Propósito | `package.json:4-15`, `src/app.tsx:40-61`, `src/managers/descriptors/index.ts:31-63`, `src/managers/registry.ts:14-22` |
+| 1. Qué no es | `src/cli.tsx:81-87`, `src/managers/descriptors/go-lang.ts:64-85`, `src/managers/descriptors/apt.ts:36-40`, `src/lib/exec/run.ts:119-129`. La búsqueda de llamadas de escucha en el código propio no muestra un servidor. |
+| 1. Metas | `src/lib/result/verify.ts:32-73`, `src/managers/engine.ts:213-218`, `src/lib/exec/engine.ts:95-114`, `src/lib/run-closure.ts:33-53`, `.github/workflows/ci.yml:9-43` |
 | 2. Contexto | `src/cli.tsx:42-87`, `src/managers/registry.ts:14-41`, `src/lib/self-update.ts:83-91`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73` |
-| 3. Bloques | `src/app.tsx:1-13`, `src/hooks/use-app-machine.tsx:144-160`, `src/managers/descriptor.ts:23-71`, `src/lib/exec/engine.ts:95-114`, `src/lib/logger.ts:31-78` |
-| 3. Reglas | `src/managers/registry.ts:14-41`, `src/managers/engine.ts:202-216`, `src/managers/engine.ts:263-306`, `src/lib/result/verify.ts:50-73`, `src/lib/exec/engine.ts:101-114` |
-| 4. Actualización | `src/cli.tsx:15-87`, `src/hooks/use-app-machine.tsx:169-225`, `src/hooks/use-app-machine.tsx:432-468`, `src/managers/engine.ts:219-281`, `src/lib/exec/engine.ts:101-114` |
-| 4. Salida | `src/screens/update.tsx:89-94`, `src/hooks/use-app-machine.tsx:489-507`, `src/lib/exec/run.ts:64-83`, `src/lib/signals.ts:15-22`, `src/lib/signals.ts:80-90` |
-| 5. Despliegue | `package.json:4-22`, `package.json:35-56`, `src/lib/config.ts:35-72`, `src/lib/config.ts:91-144`, `.github/workflows/ci.yml:3-43` |
+| 3. Bloques | `src/app.tsx:1-13`, `src/hooks/use-app-machine.tsx:144-160`, `src/managers/descriptor.ts:25-73`, `src/lib/exec/engine.ts:95-114`, `src/lib/logger.ts:31-78` |
+| 3. Reglas | `src/managers/registry.ts:14-41`, `src/managers/engine.ts:204-218`, `src/managers/engine.ts:265-308`, `src/lib/result/verify.ts:50-73`, `src/lib/exec/engine.ts:101-114` |
+| 4. Actualización | `src/cli.tsx:15-87`, `src/hooks/use-app-machine.tsx:169-225`, `src/hooks/use-app-machine.tsx:432-468`, `src/managers/engine.ts:221-284`, `src/lib/exec/engine.ts:101-114` |
+| 4. Salida | `src/screens/update.tsx:89-94`, `src/hooks/use-app-machine.tsx:489-507`, `src/lib/exec/run.ts:68-87`, `src/lib/signals.ts:15-22`, `src/lib/signals.ts:80-90` |
+| 5. Despliegue | `package.json:4-24`, `package.json:36-57`, `src/lib/config.ts:35-74`, `src/lib/config.ts:91-144`, `.github/workflows/ci.yml:3-43` |
 | 6. Privacidad | `src/lib/self-update.ts:83-91`, `src/lib/self-update.ts:109-137`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73`, `src/lib/logger.ts:246-280`. La búsqueda de `fetch` y URL identifica esas consultas; no implementa subida de registros ni captura de red. |
 | 6. Seguridad y persistencia | `src/cli.tsx:42-79`, `src/lib/exec/run.ts:19-42`, `src/lib/elevation.ts:27-63`, `src/lib/config.ts:134-175`, `src/lib/run-closure.ts:33-53` |
+| 6. Colas de salida | `src/lib/config.ts:64-67`, `src/managers/engine.ts:78-85`, `src/managers/engine.ts:241-250`, `src/lib/exec/run.ts:45-53`, `src/managers/descriptors/winget.ts:93-101` |
 | 7. Decisiones | `src/lib/result/verify.ts:32-36`, `src/lib/exec/engine.ts:95-99`, `src/lib/run-closure.ts:4-13`, `src/lib/log-retention.ts:4-14`, `src/lib/self-update.ts:6-13` |
-| README y desarrollo | `package.json:4-22`, `package.json:36-56`, `src/cli.tsx:11-39`, `src/screens/select.tsx:36-46`, `.github/workflows/ci.yml:3-55` |
+| README y desarrollo | `package.json:4-24`, `package.json:37-57`, `src/cli.tsx:11-39`, `src/screens/select.tsx:36-46`, `.github/workflows/ci.yml:3-55` |
