@@ -8,7 +8,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/Tacuchi/system-updater.git",
-      "revision": "52a79d15d89ee445e0c2981f260b6d65b8b5d396",
+      "revision": "47c49c11da5bf1b7e62501dae3131002d48c77a9",
       "provider": "github",
       "link_mode": "web"
     }
@@ -30,13 +30,13 @@
       "sources": [
         {
           "path": "src/cli.tsx",
-          "line": 16,
-          "end_line": 29
+          "line": 19,
+          "end_line": 32
         },
         {
           "path": "src/cli.tsx",
           "line": 74,
-          "end_line": 83
+          "end_line": 107
         }
       ]
     },
@@ -57,7 +57,7 @@
         {
           "path": "src/cli.tsx",
           "line": 74,
-          "end_line": 83
+          "end_line": 107
         },
         {
           "path": "src/managers/engine.ts",
@@ -66,8 +66,8 @@
         },
         {
           "path": "src/hooks/use-app-machine.tsx",
-          "line": 206,
-          "end_line": 226
+          "line": 207,
+          "end_line": 227
         }
       ]
     },
@@ -183,7 +183,7 @@
       "items": [
         "La entrada sin TTY o --yes automatiza selección y confirmación. Stdout sin TTY recibe eventos y resumen por líneas.",
         "Q y Esc preguntan antes de cancelar una corrida; Ctrl+C cancela de inmediato. Los gestores son subprocesos locales.",
-        "La cabecera reúne marca, versión y paso. El tema informado elige tokens claros u oscuros; sin informe se usa oscuro."
+        "La cabecera muestra el isotipo como imagen si la terminal lo admite; si no, marca, versión y paso en una línea. El tema informado elige tokens claros u oscuros; sin informe se usa oscuro."
       ]
     },
     {

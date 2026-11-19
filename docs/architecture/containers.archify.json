@@ -8,7 +8,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/Tacuchi/system-updater.git",
-      "revision": "52a79d15d89ee445e0c2981f260b6d65b8b5d396",
+      "revision": "47c49c11da5bf1b7e62501dae3131002d48c77a9",
       "provider": "github",
       "link_mode": "web"
     },
@@ -38,12 +38,12 @@
         {
           "path": "src/cli.tsx",
           "line": 74,
-          "end_line": 83
+          "end_line": 107
         },
         {
           "path": "src/lib/terminal-theme.ts",
-          "line": 17,
-          "end_line": 41
+          "line": 31,
+          "end_line": 61
         }
       ]
     },
@@ -64,7 +64,7 @@
         {
           "path": "src/app.tsx",
           "line": 38,
-          "end_line": 62
+          "end_line": 70
         },
         {
           "path": "src/screens/update.tsx",
@@ -327,7 +327,7 @@
       "title": "Un proceso de aplicación",
       "items": [
         "Interfaz, estado y motor comparten proceso Node.js. La entrada sin TTY o --yes automatiza la confirmación.",
-        "Stdout sin TTY recibe líneas sin redibujo ni pistas. La interfaz interactiva usa marca, pasos y tokens por tema.",
+        "Stdout sin TTY recibe líneas sin redibujo ni pistas. La interfaz interactiva usa el isotipo como imagen o una línea de marca, con pasos y tokens por tema.",
         "Q/Esc piden confirmar antes de cancelar; Ctrl+C es inmediato. La ejecución conserva los carriles ordinario y administrativo."
       ]
     },

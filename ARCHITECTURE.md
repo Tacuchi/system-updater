@@ -1,6 +1,6 @@
 # Arquitectura de system-updater
 
-Revisado el 2026-11-18 contra la versión 3.0.1 (commit `52a79d1`).
+Revisado el 2026-11-18 contra la versión 3.0.1 (commit `47c49c1`).
 
 Este documento describe interfaz, motor, gestores, archivos locales, construcción y comprobaciones.
 Excluye la implementación de herramientas externas y sus repositorios; todos los valores son los de por defecto.
@@ -41,7 +41,7 @@ CI comprueba tipos, pruebas y construcción en Linux, macOS y Windows.
 
 | Interfaz externa | Dirección | Cuándo ocurre |
 |---|---|---|
-| Persona y terminal | Entrada y salida local | Argumentos y teclado; tema informado por terminal, progreso y resumen o salida por líneas. |
+| Persona y terminal | Entrada y salida local | Argumentos y teclado; tema e imágenes según terminal, progreso y resumen o salida por líneas. |
 | Gestores instalados | Subprocesos locales | Detección, pendientes, actualización y verificación según plataforma. |
 | Repositorios de gestores | Saliente desde cada gestor | Sus comandos consultan o descargan con destinos y credenciales propios. |
 | Registro público npm | HTTPS saliente desde Node.js | Al arrancar, según preferencias y caché. |
@@ -60,7 +60,8 @@ La ausencia de telemetría propia no describe las herramientas externas.
 
 Interfaz y motor comparten proceso Node.js; el diagrama separa subprocesos y archivos.
 El registro conserva las detecciones indeterminadas sin presentarlas como disponibilidad confirmada.
-La cabecera reúne marca, versión y paso; las pistas y sus atajos nacen de una tabla común.
+Si la terminal responde al protocolo de imágenes, la cabecera muestra el isotipo real; si no, una línea con marca, versión y paso.
+Pistas y atajos nacen de una tabla común.
 Los tokens distinguen tema claro y oscuro; sin informe se usa oscuro.
 El [mapa de módulos](docs/desarrollo.md#mapa-de-módulos) detalla responsabilidades y ubicaciones.
 
@@ -93,7 +94,7 @@ Los carriles conservan los efectos y permisos reales de los gestores, sin aislar
 
 Detectar y actualizar:
 
-1. La CLI carga el idioma y procesa ayuda y versión; tras la elevación elige tema y salida según TTY.
+1. La CLI carga el idioma y procesa ayuda y versión; tras la elevación consulta tema e imágenes y elige salida según TTY.
 2. La máquina lee preferencias, inicializa el registro y detecta gestores compatibles en paralelo.
 3. Lista pendientes habilitados, conserva indeterminados y permite reintentar una detección fallida o volver a buscar.
 4. La persona selecciona y confirma; el controlador lo hace automáticamente cuando corresponde.
@@ -170,24 +171,25 @@ No registrado aún:
 
 ## Anexo: evidencia
 
-Los números de línea refieren al commit `52a79d1`. El texto de arriba no enlaza al código a propósito.
+Los números de línea refieren al commit `47c49c1`. El texto de arriba no enlaza al código a propósito.
 
 | Sección | Evidencia |
 |---|---|
 | 1. Propósito | `package.json:4-15`, `src/app.tsx:14-35`, `src/managers/descriptors/index.ts:31-63`, `src/managers/registry.ts:14-22` |
-| 1. Qué no es | `src/cli.tsx:74-83`, `src/managers/descriptors/go-lang.ts:64-85`, `src/managers/descriptors/apt.ts:36-40`, `src/lib/exec/run.ts:119-129`. La búsqueda de llamadas de escucha en el código propio no muestra un servidor. |
+| 1. Qué no es | `src/cli.tsx:97-107`, `src/managers/descriptors/go-lang.ts:64-85`, `src/managers/descriptors/apt.ts:36-40`, `src/lib/exec/run.ts:119-129`. La búsqueda de llamadas de escucha en el código propio no muestra un servidor. |
 | 1. Metas | `src/lib/result/verify.ts:32-73`, `src/managers/engine.ts:213-218`, `src/lib/exec/engine.ts:95-114`, `src/lib/run-closure.ts:33-53`, `.github/workflows/ci.yml:9-43` |
-| 2. Contexto | `src/cli.tsx:36-83`, `src/managers/registry.ts:14-41`, `src/lib/self-update.ts:83-91`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73` |
-| 3. Bloques | `src/app.tsx:47-62`, `src/hooks/use-app-machine.tsx:144-160`, `src/managers/descriptor.ts:25-74`, `src/lib/exec/engine.ts:95-114`, `src/lib/logger.ts:31-78` |
+| 2. Contexto | `src/cli.tsx:39-107`, `src/managers/registry.ts:14-41`, `src/lib/self-update.ts:83-91`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73` |
+| 3. Bloques | `src/app.tsx:55-70`, `src/hooks/use-app-machine.tsx:145-161`, `src/managers/descriptor.ts:25-74`, `src/lib/exec/engine.ts:95-114`, `src/lib/logger.ts:31-78` |
 | 3. Reglas | `src/managers/registry.ts:14-41`, `src/managers/engine.ts:204-218`, `src/managers/engine.ts:272-315`, `src/lib/result/verify.ts:50-73`, `src/lib/exec/engine.ts:101-114` |
-| 4. Actualización | `src/cli.tsx:16-83`, `src/hooks/use-app-machine.tsx:170-226`, `src/hooks/use-app-machine.tsx:434-455`, `src/managers/engine.ts:221-291`, `src/lib/exec/engine.ts:101-114` |
-| 4. Salida | `src/screens/update.tsx:82-85`, `src/hooks/use-app-machine.tsx:397-400`, `src/hooks/use-app-machine.tsx:502-512`, `src/lib/exec/run.ts:68-87`, `src/lib/signals.ts:80-90` |
+| 4. Actualización | `src/cli.tsx:19-107`, `src/hooks/use-app-machine.tsx:171-227`, `src/hooks/use-app-machine.tsx:441-462`, `src/managers/engine.ts:221-291`, `src/lib/exec/engine.ts:101-114` |
+| 4. Salida | `src/screens/update.tsx:82-85`, `src/hooks/use-app-machine.tsx:398-401`, `src/hooks/use-app-machine.tsx:509-519`, `src/lib/exec/run.ts:68-87`, `src/lib/signals.ts:80-90` |
 | 5. Despliegue | `package.json:4-24`, `package.json:36-57`, `src/lib/config.ts:35-74`, `src/lib/config.ts:91-144`, `.github/workflows/ci.yml:3-43` |
 | 6. Privacidad | `src/lib/self-update.ts:83-91`, `src/lib/self-update.ts:109-137`, `src/managers/descriptors/go-lang.ts:23-33`, `src/managers/descriptors/flutter.ts:49-73`, `src/lib/logger.ts:246-280`. La búsqueda de `fetch` y URL identifica esas consultas; no implementa subida de registros ni captura de red. |
-| 6. Seguridad y persistencia | `src/cli.tsx:36-69`, `src/lib/exec/run.ts:19-42`, `src/lib/elevation.ts:27-63`, `src/lib/config.ts:134-175`, `src/lib/run-closure.ts:33-53` |
+| 6. Seguridad y persistencia | `src/cli.tsx:39-72`, `src/lib/exec/run.ts:19-42`, `src/lib/elevation.ts:27-63`, `src/lib/config.ts:134-175`, `src/lib/run-closure.ts:33-53` |
 | 6. Colas de salida | `src/lib/config.ts:64-67`, `src/managers/engine.ts:78-85`, `src/managers/engine.ts:241-258`, `src/lib/exec/run.ts:45-53`, `src/managers/descriptors/winget.ts:93-101` |
 | 7. Decisiones | `src/lib/result/verify.ts:32-36`, `src/lib/exec/engine.ts:95-99`, `src/lib/run-closure.ts:4-13`, `src/lib/log-retention.ts:4-14`, `src/lib/self-update.ts:6-13` |
-| README y desarrollo | `package.json:4-24`, `package.json:37-57`, `src/cli.tsx:16-29`, `src/screens/select.tsx:35-45`, `.github/workflows/ci.yml:3-55` |
-| 3. Presentación | `src/theme.ts:2-24`, `src/lib/terminal-theme.ts:17-41`, `src/components/step-header.tsx:10-28`, `src/screens/keys.tsx:8-44`, `src/components/line-output.tsx:5-27` |
-| 4. Progreso | `src/screens/update.tsx:37-115`, `src/state/app-reducer.ts:127-165`, `src/hooks/use-app-machine.tsx:338-355`, `src/managers/descriptors/brew.ts:7-9`, `src/managers/engine.ts:239-258` |
-| 6. Idioma y glifos | `src/hooks/use-app-machine.tsx:145-151`, `src/cli.tsx:16-29`, `src/lib/glyphs.ts:14-24`, `src/lib/display-counts.ts:1-25` |
+| README y desarrollo | `package.json:4-24`, `package.json:37-57`, `src/cli.tsx:19-32`, `src/screens/select.tsx:36-46`, `.github/workflows/ci.yml:3-55` |
+| 3. Presentación | `src/theme.ts:2-24`, `src/lib/terminal-theme.ts:31-61`, `src/components/step-header.tsx:13-16`, `src/screens/keys.tsx:8-44`, `src/components/line-output.tsx:5-27` |
+| 3. Cabecera | `src/components/step-header.tsx:18-40`, `src/lib/terminal-image.ts:38-64`, `src/cli.tsx:80-95`, `src/lib/banner.ts:44-48`, `src/hooks/use-app-machine.tsx:413-419` |
+| 4. Progreso | `src/screens/update.tsx:37-115`, `src/state/app-reducer.ts:127-165`, `src/hooks/use-app-machine.tsx:339-356`, `src/managers/descriptors/brew.ts:7-9`, `src/managers/engine.ts:239-258` |
+| 6. Idioma y glifos | `src/hooks/use-app-machine.tsx:146-152`, `src/cli.tsx:19-32`, `src/lib/glyphs.ts:14-24`, `src/lib/display-counts.ts:1-25` |
