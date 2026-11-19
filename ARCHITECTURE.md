@@ -1,6 +1,6 @@
 # Arquitectura de system-updater
 
-Revisado el 2026-11-19 contra la versión 3.1.1 (commit `70903c7`).
+Revisado el 2026-11-19 contra la versión 3.2.0 (commit `41525c1`).
 
 Este documento describe interfaz, motor, gestores, archivos locales, construcción y comprobaciones.
 Excluye la implementación de herramientas externas y sus repositorios; todos los valores son los de por defecto.
@@ -172,7 +172,7 @@ No registrado aún:
 
 ## Anexo: evidencia
 
-Los números de línea refieren al commit `70903c7`. El texto de arriba no enlaza al código a propósito.
+Los números de línea refieren al commit `41525c1`. El texto de arriba no enlaza al código a propósito.
 
 | Sección | Evidencia |
 |---|---|
