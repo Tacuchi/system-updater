@@ -26,7 +26,9 @@ Algunos gestores ejecutan operaciones globales aunque selecciones paquetes; revi
 
 ## Pantallas y controles
 
-La cabecera reúne marca, versión y paso en una sola línea.
+En una terminal que responde al protocolo de imágenes de kitty, la cabecera muestra el isotipo junto a tres líneas: nombre y versión, plataforma y gestores detectados, y paso.
+En las demás terminales, sin color, en modo ASCII, dentro de tmux o screen, o en una ventana de menos de 60 columnas o 19 filas, la cabecera reúne marca, versión y paso en una sola línea.
+La salida redirigida nunca lleva imágenes.
 Las pistas muestran las teclas disponibles y pasan a varias líneas cuando falta ancho.
 El idioma configurado se aplica desde el inicio, incluida la ayuda de la CLI.
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Box } from 'ink';
 import { useAppMachine, MachineProvider, useMachine } from './hooks/use-app-machine.js';
 import { DetectScreen } from './screens/detect.js';
@@ -36,6 +36,14 @@ function PhaseRouter() {
 }
 
 function Shell() {
+  // Ink redraws on resize without re-rendering React; the header and the list
+  // viewports read the size at render time, so a resize re-renders them here.
+  const [, setSize] = useState(0);
+  useEffect(() => {
+    const resized = () => setSize(size => size + 1);
+    process.stdout.on('resize', resized);
+    return () => { process.stdout.off('resize', resized); };
+  }, []);
   return (
     <Box flexDirection="column" paddingX={1} width={Math.min(process.stdout.columns ?? 100, 100)}>
       <StepHeader />

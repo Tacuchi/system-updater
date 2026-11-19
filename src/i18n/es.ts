@@ -42,6 +42,14 @@ export const es = {
     pipx: 'pipx',
   },
 
+  banner: {
+    macos: 'macOS',
+    linux: 'Linux',
+    windows: 'Windows',
+    searching: 'buscando gestores',
+    managerOne: 'gestor detectado',
+    managerMany: 'gestores detectados',
+  },
   flow: {
     step: 'Paso',
     detecting: 'Detectando gestores',

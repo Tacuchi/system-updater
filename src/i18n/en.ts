@@ -44,6 +44,14 @@ export const en: Translations = {
     pipx: 'pipx',
   },
 
+  banner: {
+    macos: 'macOS',
+    linux: 'Linux',
+    windows: 'Windows',
+    searching: 'looking for managers',
+    managerOne: 'manager detected',
+    managerMany: 'managers detected',
+  },
   flow: {
     step: 'Step',
     detecting: 'Detecting managers',

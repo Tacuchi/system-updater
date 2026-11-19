@@ -22,6 +22,7 @@ import { onProcessCancel } from '../lib/cancellation.js';
 import { registerRunSummary, settleRun } from '../lib/run-closure.js';
 import { checkForNewerSelf } from '../lib/self-update.js';
 import { getVersion } from '../lib/version.js';
+import { retireBanner } from '../lib/banner.js';
 
 /** Pure: project an engine UpgradeResult onto the UI ManagerResult shape. */
 export function toManagerResult(r: UpgradeResult, logRef?: string): ManagerResult {
@@ -409,7 +410,13 @@ export function useAppMachine(sudoMode: boolean, nonInteractive = false): Machin
   // Drive the linear flow to completion without keypresses, then exit with a
   // meaningful code. This is also what keeps a piped/Git-Bash run (where raw mode
   // is unsupported and useSafeInput is inert) from hanging on the select screen.
-  const { exit } = useApp();
+  const { exit: inkExit } = useApp();
+  // With the banner on, Ink's last frame must already carry the line header:
+  // retire it, let React commit that frame, then unmount.
+  const exit = useCallback(() => {
+    if (retireBanner()) setImmediate(inkExit);
+    else inkExit();
+  }, [inkExit]);
   const exitedRef = useRef(false);
   const finishNonInteractive = useCallback(
     (code: number) => {

@@ -3,7 +3,10 @@ import { Writable } from 'node:stream';
 import { loadConfig } from './lib/config.js';
 import { setLanguage, t } from './i18n/index.js';
 import { setTerminalTheme } from './theme.js';
-import { detectTerminalTheme } from './lib/terminal-theme.js';
+import { probeTerminal } from './lib/terminal-theme.js';
+import { bannerBlocker, deleteImage, pickImageId, pickPiece, transmitImage } from './lib/terminal-image.js';
+import { configureBanner, retireBanner } from './lib/banner.js';
+import { ASCII } from './lib/glyphs.js';
 import { render } from 'ink';
 import { execaSync } from 'execa';
 import App from './app.js';
@@ -74,13 +77,34 @@ const sudoMode = process.platform === 'win32' ? elevated : isRoot || sudoRequest
 const nonInteractive =
   !process.stdin.isTTY || args.includes('--yes') || args.includes('-y') || args.includes('--all');
 
-setTerminalTheme(await detectTerminalTheme({ interactive: !nonInteractive }));
+// The graphics query only goes out when the banner could be drawn at all.
+const bannerWanted = !nonInteractive && bannerBlocker({
+  env: process.env, stdoutTTY: process.stdout.isTTY === true, ascii: ASCII,
+  columns: Math.min(process.stdout.columns ?? 0, 100), rows: process.stdout.rows ?? 0,
+}) === null;
+const probe = await probeTerminal({ interactive: !nonInteractive, images: bannerWanted });
+setTerminalTheme(probe.theme);
+if (probe.images) {
+  const piece = pickPiece(probe.theme, probe.themeKnown);
+  const id = pickImageId();
+  process.stdout.write(transmitImage(id, piece));
+  configureBanner({ id, columns: piece.columns, rows: piece.rows });
+  // Every route ends here, Ctrl+C and signals included: free the image so
+  // nothing of it stays in the terminal after the app quits.
+  process.on('exit', () => { process.stdout.write(deleteImage(id)); });
+}
 
 const redirected = !process.stdout.isTTY;
 const lineOutput = redirected ? (line: string) => { process.stdout.write(line); } : undefined;
 // Ink still supplies the hook lifecycle; only the line writer reaches the pipe.
 const sink = redirected ? new Writable({ write(_chunk, _encoding, done) { done(); } }) : process.stdout;
-const { unmount } = render(<App sudoMode={sudoMode} nonInteractive={nonInteractive} lineOutput={lineOutput} />, { exitOnCtrlC: false, stdout: sink as NodeJS.WriteStream });
+const app = <App sudoMode={sudoMode} nonInteractive={nonInteractive} lineOutput={lineOutput} />;
+const { unmount: inkUnmount, rerender } = render(app, { exitOnCtrlC: false, stdout: sink as NodeJS.WriteStream });
+// Outside React, a signal can retire the banner and commit the line header synchronously.
+const unmount = () => {
+  if (retireBanner()) rerender(app);
+  inkUnmount();
+};
 
 // Which signals exist is the platform's business, so the table is the platform's
 // too — SIGBREAK only exists on Windows, and SIGHUP (the window closing) was not

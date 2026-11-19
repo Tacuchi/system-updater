@@ -8,6 +8,7 @@ import { g } from '../lib/glyphs.js';
 import { t, managerName } from '../i18n/index.js';
 import type { PackageOutcome } from '../managers/types.js';
 import type { ManagerStatus } from '../state/types.js';
+import { headerExtraRows } from '../lib/banner.js';
 
 /**
  * What changed, package by package (DES-001@r1).
@@ -74,7 +75,7 @@ export function DetailScreen() {
   const width = Math.min((process.stdout.columns ?? 90) - 4, 92);
   // Same viewport discipline as the selection list: render a window, never a list
   // taller than the terminal, so twenty packages cannot overflow the frame.
-  const view = Math.max(6, (process.stdout.rows ?? 24) - 11);
+  const view = Math.max(6, (process.stdout.rows ?? 24) - 11 - headerExtraRows());
   const maxOffset = Math.max(0, rows.length - view);
   const start = Math.min(offset, maxOffset);
   const visible = rows.slice(start, start + view);

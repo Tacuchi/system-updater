@@ -8,6 +8,7 @@ import { selectionKey } from '../state/types.js';
 import type { PackageItem } from '../state/types.js';
 import { t, managerName } from '../i18n/index.js';
 import { countText, selectionText } from '../lib/display-counts.js';
+import { headerExtraRows } from '../lib/banner.js';
 
 interface Row {
   managerId: string;
@@ -65,7 +66,7 @@ export function SelectScreen() {
   // Scrolling viewport: only render a window of rows around the cursor so a long
   // list never exceeds the terminal height (which makes Ink stack frames).
   const width = Math.min((process.stdout.columns ?? 90) - 4, 92);
-  const view = Math.max(6, (process.stdout.rows ?? 24) - 11);
+  const view = Math.max(6, (process.stdout.rows ?? 24) - 11 - headerExtraRows());
   let start = clamped - Math.floor(view / 2);
   start = Math.max(0, Math.min(start, Math.max(0, rows.length - view)));
   const end = Math.min(rows.length, start + view);

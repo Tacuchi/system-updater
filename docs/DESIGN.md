@@ -49,14 +49,38 @@ Reinicio: `⟳` o `*`. El indicador animado usa `spinnerFrames` solo con una TTY
 
 ## Cabecera y espacio
 
-La cabecera ocupa una línea: `tacuchi`, pieza, versión y paso actual.
-La pieza usa `logo` con relleno `logoFill`. Sin color o en ASCII, se lee `tacuchi_`.
-No hay barra de pasos ni identificador de plataforma.
+Con imágenes, la cabecera es un banner: el isotipo como imagen real, de 3 filas, junto a tres líneas.
+La imagen empieza 2 columnas después del borde y el texto, 2 columnas después de la imagen.
+La primera línea dice `tacuchi updater` en negrita, con la versión atenuada y, si hay una nueva, la flecha y su número.
+La segunda, atenuada, nombra la plataforma y los gestores detectados; mientras detecta, dice que los está buscando.
+La tercera, atenuada, es el paso actual, igual que en la cabecera de una línea.
+
+La pieza depende del fondo que informó la terminal:
+
+- Oscuro: `isotipo-terminal-oscuro`, 8 × 3 celdas.
+- Claro: `isotipo-terminal-claro`, 8 × 3 celdas.
+- Sin informe: `icono-terminal`, 6 × 3 celdas, con su propia ficha.
+
+Los tres PNG van dentro del paquete, en `src/lib/brand-images.ts`.
+`scripts/embed-brand-images.mjs` los regenera desde las piezas oficiales.
+
+Antes de abrir la interfaz, la app pregunta a la terminal con el protocolo de imágenes de kitty.
+Va en la misma espera de 150 ms que el tema; la respuesta cuenta solo si llega antes de DA1.
+La imagen se envía una vez y se dibuja con marcadores Unicode: cada celda es texto, así que sigue a cada redibujo.
+Al salir, también con Ctrl+C o una señal, el último frame lleva la cabecera de una línea y la imagen se borra.
+
+La cabecera de una línea es el respaldo: `tacuchi`, pieza, versión y paso actual.
+Se usa sin respuesta a tiempo, sin TTY, con `NO_COLOR`, en ASCII, dentro de tmux o screen,
+con menos de 60 columnas o con menos de 19 filas. Se vuelve a decidir al cambiar el tamaño.
+19 filas son las 17 que necesitan las listas más 2 del banner; con el banner, las listas ceden esas 2 filas.
+La pieza de esa línea usa `logo` con relleno `logoFill`. Sin color o en ASCII, se lee `tacuchi_`.
+No hay barra de pasos.
 La versión nueva aparece como número; su comando se muestra en Resumen.
 
 El ancho máximo es 100 columnas. A 80 columnas los textos caben completos.
 A 60 columnas las pistas pasan a varias líneas sin perder teclas.
-La cabecera quita primero `updater`, luego `Paso`; finalmente acorta la etiqueta.
+La cabecera de una línea quita primero `updater`, luego `Paso`; finalmente acorta la etiqueta.
+En el banner, cada línea se acorta con elipsis.
 Conserva marca, versiones y número de paso. Las listas usan una ventana desplazable.
 Las rutas usan `~` cuando corresponde y elipsis central cuando falta espacio.
 
