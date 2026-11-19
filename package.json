@@ -35,6 +35,14 @@
   ],
   "author": "tacuchi",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tacuchi/system-updater.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tacuchi/system-updater/issues"
+  },
+  "homepage": "https://github.com/Tacuchi/system-updater#readme",
   "dependencies": {
     "@inkjs/ui": "^2.0.0",
     "chalk": "^5.4.1",
