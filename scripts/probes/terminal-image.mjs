@@ -73,16 +73,16 @@ async function placement() {
   process.on('SIGINT', () => process.exit(130));
 
   console.log('\nA. Cursor placement. Ink then erases the frame and writes it one row lower:');
-  frame(text.map(line => ' '.repeat(12) + line), 0);
-  process.stdout.write(`${ESC}[3A${ESC}[3G` + transmit(101, png, 8, 3, '') + `${ESC}[3B\r`);
+  frame(text.map(line => ' '.repeat(10) + line), 0);
+  process.stdout.write(`${ESC}[3A${ESC}[3G` + transmit(101, png, 6, 3, '') + `${ESC}[3B\r`);
   await sleep(1500);
-  frame(['', ...text.map(line => ' '.repeat(12) + line)], 4);
+  frame(['', ...text.map(line => ' '.repeat(10) + line)], 4);
   console.log('   If an image stayed one row above the text, that is the ghost Ink would leave.');
   await sleep(1500);
 
   console.log('\nB. Unicode placeholders, same redraw:');
-  process.stdout.write(transmit(102, png, 8, 3));
-  const rows = placeholders(102, 8, 3);
+  process.stdout.write(transmit(102, png, 6, 3));
+  const rows = placeholders(102, 6, 3);
   frame(text.map((line, i) => '  ' + rows[i] + '  ' + line), 0);
   await sleep(1500);
   frame(['', ...text.map((line, i) => '  ' + rows[i] + '  ' + line)], 4);
@@ -97,11 +97,11 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     assert.equal(answered(`${ESC}[?62;22c`), false);
     assert.equal(answered(`${ESC}[?62;22c${ESC}_Gi=31;OK${ST}`), false);
     assert.equal(answered(`${ESC}_Gi=31;EINVAL:bad${ST}${ESC}[?62;22c`), false);
-    const bytes = transmit(42, 'A'.repeat(5000), 8, 3);
+    const bytes = transmit(42, 'A'.repeat(5000), 6, 3);
     assert.equal(bytes.split(`${ESC}_G`).length - 1, 2);
-    assert.ok(bytes.startsWith(`${ESC}_Ga=T,U=1,f=100,t=d,i=42,c=8,r=3,C=1,q=2,m=1;`));
+    assert.ok(bytes.startsWith(`${ESC}_Ga=T,U=1,f=100,t=d,i=42,c=6,r=3,C=1,q=2,m=1;`));
     assert.equal(remove(42), `${ESC}_Ga=d,d=I,i=42,q=2${ST}`);
-    assert.equal(placeholders(42, 8, 3)[2].split('\u{10EEEE}').length - 1, 8);
+    assert.equal(placeholders(42, 6, 3)[2].split('\u{10EEEE}').length - 1, 6);
     console.log('8 recorded graphics cases passed; answer must precede DA1; 4096-byte chunks; delete frees data');
   } else if (process.argv.includes('--placement')) await placement();
   else {

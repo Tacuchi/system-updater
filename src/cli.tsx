@@ -4,8 +4,8 @@ import { loadConfig } from './lib/config.js';
 import { setLanguage, t } from './i18n/index.js';
 import { setTerminalTheme } from './theme.js';
 import { probeTerminal } from './lib/terminal-theme.js';
-import { bannerWanted, pickPiece, pickTier, sixelPossible } from './lib/terminal-image.js';
-import { retireBanner } from './lib/banner.js';
+import { imagesWanted, pickPiece, resolveTier, sixelPossible } from './lib/terminal-image.js';
+import { configureBanner, retireBanner, textBanner } from './lib/banner.js';
 import { mountBanner } from './lib/banner-output.js';
 import { ASCII } from './lib/glyphs.js';
 import { render } from 'ink';
@@ -78,21 +78,25 @@ const sudoMode = process.platform === 'win32' ? elevated : isRoot || sudoRequest
 const nonInteractive =
   !process.stdin.isTTY || args.includes('--yes') || args.includes('-y') || args.includes('--all');
 
-// The graphics queries only go out when the banner could be drawn at all;
-// TACUCHI_BANNER=off skips them too.
-const wanted = bannerWanted({
-  env: process.env, interactive: !nonInteractive, stdoutTTY: process.stdout.isTTY === true, ascii: ASCII,
+// The graphics queries only go out when an image could be drawn at all;
+// TACUCHI_BANNER=off, a forced text form, NO_COLOR, ASCII glyphs and tmux skip them.
+const run = {
+  env: process.env, interactive: !nonInteractive, ascii: ASCII, stdoutTTY: process.stdout.isTTY === true,
   columns: Math.min(process.stdout.columns ?? 0, 100), rows: process.stdout.rows ?? 0,
-});
-const probe = await probeTerminal({ interactive: !nonInteractive, images: wanted, cell: sixelPossible(process.env) });
+};
+const askImages = imagesWanted(run);
+const probe = await probeTerminal({ interactive: !nonInteractive, images: askImages, cell: sixelPossible(process.env) });
 setTerminalTheme(probe.theme);
-const tier = wanted ? pickTier({ env: process.env, images: probe.images, sixel: probe.sixel }) : 'none';
-// Ink writes through the mounted stream, which adds what the tier needs after
-// each frame. Every route out ends at the process 'exit' event, Ctrl+C and
-// signals included, and that is where the image is deleted.
-const inkStdout = tier === 'none' ? process.stdout : mountBanner({
-  tier, piece: pickPiece(probe.theme, probe.themeKnown), cell: probe.cell, stdout: process.stdout, exitEvents: process,
-}).stdout;
+const tier = resolveTier({ ...run, images: probe.images, sixel: probe.sixel });
+// An image tier writes through the mounted stream, which adds what the tier
+// needs after each frame. Every route out ends at the process 'exit' event,
+// Ctrl+C and signals included, and that is where the image is deleted. The
+// text forms are ordinary Ink text: nothing to send, nothing to delete.
+let inkStdout: NodeJS.WriteStream = process.stdout;
+if (tier === 'blocks' || tier === 'ascii') configureBanner(textBanner(tier));
+else if (tier !== 'none') {
+  inkStdout = mountBanner({ tier, piece: pickPiece(probe.theme, probe.themeKnown), cell: probe.cell, stdout: process.stdout, exitEvents: process }).stdout;
+}
 
 const redirected = !process.stdout.isTTY;
 const lineOutput = redirected ? (line: string) => { process.stdout.write(line); } : undefined;

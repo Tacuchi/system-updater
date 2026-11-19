@@ -26,12 +26,16 @@ Algunos gestores ejecutan operaciones globales aunque selecciones paquetes; revi
 
 ## Pantallas y controles
 
-En una terminal que responde al protocolo de imágenes de kitty, la cabecera muestra el isotipo junto a tres líneas: nombre y versión, plataforma y gestores detectados, y paso.
-Ghostty y kitty dibujan la imagen como texto; Warp y las demás que responden la reciben colocada sobre la cabecera después de cada frame.
-En las demás terminales, sin color, en modo ASCII, dentro de tmux o screen, o en una ventana de menos de 60 columnas o 19 filas, la cabecera reúne marca, versión y paso en una sola línea.
-La salida redirigida nunca lleva imágenes.
+La cabecera muestra el isotipo junto a tres líneas: nombre y versión, plataforma y gestores detectados, y paso.
+En una terminal que responde al protocolo de imágenes de kitty, el isotipo es una imagen.
+Ghostty y kitty la dibujan como texto; Warp y las demás que responden la reciben colocada sobre la cabecera después de cada frame.
+En las demás terminales el isotipo se dibuja con medios bloques (`█ ▀ ▄`), como texto: Terminal de macOS, Windows Terminal, la consola clásica de Windows, tmux y screen.
+Sin color (`NO_COLOR`), la marca de medios bloques va sin color.
+Con `TACUCHI_ASCII=1`, la marca usa solo caracteres ASCII.
+En una ventana de menos de 60 columnas o 19 filas, la cabecera reúne marca, versión y paso en una sola línea.
+La salida redirigida nunca lleva imágenes ni la marca dibujada: usa la salida por líneas.
 
-`TACUCHI_BANNER` elige la técnica de la imagen, para probarla o como salida de emergencia:
+`TACUCHI_BANNER` elige la forma de la marca, para probarla o como salida de emergencia:
 
 | Valor | Efecto |
 |---|---|
@@ -39,16 +43,22 @@ La salida redirigida nunca lleva imágenes.
 | `placeholders` | Marcadores Unicode, aunque la terminal no se presente como Ghostty o kitty. |
 | `cursor` | Colocación por cursor después de cada frame. |
 | `sixel` | Imagen sixel, para terminales que la anuncian, como Windows Terminal 1.22 o posterior. En esta versión es la única forma de activarla. |
+| `blocks` | Medios bloques, sin preguntar por imágenes. |
+| `ascii` | Marca ASCII, sin preguntar por imágenes. |
 
-Un valor forzado no pasa por encima de los respaldos: sin TTY, con `NO_COLOR`, en ASCII, dentro de tmux o screen, o en una ventana chica, la cabecera sigue siendo de una línea.
+Un valor forzado no pasa por encima de los respaldos.
+Sin TTY o en una ventana chica, la cabecera sigue siendo de una línea.
+Con `NO_COLOR`, en modo ASCII o dentro de tmux o screen, un valor de imagen forzado pasa a medios bloques, o a ASCII con `TACUCHI_ASCII=1`.
 Cualquier otro valor se ignora.
 
 ```sh
 TACUCHI_BANNER=off updater
+TACUCHI_BANNER=blocks updater
 ```
 
 ```powershell
 $env:TACUCHI_BANNER='sixel'; updater
+$env:TACUCHI_BANNER='blocks'; updater
 ```
 Las pistas muestran las teclas disponibles y pasan a varias líneas cuando falta ancho.
 El idioma configurado se aplica desde el inicio, incluida la ayuda de la CLI.

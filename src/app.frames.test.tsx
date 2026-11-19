@@ -54,7 +54,9 @@ import App from './app.js';
 import { setLanguage } from './i18n/index.js';
 import { ASCII, g } from './lib/glyphs.js';
 import { configureBanner } from './lib/banner.js';
-import { placeholderRows } from './lib/terminal-image.js';
+import { MARK_COLUMNS, MARK_ROWS, placeholderRows, textTier } from './lib/terminal-image.js';
+import { MARK_ART } from './lib/brand-mark.js';
+import stripAnsi from 'strip-ansi';
 
 const pause = () => new Promise(resolve => setTimeout(resolve, 35));
 type Handle = ReturnType<typeof render>;
@@ -79,7 +81,8 @@ function capture(handle: Handle, name: string) {
   const width = process.stdout.columns ?? 100;
   for (const line of frame.split('\n')) expect(stringWidth(line)).toBeLessThanOrEqual(width);
   expect(frame.split('\n')[0]).toContain('tacuchi');
-  if (ASCII || process.env['NO_COLOR'] !== undefined) expect(frame.split('\n')[0]!.trimStart()).toMatch(/^tacuchi_/);
+  const first = frame.split('\n')[0]!;
+  if ((ASCII || process.env['NO_COLOR'] !== undefined) && !first.includes('tacuchi updater')) expect(first.trimStart()).toMatch(/^tacuchi_/);
   mkdirSync(output, { recursive: true });
   writeFileSync(join(output, `${name}.txt`), frame + '\n');
   return frame;
@@ -100,26 +103,38 @@ const size = (width: number, height: number) => {
   Object.defineProperty(process.stdout, 'columns', { configurable: true, value: width });
   Object.defineProperty(process.stdout, 'rows', { configurable: true, value: height });
 };
-const image = { id: 42, columns: 8, rows: 3, tier: 'placeholders' } as const;
+const image = { id: 42, columns: MARK_COLUMNS, rows: MARK_ROWS, tier: 'placeholders' } as const;
 const PLACEHOLDER = '\u{10EEEE}';
-// The banner is drawn only when glyphs and colour are on; the suite also runs with TACUCHI_ASCII=1 and NO_COLOR=1.
-const bannerAllowed = !ASCII && process.env['NO_COLOR'] === undefined;
-function expectBanner(frame: string, third: string) {
+// The suite also runs with TACUCHI_ASCII=1 and NO_COLOR=1: there the app draws the mark as text, never an image.
+const imagesAllowed = !ASCII && process.env['NO_COLOR'] === undefined;
+const textForm = { id: 0, columns: MARK_COLUMNS, rows: MARK_ROWS, tier: textTier(process.env) } as const;
+/** The mark this process would get in a terminal that answers the image query. */
+const processMark = imagesAllowed ? image : textForm;
+function expectMark(frame: string, mark: { id: number; tier: string }) {
   const lines = frame.split('\n');
-  const placeholders = placeholderRows(image.id, image.columns, image.rows);
-  for (let row = 0; row < 3; row++) expect(lines[row]!.startsWith('  ' + placeholders[row] + '  ')).toBe(true);
+  if (mark.tier === 'placeholders') {
+    const placeholders = placeholderRows(mark.id, MARK_COLUMNS, MARK_ROWS);
+    for (let row = 0; row < 3; row++) expect(lines[row]!.startsWith('  ' + placeholders[row] + '  ')).toBe(true);
+  } else {
+    const art = MARK_ART[mark.tier as keyof typeof MARK_ART];
+    for (let row = 0; row < 3; row++) expect(stripAnsi(lines[row]!).startsWith('  ' + art[row] + '  ')).toBe(true);
+  }
+}
+function expectBanner(frame: string, third: string, mark: { id: number; tier: string } = processMark) {
+  const lines = frame.split('\n');
+  expectMark(frame, mark);
   expect(lines[0]).toMatch(/tacuchi updater 3\.\d+\.\d+/);
-  expect(lines[1]).toMatch(/(?:macOS|Linux|Windows) · /);
-  expect(lines[2]).toContain(third);
+  expect(lines[1]).toMatch(new RegExp(`(?:macOS|Linux|Windows) \\${g.separator} `));
+  expect(lines[2]).toContain(sep(third));
   expect(lines[3]!.trim()).toBe('');
 }
-/** The header this process must show: the banner, or the line header under ASCII or NO_COLOR. */
-function expectHeader(frame: string, third: string) {
-  if (bannerAllowed) expectBanner(frame, third);
-  else expectLineHeader(frame);
-}
+/** Expected text written with ·, in the separator of this process's glyph set. */
+const sep = (text: string) => text.replaceAll(' · ', ` ${g.separator} `);
+/** The header this process must show: the mark as an image, or as text under ASCII or NO_COLOR. */
+const expectHeader = (frame: string, third: string) => expectBanner(frame, third);
 function expectLineHeader(frame: string) {
   expect(frame).not.toContain(PLACEHOLDER);
+  expect(frame.split('\n').slice(0, 3).join('\n')).not.toMatch(/[█▀▄]|###/);
   expect(frame.split('\n')[0]!.trimStart()).toMatch(/^tacuchi/);
 }
 
@@ -312,19 +327,19 @@ describe('hermetic screen frames', () => {
       expect(handle.lastFrame()!.split('\n').length).toBe(before.split('\n').length);
     } finally { clock.mockRestore(); fixture.release(); fixture.hold = false; handle.unmount(); }
   });
-  it('draws the image banner on every screen, or the line header where glyphs or colour are off', async () => {
+  it('draws the mark on every screen: an image, or text where glyphs or colour are off', async () => {
     fixture.scenario = 'full'; fixture.language = 'es'; fixture.newer = true;
     size(100, 30);
-    configureBanner(image);
+    configureBanner(processMark);
     const handle = render(<App />);
     try {
       expectHeader(capture(handle, 'banner-detect'), 'Paso 1/4 · Detectando gestores');
-      if (bannerAllowed) expect(handle.lastFrame()!.split('\n')[1]).toContain('buscando gestores');
+      expect(handle.lastFrame()!.split('\n')[1]).toContain('buscando gestores');
       await waitFor(handle, '5.7.2');
       const select = capture(handle, 'banner-select');
       expectHeader(select, 'Paso 2/4 · Seleccionar');
       expect(select.split('\n')[0]).toContain(`${g.arrow} 3.1.0`);
-      if (bannerAllowed) expect(select.split('\n')[1]).toContain('1 gestor detectado');
+      expect(select.split('\n')[1]).toContain('1 gestor detectado');
       handle.stdin.write('s'); await pause(); await pause();
       expectHeader(capture(handle, 'banner-settings'), 'Ajustes');
       handle.stdin.write('\u001b'); await waitFor(handle, '5.7.2');
@@ -336,39 +351,34 @@ describe('hermetic screen frames', () => {
       await waitFor(handle, 'COMPLETADO');
       const summary = capture(handle, 'banner-summary');
       expectHeader(summary, 'Resumen');
-      expect(summary.split(PLACEHOLDER).length - 1).toBe(bannerAllowed ? 24 : 0);
+      expect(summary.split(PLACEHOLDER).length - 1).toBe(imagesAllowed ? MARK_COLUMNS * MARK_ROWS : 0);
       handle.stdin.write('d'); await pause(); await pause();
       expectHeader(capture(handle, 'banner-detail'), 'Detalle por paquete');
     } finally { handle.unmount(); }
   });
-  it('uses the six-cell icon width when the theme was unknown', async () => {
+  it('uses the same six-cell width for the icon when the theme was unknown', async () => {
     fixture.scenario = 'full'; fixture.language = 'en'; fixture.newer = false;
     size(80, 24);
     configureBanner({ id: 200, columns: 6, rows: 3, tier: 'placeholders' });
     const handle = render(<App />);
     try {
       const frame = capture(handle, 'banner-icon');
-      if (!bannerAllowed) { expectLineHeader(frame); return; }
       const lines = frame.split('\n');
       expect(lines[0]!.startsWith('  ' + placeholderRows(200, 6, 3)[0] + '  tacuchi updater')).toBe(true);
       expect(lines[1]).toContain('looking for managers');
-      expect(lines[2]).toContain('Step 1/4 · Detecting managers');
+      expect(lines[2]).toContain(sep('Step 1/4 · Detecting managers'));
     } finally { handle.unmount(); }
   });
   it('reserves the same cells in every tier, so the text never moves', async () => {
     fixture.scenario = 'full'; fixture.language = 'es';
     size(100, 30);
     const frames: Record<string, string[]> = {};
-    for (const tier of ['placeholders', 'cursor', 'sixel'] as const) {
+    for (const tier of ['placeholders', 'cursor', 'sixel', 'blocks', 'ascii'] as const) {
       configureBanner({ ...image, tier });
       const handle = render(<App />);
-      try { frames[tier] = capture(handle, `banner-tier-${tier}`).split('\n'); } finally { handle.unmount(); }
+      try { frames[tier] = capture(handle, `banner-tier-${tier}`).split('\n').map(line => stripAnsi(line)); } finally { handle.unmount(); }
     }
-    if (!bannerAllowed) {
-      for (const lines of Object.values(frames)) expectLineHeader(lines.join('\n'));
-      return;
-    }
-    const placeholders = placeholderRows(image.id, image.columns, image.rows);
+    const placeholders = placeholderRows(image.id, image.columns, image.rows).map(row => stripAnsi(row));
     for (const tier of ['cursor', 'sixel'] as const) {
       for (let row = 0; row < 3; row++) {
         expect(frames[tier]![row]).toBe(frames['placeholders']![row]!.replace(placeholders[row]!, ' '.repeat(image.columns)));
@@ -376,7 +386,12 @@ describe('hermetic screen frames', () => {
       }
       expect(frames[tier]!.join('\n')).not.toContain(PLACEHOLDER);
     }
-    expect(frames['cursor']![0]).toMatch(/^ {12}tacuchi updater/);
+    for (const tier of ['blocks', 'ascii'] as const) {
+      for (let row = 0; row < 3; row++) {
+        expect(frames[tier]![row]).toBe(frames['cursor']![row]!.replace(' '.repeat(2 + image.columns), '  ' + MARK_ART[tier][row]));
+      }
+    }
+    expect(frames['cursor']![0]).toMatch(/^ {10}tacuchi updater/);
   });
   for (const [name, width, height] of [['narrow', 59, 30], ['short', 100, 18]] as const) it(`keeps the one-line header in a ${name} terminal`, async () => {
     fixture.scenario = 'full'; fixture.language = 'es';
@@ -385,16 +400,23 @@ describe('hermetic screen frames', () => {
     const handle = render(<App />);
     try { expectLineHeader(capture(handle, `banner-${name}`)); } finally { handle.unmount(); }
   });
-  it('keeps the one-line header without colour', async () => {
+  it('draws the blocks without colour, beside the same three lines', async () => {
     fixture.scenario = 'full'; fixture.language = 'es';
     size(100, 30);
     process.env['NO_COLOR'] = '1';
-    configureBanner(image);
+    configureBanner({ ...textForm, tier: 'blocks' });
     const handle = render(<App />);
     try {
-      const frame = capture(handle, 'banner-no-color');
-      expectLineHeader(frame);
-      expect(frame.split('\n')[0]!.trimStart()).toMatch(/^tacuchi_/);
+      expectBanner(capture(handle, 'banner-no-color'), 'Paso 1/4 · Detectando gestores', { id: 0, tier: 'blocks' });
+    } finally { handle.unmount(); }
+  });
+  it('draws the ASCII art beside the same three lines', async () => {
+    fixture.scenario = 'full'; fixture.language = 'es';
+    size(100, 30);
+    configureBanner({ ...textForm, tier: 'ascii' });
+    const handle = render(<App />);
+    try {
+      expectBanner(capture(handle, 'banner-ascii'), 'Paso 1/4 · Detectando gestores', { id: 0, tier: 'ascii' });
     } finally { handle.unmount(); }
   });
   it('switches between banner and line header on resize', async () => {
@@ -404,11 +426,11 @@ describe('hermetic screen frames', () => {
     const handle = render(<App />);
     try {
       await waitFor(handle, '5.7.2');
-      expect(handle.lastFrame()!.includes(PLACEHOLDER)).toBe(bannerAllowed);
+      expect(handle.lastFrame()!.includes(PLACEHOLDER)).toBe(true);
       size(59, 30); process.stdout.emit('resize'); await pause();
       expectLineHeader(handle.lastFrame()!);
       size(100, 30); process.stdout.emit('resize'); await pause();
-      expect(handle.lastFrame()!.includes(PLACEHOLDER)).toBe(bannerAllowed);
+      expect(handle.lastFrame()!.includes(PLACEHOLDER)).toBe(true);
     } finally { handle.unmount(); }
   });
   it('leaves the line header as the last frame when the app quits', async () => {
@@ -419,23 +441,23 @@ describe('hermetic screen frames', () => {
     const handle = render(<App />);
     try {
       await waitFor(handle, '5.7.2');
-      expect(handle.lastFrame()!.includes(PLACEHOLDER)).toBe(bannerAllowed);
+      expect(handle.lastFrame()!.includes(PLACEHOLDER)).toBe(true);
       handle.stdin.write('q'); await pause(); await pause();
       // Under CI, Ink's unmount writes only a newline; the frame before it is the one left on screen.
       expectLineHeader(handle.frames.filter(frame => frame.trim() !== '').at(-1)!);
     } finally { handle.unmount(); process.exitCode = exitCode; }
   });
-  it('writes no image byte to redirected output even with the banner configured', async () => {
+  for (const mark of [image, { ...textForm, tier: 'blocks' }, { ...textForm, tier: 'ascii' }] as const) it(`writes no image byte and no art to redirected output even with the ${mark.tier} mark configured`, async () => {
     fixture.scenario = 'full'; fixture.language = 'es';
     size(100, 30);
-    configureBanner(image);
+    configureBanner(mark);
     let output = '';
     const handle = render(<App nonInteractive lineOutput={line => { output += line; }} />);
     try {
       const deadline = Date.now() + 5000;
       while (!output.includes('Resumen:') && Date.now() < deadline) await pause();
       expect(output).toContain('Resumen:');
-      expect(output).not.toMatch(/\x1b_G|\u{10EEEE}|\x1b\[38;5;/u);
+      expect(output).not.toMatch(/\x1b_G|\u{10EEEE}|\x1b\[38;5;|[█▀▄]|###/u);
     } finally { handle.unmount(); }
   });
   for (const [banner, height] of [[false, 17], [true, 19]] as const) it(`fits a long selection list in ${height} rows ${banner ? 'under the banner' : 'under the line header'}`, async () => {
@@ -446,7 +468,7 @@ describe('hermetic screen frames', () => {
     try {
       await waitFor(handle, 'package-0');
       const frame = capture(handle, `banner-${banner}-fit`);
-      expect(frame.includes(PLACEHOLDER)).toBe(banner && bannerAllowed);
+      expect(frame.includes(PLACEHOLDER)).toBe(banner);
       expect(frame.split('\n').length).toBeLessThan(height);
     } finally { handle.unmount(); }
   });

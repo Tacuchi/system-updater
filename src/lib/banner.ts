@@ -1,17 +1,25 @@
 /**
- * Whether the header is the image banner, shared by the header, the screens
+ * Whether the header shows the mark (an image or its text form), shared by the header, the screens
  * that size their lists by the terminal height, and every exit route.
  *
  * The entry point configures it once, after the terminal answered and the
- * image was sent. Retiring it before Ink's last frame leaves the one-line
- * header in the scrollback, so no placeholder cell and no reserved gap
+ * image, if any, was sent. Retiring it before Ink's last frame leaves the
+ * one-line header in the scrollback, so no placeholder cell and no reserved gap
  * outlives the image that the exit handler deletes.
  */
-import { ASCII } from './glyphs.js';
-import { BANNER_EXTRA_ROWS, bannerBlocker, type ImageTier } from './terminal-image.js';
+import { BANNER_EXTRA_ROWS, MARK_COLUMNS, MARK_ROWS, bannerBlocker, type ImageTier, type TextTier } from './terminal-image.js';
 
-/** The image the header leaves room for; only the placeholder tier draws it as text. */
-export interface BannerImage { id: number; columns: number; rows: number; tier: ImageTier }
+/**
+ * The cells the header gives the mark. The placeholder tier and the text forms
+ * draw it as text; the cursor and sixel tiers draw over blank cells. `id` is
+ * the kitty image id, 0 where there is none.
+ */
+export interface BannerImage { id: number; columns: number; rows: number; tier: ImageTier | TextTier }
+
+/** The mark as text: nothing to send before Ink starts or to delete on exit. */
+export function textBanner(tier: TextTier): BannerImage {
+  return { id: 0, columns: MARK_COLUMNS, rows: MARK_ROWS, tier };
+}
 
 let image: BannerImage | null = null;
 let retired = false;
@@ -41,10 +49,13 @@ export function bannerSnapshot(): BannerImage | null {
   return retired ? null : image;
 }
 
-/** The banner to draw now, or null for the line header: it is re-checked on every render, resize included. */
-export function shownBanner(snapshot = bannerSnapshot(), stdout: { columns?: number; rows?: number } = process.stdout, env = process.env, ascii = ASCII): BannerImage | null {
+/**
+ * The mark to draw now, or null for the line header: the size is re-checked on
+ * every render, resize included. The form itself was chosen once at start.
+ */
+export function shownBanner(snapshot = bannerSnapshot(), stdout: { columns?: number; rows?: number } = process.stdout): BannerImage | null {
   if (!snapshot) return null;
-  const blocker = bannerBlocker({ env, stdoutTTY: true, ascii, columns: Math.min(stdout.columns ?? 100, 100), rows: stdout.rows ?? 24 });
+  const blocker = bannerBlocker({ stdoutTTY: true, columns: Math.min(stdout.columns ?? 100, 100), rows: stdout.rows ?? 24 });
   return blocker ? null : snapshot;
 }
 

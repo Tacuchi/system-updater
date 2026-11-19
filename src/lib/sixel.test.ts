@@ -16,7 +16,7 @@ describe('indexed bitmap', () => {
     expect(() => decodeRuns({ width: 2, height: 2, palette: [], runs: runs([0, 3]) })).toThrow('bitmap runs cover 3 pixels, expected 4');
   });
   it('decodes every embedded piece to its full size with at most three colours', () => {
-    for (const [bitmap, width, height, colours] of [[darkIsotypeBitmap, 368, 312, 2], [lightIsotypeBitmap, 368, 312, 2], [iconBitmap, 192, 192, 3]] as const) {
+    for (const [bitmap, width, height, colours] of [[darkIsotypeBitmap, 312, 312, 2], [lightIsotypeBitmap, 312, 312, 2], [iconBitmap, 192, 192, 3]] as const) {
       expect([bitmap.width, bitmap.height, bitmap.palette.length]).toEqual([width, height, colours]);
       const used = new Set(decodeRuns(bitmap));
       expect([...used].sort()).toEqual(Array.from({ length: colours + 1 }, (_, index) => index));

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { deflateSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 // @ts-expect-error plain JavaScript script, no declarations
 import { decodePng, indexBitmap } from './embed-brand-images.mjs';
 import { darkIsotype, darkIsotypeBitmap, icon, iconBitmap, lightIsotype, lightIsotypeBitmap } from '../src/lib/brand-images.js';
@@ -33,5 +35,18 @@ describe('brand image embedding', () => {
     for (const [source, bitmap] of [[darkIsotype, darkIsotypeBitmap], [lightIsotype, lightIsotypeBitmap], [icon, iconBitmap]] as const) {
       expect(indexBitmap(decodePng(Buffer.from(source, 'base64')))).toEqual(bitmap);
     }
+  });
+  it('embeds exactly the source files it notes: the sha256 of each payload matches its comment', () => {
+    const source = readFileSync(new URL('../src/lib/brand-images.ts', import.meta.url), 'utf8');
+    const noted = [...source.matchAll(/^\/\/ (\S+\.png) sha256 ([0-9a-f]{64})$/gm)].map(match => [match[1], match[2]]);
+    expect(noted.map(([file]) => file)).toEqual(['isotipo-terminal-oscuro.png', 'isotipo-terminal-claro.png', 'icono-terminal.png']);
+    const payloads = [darkIsotype, lightIsotype, icon].map(png => createHash('sha256').update(Buffer.from(png, 'base64')).digest('hex'));
+    expect(payloads).toEqual(noted.map(([, hash]) => hash));
+  });
+  it('embeds the Muesca pieces: square, and the dark and light isotypes differ only in the block colour', () => {
+    expect([darkIsotypeBitmap, lightIsotypeBitmap, iconBitmap].map(bitmap => [bitmap.width, bitmap.height])).toEqual([[312, 312], [312, 312], [192, 192]]);
+    expect(darkIsotypeBitmap.palette).toEqual(['e6e6e2', 'b6f23c']);
+    expect(lightIsotypeBitmap.palette).toEqual(['111111', 'b6f23c']);
+    expect(lightIsotypeBitmap.runs).toBe(darkIsotypeBitmap.runs);
   });
 });

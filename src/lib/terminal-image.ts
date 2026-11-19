@@ -1,8 +1,8 @@
 /**
- * The brand image in the header: which technique a terminal gets, and the
- * exact bytes of each one.
+ * The brand mark in the header: which form a terminal gets, and the exact
+ * bytes of each image technique.
  *
- * Tiers, most specific first (pickTier):
+ * Every form fills the same 6 x 3 cells. Tiers, most specific first (pickTier):
  * - placeholders: the PNG is transmitted once as a virtual placement (U=1) and
  *   every frame draws it with ordinary text cells (U+10EEEE plus row and column
  *   diacritics, the image id as the foreground colour), so the image moves with
@@ -12,6 +12,9 @@
  *   placed at the header cell after every frame with a fixed image id and a
  *   fixed placement id, so placing again moves it instead of adding a copy.
  * - sixel: terminals whose DA1 reply lists sixel; drawn again after every frame.
+ * - blocks: the mark as three lines of half-block text (brand-mark.ts), for
+ *   every terminal where no image is chosen, the classic Windows console too.
+ * - ascii: the same mark in plain ASCII, only when TACUCHI_ASCII=1 asks for it.
  * - none: the one-line header.
  * Ink clears the whole screen when a frame reaches the terminal height, and a
  * screen clear deletes kitty images, so both kitty tiers transmit again then.
@@ -44,9 +47,13 @@ export const CURSOR_PLACEMENT_ID = 1;
 export const IMAGE_COLUMN = 2;
 /** Sixel is opt-in until it has been seen in a real terminal; flipping this turns it on. */
 export const SIXEL_BY_DEFAULT = false;
+/** Cells every form of the mark fills: Muesca's 6 x 6 grid, one half-block per grid cell. */
+export const MARK_COLUMNS = 6;
+export const MARK_ROWS = 3;
 
-export type BannerTier = 'placeholders' | 'cursor' | 'sixel' | 'none';
-export type ImageTier = Exclude<BannerTier, 'none'>;
+export type ImageTier = 'placeholders' | 'cursor' | 'sixel';
+export type TextTier = 'blocks' | 'ascii';
+export type BannerTier = ImageTier | TextTier | 'none';
 
 export interface BannerPiece {
   name: 'isotipo-terminal-oscuro' | 'isotipo-terminal-claro' | 'icono-terminal';
@@ -83,53 +90,92 @@ export function drawsPlaceholders(env: NodeJS.ProcessEnv): boolean {
   return env['TERM_PROGRAM'] === 'ghostty' || env['TERM'] === 'xterm-ghostty' || env['TERM'] === 'xterm-kitty' || env['KITTY_WINDOW_ID'] !== undefined;
 }
 
-/** TACUCHI_BANNER=off|placeholders|cursor|sixel forces a tier; any other value is ignored. */
+/** TACUCHI_BANNER=off|placeholders|cursor|sixel|blocks|ascii forces a tier; any other value is ignored. */
 export function forcedTier(env: NodeJS.ProcessEnv): BannerTier | null {
   const value = env['TACUCHI_BANNER']?.trim().toLowerCase();
   if (value === 'off') return 'none';
-  return value === 'placeholders' || value === 'cursor' || value === 'sixel' ? value : null;
+  return value === 'placeholders' || value === 'cursor' || value === 'sixel' || value === 'blocks' || value === 'ascii' ? value : null;
 }
+
+const isTextTier = (tier: BannerTier | null): tier is TextTier => tier === 'blocks' || tier === 'ascii';
 
 /**
- * The technique for this terminal, from its identity and its answers. The
- * fallback conditions (bannerBlocker) are checked by the caller and win over
- * everything, a forced tier included.
+ * The text form where no image is drawn: the ASCII art only when TACUCHI_ASCII=1
+ * asks for it. The ASCII glyph set that TERM=dumb or the classic Windows
+ * console turn on keeps the blocks: CP437 has them.
  */
-export function pickTier({ env, images, sixel }: { env: NodeJS.ProcessEnv; images: boolean; sixel: boolean }): BannerTier {
-  const forced = forcedTier(env);
-  if (forced) return forced;
-  if (images) return drawsPlaceholders(env) ? 'placeholders' : 'cursor';
-  if (SIXEL_BY_DEFAULT && sixel) return 'sixel';
-  return 'none';
+export function textTier(env: NodeJS.ProcessEnv): TextTier {
+  return env['TACUCHI_ASCII'] === '1' ? 'ascii' : 'blocks';
 }
 
-export function pickPiece(theme: TerminalTheme, themeKnown: boolean): BannerPiece {
-  if (!themeKnown) return { name: 'icono-terminal', png: icon, bitmap: iconBitmap, columns: 6, rows: 3 };
-  return theme === 'light'
-    ? { name: 'isotipo-terminal-claro', png: lightIsotype, bitmap: lightIsotypeBitmap, columns: 8, rows: 3 }
-    : { name: 'isotipo-terminal-oscuro', png: darkIsotype, bitmap: darkIsotypeBitmap, columns: 8, rows: 3 };
-}
+export type ImageBlocker = 'not-interactive' | 'no-color' | 'ascii' | 'multiplexer';
 
-export type BannerBlocker = 'not-tty' | 'no-color' | 'ascii' | 'multiplexer' | 'narrow' | 'short';
-
-/** Why the line header must be used instead of the banner, or null when the banner fits. */
-export function bannerBlocker({ env, stdoutTTY, ascii, columns, rows }: {
-  env: NodeJS.ProcessEnv; stdoutTTY: boolean; ascii: boolean; columns: number; rows: number;
-}): BannerBlocker | null {
-  if (!stdoutTTY) return 'not-tty';
+/**
+ * Why no image can be drawn, so the mark is text, or null when an image may be
+ * tried. Without an interactive stdin the terminal cannot be asked; without
+ * colour the image would bring its own; the ASCII glyph set means a console
+ * that would print the query; a multiplexer keeps graphics from the terminal.
+ */
+export function imageBlocker({ env, interactive, ascii }: { env: NodeJS.ProcessEnv; interactive: boolean; ascii: boolean }): ImageBlocker | null {
+  if (!interactive) return 'not-interactive';
   if (env['NO_COLOR'] !== undefined) return 'no-color';
   if (ascii) return 'ascii';
   if (env['TMUX'] || env['STY'] || /^(?:screen|tmux)/.test(env['TERM'] ?? '')) return 'multiplexer';
+  return null;
+}
+
+/**
+ * The tier for this terminal, from its identity and its answers. The
+ * line-header conditions (bannerBlocker) are checked by the caller and win
+ * over everything, a forced tier included; where images are ruled out
+ * (textOnly), a forced image tier becomes the text form.
+ */
+export function pickTier({ env, images, sixel, textOnly }: { env: NodeJS.ProcessEnv; images: boolean; sixel: boolean; textOnly: boolean }): BannerTier {
+  const forced = forcedTier(env);
+  if (forced === 'none' || isTextTier(forced)) return forced;
+  if (textOnly) return textTier(env);
+  if (forced) return forced;
+  if (images) return drawsPlaceholders(env) ? 'placeholders' : 'cursor';
+  if (SIXEL_BY_DEFAULT && sixel) return 'sixel';
+  return textTier(env);
+}
+
+export function pickPiece(theme: TerminalTheme, themeKnown: boolean): BannerPiece {
+  const size = { columns: MARK_COLUMNS, rows: MARK_ROWS };
+  if (!themeKnown) return { name: 'icono-terminal', png: icon, bitmap: iconBitmap, ...size };
+  return theme === 'light'
+    ? { name: 'isotipo-terminal-claro', png: lightIsotype, bitmap: lightIsotypeBitmap, ...size }
+    : { name: 'isotipo-terminal-oscuro', png: darkIsotype, bitmap: darkIsotypeBitmap, ...size };
+}
+
+export type BannerBlocker = 'not-tty' | 'narrow' | 'short';
+
+/** Why the line header must be used instead of the mark, or null when the mark fits. */
+export function bannerBlocker({ stdoutTTY, columns, rows }: { stdoutTTY: boolean; columns: number; rows: number }): BannerBlocker | null {
+  if (!stdoutTTY) return 'not-tty';
   if (columns < BANNER_MIN_COLUMNS) return 'narrow';
   if (rows < BANNER_MIN_ROWS) return 'short';
   return null;
 }
 
-/** Whether to ask the terminal at all: an interactive run, banner not turned off, no fallback condition. */
-export function bannerWanted({ env, interactive, stdoutTTY, ascii, columns, rows }: {
-  env: NodeJS.ProcessEnv; interactive: boolean; stdoutTTY: boolean; ascii: boolean; columns: number; rows: number;
+/** Whether the header gets the mark in any form: not turned off and no line-header condition. */
+export function bannerWanted({ env, stdoutTTY, columns, rows }: {
+  env: NodeJS.ProcessEnv; stdoutTTY: boolean; columns: number; rows: number;
 }): boolean {
-  return interactive && forcedTier(env) !== 'none' && bannerBlocker({ env, stdoutTTY, ascii, columns, rows }) === null;
+  return forcedTier(env) !== 'none' && bannerBlocker({ stdoutTTY, columns, rows }) === null;
+}
+
+interface RunShape { env: NodeJS.ProcessEnv; interactive: boolean; ascii: boolean; stdoutTTY: boolean; columns: number; rows: number }
+
+/** Whether to send the image query: the mark is wanted, an image could be drawn and no text form is forced. */
+export function imagesWanted(run: RunShape): boolean {
+  return bannerWanted(run) && imageBlocker(run) === null && !isTextTier(forcedTier(run.env));
+}
+
+/** The whole choice, after the terminal answered (or was not asked): 'none' is the line header. */
+export function resolveTier(run: RunShape & { images: boolean; sixel: boolean }): BannerTier {
+  if (!bannerWanted(run)) return 'none';
+  return pickTier({ env: run.env, images: run.images, sixel: run.sixel, textOnly: imageBlocker(run) !== null });
 }
 
 /** The cell size matters only to sixel, so it is asked only when sixel can be chosen. */

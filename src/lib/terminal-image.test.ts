@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { PassThrough } from 'node:stream';
 import {
   BANNER_MIN_COLUMNS, BANNER_MIN_ROWS, CELL_SIZE_QUERY, CURSOR_IMAGE_ID, CURSOR_PLACEMENT_ID, IMAGE_COLUMN, KITTY_QUERY,
-  SIXEL_BY_DEFAULT, answersImages, bannerBlocker, bannerWanted, cellSize, deleteImage, deletePlacement, drawSixel,
-  forcedTier, listsSixel, pickPiece, pickTier, placeImage, placeholderRows, sixelPossible, transmitData, transmitImage,
+  MARK_COLUMNS, MARK_ROWS, SIXEL_BY_DEFAULT, answersImages, bannerBlocker, bannerWanted, cellSize, deleteImage, deletePlacement,
+  drawSixel, forcedTier, imageBlocker, imagesWanted, listsSixel, pickPiece, pickTier, placeImage, placeholderRows, resolveTier,
+  sixelPossible, textTier, transmitData, transmitImage,
 } from './terminal-image.js';
+import { shouldUseAscii } from './glyphs.js';
 import { probeTerminal, THEME_TIMEOUT_MS } from './terminal-theme.js';
 import { darkIsotype, darkIsotypeBitmap, icon, iconBitmap, lightIsotype, lightIsotypeBitmap } from './brand-images.js';
 
@@ -104,61 +106,132 @@ describe('sixel and cell size answers', () => {
 
 /** Recorded answers: the measured terminals and the ones inferred from their documentation. */
 const WARP_DA1 = '\x1b[?62c';
-const fixtures = [
-  ['Herdr', { TERM_PROGRAM: 'ghostty', TERM: 'xterm-256color' }, OK + DA1, 'placeholders'],
-  ['Ghostty 1.4', { TERM_PROGRAM: 'ghostty', TERM: 'xterm-ghostty' }, OK + '\x1b[?62;22;52c', 'placeholders'],
-  ['kitty', { TERM: 'xterm-kitty', KITTY_WINDOW_ID: '1' }, OK + DA1, 'placeholders'],
-  ['Warp', { TERM_PROGRAM: 'WarpTerminal', TERM: 'xterm-256color' }, OK + WARP_DA1, 'cursor'],
-  ['WezTerm', { TERM_PROGRAM: 'WezTerm', TERM: 'xterm-256color' }, OK + '\x1b[?65;4;6;18;22c', 'cursor'],
-  ['Konsole', { TERM: 'xterm-256color', KONSOLE_VERSION: '240802' }, OK + '\x1b[?62;22c', 'cursor'],
-  ['iTerm-like', { TERM_PROGRAM: 'iTerm.app', TERM: 'xterm-256color' }, '\x1b[?62;4c', 'none'],
-  ['PowerShell in Windows Terminal without sixel', { WT_SESSION: 'x' }, '\x1b[?61;6;7;14;21;22;23;24;28;32;42c', 'none'],
-  ['PowerShell in Windows Terminal with sixel', { WT_SESSION: 'x' }, '\x1b[?61;4;6;7;14;21;22;23;24;28;32;42c', 'none'],
-  ['PowerShell in a classic console', {}, '', 'none'],
-] as const;
+const WT_DA1 = '\x1b[?61;6;7;14;21;22;23;24;28;32;42c';
+const WT_SIXEL_DA1 = '\x1b[?61;4;6;7;14;21;22;23;24;28;32;42c';
+type Fixture = readonly [name: string, env: NodeJS.ProcessEnv, response: string, platform: NodeJS.Platform, tier: string];
+const fixtures: readonly Fixture[] = [
+  ['Herdr', { TERM_PROGRAM: 'ghostty', TERM: 'xterm-256color' }, OK + DA1, 'darwin', 'placeholders'],
+  ['Ghostty 1.4', { TERM_PROGRAM: 'ghostty', TERM: 'xterm-ghostty' }, OK + '\x1b[?62;22;52c', 'darwin', 'placeholders'],
+  ['kitty', { TERM: 'xterm-kitty', KITTY_WINDOW_ID: '1' }, OK + DA1, 'linux', 'placeholders'],
+  ['Warp', { TERM_PROGRAM: 'WarpTerminal', TERM: 'xterm-256color' }, OK + WARP_DA1, 'darwin', 'cursor'],
+  ['WezTerm', { TERM_PROGRAM: 'WezTerm', TERM: 'xterm-256color' }, OK + '\x1b[?65;4;6;18;22c', 'linux', 'cursor'],
+  ['Konsole', { TERM: 'xterm-256color', KONSOLE_VERSION: '240802' }, OK + '\x1b[?62;22c', 'linux', 'cursor'],
+  ['macOS Terminal', { TERM_PROGRAM: 'Apple_Terminal', TERM: 'xterm-256color' }, '\x1b[?1;2c', 'darwin', 'blocks'],
+  ['iTerm-like', { TERM_PROGRAM: 'iTerm.app', TERM: 'xterm-256color' }, '\x1b[?62;4c', 'darwin', 'blocks'],
+  ['PowerShell in Windows Terminal without sixel', { WT_SESSION: 'x' }, WT_DA1, 'win32', 'blocks'],
+  ['PowerShell in Windows Terminal with sixel', { WT_SESSION: 'x' }, WT_SIXEL_DA1, 'win32', 'blocks'],
+  ['PowerShell in a classic console', {}, '', 'win32', 'blocks'],
+  ['Ghostty with NO_COLOR', { TERM_PROGRAM: 'ghostty', NO_COLOR: '1' }, OK + DA1, 'darwin', 'blocks'],
+  ['Windows Terminal with NO_COLOR', { WT_SESSION: 'x', NO_COLOR: '' }, WT_DA1, 'win32', 'blocks'],
+  ['Ghostty with TACUCHI_ASCII=1', { TERM_PROGRAM: 'ghostty', TACUCHI_ASCII: '1' }, OK + DA1, 'darwin', 'ascii'],
+  ['classic console with TACUCHI_ASCII=1', { TACUCHI_ASCII: '1' }, '', 'win32', 'ascii'],
+  ['tmux inside Ghostty', { TERM_PROGRAM: 'tmux', TERM: 'tmux-256color', TMUX: '/tmp/tmux-1/default,1,0' }, OK + DA1, 'darwin', 'blocks'],
+  ['GNU screen', { TERM: 'screen-256color', STY: '1234.pts-0.host' }, DA1, 'linux', 'blocks'],
+];
+
+/** The whole decision, as the entry point makes it: what to ask, then the tier from the answers. */
+function decide(env: NodeJS.ProcessEnv, response: string, platform: NodeJS.Platform, size: Partial<{ interactive: boolean; stdoutTTY: boolean; columns: number; rows: number }> = {}) {
+  const run = { interactive: true, stdoutTTY: true, columns: 100, rows: 30, ...size };
+  const ascii = shouldUseAscii(env, platform);
+  const asked = imagesWanted({ env, ascii, ...run });
+  return resolveTier({ env, ascii, ...run, images: asked && answersImages(response), sixel: asked && listsSixel(response) });
+}
 
 describe('banner tier by terminal', () => {
-  it.each(fixtures)('%s', (_name, env, response, tier) => {
-    expect(pickTier({ env, images: answersImages(response), sixel: listsSixel(response) })).toBe(tier);
+  it.each(fixtures)('%s', (_name, env, response, platform, tier) => {
+    expect(decide(env, response, platform)).toBe(tier);
+  });
+  it('keeps the one-line header with redirected output, in a narrow terminal and in a short one', () => {
+    for (const [, env, response, platform] of fixtures) {
+      expect(decide(env, response, platform, { stdoutTTY: false })).toBe('none');
+      expect(decide(env, response, platform, { columns: 59 })).toBe('none');
+      expect(decide(env, response, platform, { rows: 18 })).toBe('none');
+    }
+  });
+  it('draws the blocks, not an image, when the run is not interactive but stdout is a terminal', () => {
+    expect(decide({ TERM_PROGRAM: 'ghostty' }, OK + DA1, 'darwin', { interactive: false })).toBe('blocks');
+    expect(imagesWanted({ env: { TERM_PROGRAM: 'ghostty' }, ascii: false, interactive: false, stdoutTTY: true, columns: 100, rows: 30 })).toBe(false);
+  });
+  it('asks the terminal for images only where an image could be drawn', () => {
+    const run = { interactive: true, stdoutTTY: true, columns: 100, rows: 30 };
+    expect(imagesWanted({ env: {}, ascii: false, ...run })).toBe(true);
+    expect(imagesWanted({ env: { NO_COLOR: '1' }, ascii: false, ...run })).toBe(false);
+    expect(imagesWanted({ env: {}, ascii: true, ...run })).toBe(false);
+    expect(imagesWanted({ env: { TMUX: 't' }, ascii: false, ...run })).toBe(false);
+    expect(imagesWanted({ env: { TACUCHI_BANNER: 'blocks' }, ascii: false, ...run })).toBe(false);
+    expect(imagesWanted({ env: { TACUCHI_BANNER: 'ascii' }, ascii: false, ...run })).toBe(false);
+    expect(imagesWanted({ env: { TACUCHI_BANNER: 'off' }, ascii: false, ...run })).toBe(false);
+    expect(imagesWanted({ env: {}, ascii: false, ...run, columns: 59 })).toBe(false);
+  });
+  it('names why an image cannot be drawn', () => {
+    expect(imageBlocker({ env: {}, interactive: true, ascii: false })).toBeNull();
+    expect(imageBlocker({ env: {}, interactive: false, ascii: false })).toBe('not-interactive');
+    expect(imageBlocker({ env: { NO_COLOR: '' }, interactive: true, ascii: false })).toBe('no-color');
+    expect(imageBlocker({ env: {}, interactive: true, ascii: true })).toBe('ascii');
+    expect(imageBlocker({ env: { STY: 's' }, interactive: true, ascii: false })).toBe('multiplexer');
+  });
+  it('uses the ASCII art only when TACUCHI_ASCII=1 is set explicitly', () => {
+    expect(textTier({ TACUCHI_ASCII: '1' })).toBe('ascii');
+    expect(textTier({})).toBe('blocks');
+    expect(textTier({ TACUCHI_ASCII: '0' })).toBe('blocks');
+    // TERM=dumb and the classic console turn the ASCII glyph set on, not the ASCII art.
+    expect(textTier({ TERM: 'dumb' })).toBe('blocks');
   });
   it('turns sixel on only by request while it is opt-in', () => {
     for (const [, env, response] of fixtures.filter(([name]) => name.includes('with sixel') || name === 'iTerm-like')) {
-      expect(pickTier({ env: { ...env, TACUCHI_BANNER: 'sixel' }, images: answersImages(response), sixel: listsSixel(response) })).toBe('sixel');
+      expect(pickTier({ env: { ...env, TACUCHI_BANNER: 'sixel' }, images: answersImages(response), sixel: listsSixel(response), textOnly: false })).toBe('sixel');
     }
   });
   it('lets TACUCHI_BANNER force a tier or turn the banner off, and ignores other values', () => {
     const warp = { TERM_PROGRAM: 'WarpTerminal' };
-    expect(pickTier({ env: { ...warp, TACUCHI_BANNER: 'placeholders' }, images: true, sixel: false })).toBe('placeholders');
-    expect(pickTier({ env: { TERM_PROGRAM: 'ghostty', TACUCHI_BANNER: 'cursor' }, images: true, sixel: false })).toBe('cursor');
-    expect(pickTier({ env: { ...warp, TACUCHI_BANNER: 'off' }, images: true, sixel: false })).toBe('none');
-    expect(pickTier({ env: { ...warp, TACUCHI_BANNER: ' Cursor ' }, images: false, sixel: false })).toBe('cursor');
-    expect(pickTier({ env: { ...warp, TACUCHI_BANNER: 'yes' }, images: true, sixel: false })).toBe('cursor');
+    const pick = (env: NodeJS.ProcessEnv, images: boolean, textOnly = false) => pickTier({ env, images, sixel: false, textOnly });
+    expect(pick({ ...warp, TACUCHI_BANNER: 'placeholders' }, true)).toBe('placeholders');
+    expect(pick({ TERM_PROGRAM: 'ghostty', TACUCHI_BANNER: 'cursor' }, true)).toBe('cursor');
+    expect(pick({ ...warp, TACUCHI_BANNER: 'off' }, true)).toBe('none');
+    expect(pick({ ...warp, TACUCHI_BANNER: ' Cursor ' }, false)).toBe('cursor');
+    expect(pick({ ...warp, TACUCHI_BANNER: 'yes' }, true)).toBe('cursor');
+    expect(pick({ ...warp, TACUCHI_BANNER: 'blocks' }, true)).toBe('blocks');
+    expect(pick({ ...warp, TACUCHI_BANNER: 'ASCII' }, true)).toBe('ascii');
     expect(forcedTier({ TACUCHI_BANNER: '' })).toBeNull();
+    expect(forcedTier({ TACUCHI_BANNER: 'blocks' })).toBe('blocks');
+    expect(forcedTier({ TACUCHI_BANNER: 'ascii' })).toBe('ascii');
   });
-  it('keeps every fallback condition above a forced tier', () => {
-    const ok = { interactive: true, stdoutTTY: true, ascii: false, columns: 100, rows: 30 };
+  it('turns a forced image tier into text where images cannot be drawn', () => {
+    const pick = (env: NodeJS.ProcessEnv) => pickTier({ env, images: true, sixel: true, textOnly: true });
+    expect(pick({ TACUCHI_BANNER: 'placeholders' })).toBe('blocks');
+    expect(pick({ TACUCHI_BANNER: 'sixel', TACUCHI_ASCII: '1' })).toBe('ascii');
+    expect(pick({ TACUCHI_BANNER: 'off' })).toBe('none');
+    // An explicit text form wins over TACUCHI_ASCII.
+    expect(pick({ TACUCHI_BANNER: 'blocks', TACUCHI_ASCII: '1' })).toBe('blocks');
+  });
+  it('keeps every line-header condition above a forced tier', () => {
+    const ok = { stdoutTTY: true, columns: 100, rows: 30 };
     const forced = { TACUCHI_BANNER: 'sixel' };
     expect(bannerWanted({ env: forced, ...ok })).toBe(true);
     expect(bannerWanted({ env: { TACUCHI_BANNER: 'off' }, ...ok })).toBe(false);
-    expect(bannerWanted({ env: forced, ...ok, interactive: false })).toBe(false);
     expect(bannerWanted({ env: forced, ...ok, stdoutTTY: false })).toBe(false);
-    expect(bannerWanted({ env: { ...forced, NO_COLOR: '1' }, ...ok })).toBe(false);
-    expect(bannerWanted({ env: forced, ...ok, ascii: true })).toBe(false);
-    expect(bannerWanted({ env: { ...forced, TMUX: 't' }, ...ok })).toBe(false);
     expect(bannerWanted({ env: forced, ...ok, columns: 59 })).toBe(false);
     expect(bannerWanted({ env: forced, ...ok, rows: 18 })).toBe(false);
+    // Colour, glyphs and multiplexers change the form, not whether there is a mark.
+    expect(bannerWanted({ env: { ...forced, NO_COLOR: '1', TMUX: 't' }, ...ok })).toBe(true);
   });
 });
 
 describe('banner piece by theme', () => {
   it('uses the isotype for a known theme and the icon with its own tile otherwise', () => {
-    expect(pickPiece('dark', true)).toMatchObject({ name: 'isotipo-terminal-oscuro', png: darkIsotype, bitmap: darkIsotypeBitmap, columns: 8, rows: 3 });
-    expect(pickPiece('light', true)).toMatchObject({ name: 'isotipo-terminal-claro', png: lightIsotype, bitmap: lightIsotypeBitmap, columns: 8, rows: 3 });
+    expect(pickPiece('dark', true)).toMatchObject({ name: 'isotipo-terminal-oscuro', png: darkIsotype, bitmap: darkIsotypeBitmap, columns: 6, rows: 3 });
+    expect(pickPiece('light', true)).toMatchObject({ name: 'isotipo-terminal-claro', png: lightIsotype, bitmap: lightIsotypeBitmap, columns: 6, rows: 3 });
     expect(pickPiece('dark', false)).toMatchObject({ name: 'icono-terminal', png: icon, bitmap: iconBitmap, columns: 6, rows: 3 });
     expect(pickPiece('light', false).name).toBe('icono-terminal');
   });
+  it('reserves 6 x 3 cells for every piece, the footprint of the text forms too', () => {
+    expect([MARK_COLUMNS, MARK_ROWS]).toEqual([6, 3]);
+    for (const piece of [pickPiece('dark', true), pickPiece('light', true), pickPiece('dark', false)]) {
+      expect([piece.columns, piece.rows]).toEqual([MARK_COLUMNS, MARK_ROWS]);
+    }
+  });
   it('embeds real PNG files with the official sizes', () => {
-    for (const [png, width, height] of [[darkIsotype, 368, 312], [lightIsotype, 368, 312], [icon, 192, 192]] as const) {
+    for (const [png, width, height] of [[darkIsotype, 312, 312], [lightIsotype, 312, 312], [icon, 192, 192]] as const) {
       const bytes = Buffer.from(png, 'base64');
       expect(bytes.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
       expect([bytes.readUInt32BE(16), bytes.readUInt32BE(20)]).toEqual([width, height]);
@@ -166,20 +239,14 @@ describe('banner piece by theme', () => {
   });
 });
 
-describe('banner fallback conditions', () => {
-  const ok = { env: {}, stdoutTTY: true, ascii: false, columns: 100, rows: 30 };
-  it('allows the banner only in a capable, large enough terminal', () => {
+describe('line header conditions', () => {
+  const ok = { stdoutTTY: true, columns: 100, rows: 30 };
+  it('allows the mark only on a terminal large enough', () => {
     expect(bannerBlocker(ok)).toBeNull();
     expect(bannerBlocker({ ...ok, columns: BANNER_MIN_COLUMNS, rows: BANNER_MIN_ROWS })).toBeNull();
   });
   it.each([
     ['not-tty', { stdoutTTY: false }],
-    ['no-color', { env: { NO_COLOR: '' } }],
-    ['ascii', { ascii: true }],
-    ['multiplexer', { env: { TMUX: '/tmp/tmux-1/default,1,0' } }],
-    ['multiplexer', { env: { STY: '1234.pts-0.host' } }],
-    ['multiplexer', { env: { TERM: 'screen-256color' } }],
-    ['multiplexer', { env: { TERM: 'tmux-256color' } }],
     ['narrow', { columns: 59 }],
     ['short', { rows: 18 }],
   ])('falls back to the line header: %s', (reason, change) => {

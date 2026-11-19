@@ -1,23 +1,27 @@
 // Visual check of the header banner: the real header over simulated screens, no
 // package manager and no app state machine. Run it in a visible terminal:
-//   npx tsx scripts/probes/banner-screens.tsx [--mode placeholders|cursor|sixel] [--piece oscuro|claro|icono] [--lang es|en] [--step-ms 1500]
+//   npx tsx scripts/probes/banner-screens.tsx [--mode placeholders|cursor|sixel|blocks|ascii|off] [--piece oscuro|claro|icono] [--lang es|en] [--step-ms 1500]
 // It asks the terminal like the app does, then walks the screens with bodies of
 // different heights, one taller than the terminal (Ink clears the screen after
 // it) and one that asks for a resize, quits like the app (line header as the
 // last frame) and deletes the image. Ctrl+C takes the same path. --mode forces
-// a tier like TACUCHI_BANNER; --lang defaults to the configured language.
+// a tier like TACUCHI_BANNER (blocks and ascii draw the mark as text, no image);
+// --lang defaults to the configured language.
 import React from 'react';
 import type { Readable, Writable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { Box, Text, render } from 'ink';
 import { StepHeader } from '../../src/components/step-header.js';
 import { MachineProvider } from '../../src/hooks/use-app-machine.js';
-import { configureBanner, retireBanner } from '../../src/lib/banner.js';
+import { configureBanner, retireBanner, textBanner } from '../../src/lib/banner.js';
 import { mountBanner, type StartedBanner } from '../../src/lib/banner-output.js';
 import { loadConfig } from '../../src/lib/config.js';
 import { ASCII } from '../../src/lib/glyphs.js';
 import { setLanguage, type Language } from '../../src/i18n/index.js';
-import { bannerBlocker, bannerWanted, forcedTier, pickPiece, pickTier, sixelPossible, type BannerPiece, type BannerTier } from '../../src/lib/terminal-image.js';
+import {
+  MARK_COLUMNS, MARK_ROWS, bannerBlocker, forcedTier, imageBlocker, imagesWanted, pickPiece, resolveTier, sixelPossible,
+  type BannerPiece, type BannerTier,
+} from '../../src/lib/terminal-image.js';
 import { probeTerminal } from '../../src/lib/terminal-theme.js';
 import { setTerminalTheme } from '../../src/theme.js';
 import type { Phase } from '../../src/state/types.js';
@@ -77,16 +81,16 @@ export async function runBannerScreens({
 }: BannerScreensOptions = {}): Promise<{ code: number; summary: string }> {
   setLanguage(lang ?? loadConfig().language);
   const tierEnv = mode ? { ...env, TACUCHI_BANNER: mode } : env;
-  const size = { stdoutTTY: output.isTTY === true, ascii: ASCII, columns: Math.min(output.columns ?? 0, 100), rows: output.rows ?? 0 };
-  const blocker = bannerBlocker({ env, ...size });
-  const wanted = bannerWanted({ env: tierEnv, interactive: input.isTTY === true, ...size });
-  const probe = await probeTerminal({ input, output, env, interactive: input.isTTY === true, images: wanted, cell: sixelPossible(tierEnv) });
+  const run = { env: tierEnv, interactive: input.isTTY === true, ascii: ASCII, stdoutTTY: output.isTTY === true, columns: Math.min(output.columns ?? 0, 100), rows: output.rows ?? 0 };
+  const blocker = bannerBlocker(run);
+  const probe = await probeTerminal({ input, output, env, interactive: run.interactive, images: imagesWanted(run), cell: sixelPossible(tierEnv) });
   setTerminalTheme(probe.theme);
-  const tier = wanted ? pickTier({ env: tierEnv, images: probe.images, sixel: probe.sixel }) : 'none';
+  const tier = resolveTier({ ...run, images: probe.images, sixel: probe.sixel });
   let piece: BannerPiece | null = null;
   let banner: StartedBanner | null = null;
   let inkOutput: Output = output;
-  if (tier !== 'none') {
+  if (tier === 'blocks' || tier === 'ascii') configureBanner(textBanner(tier));
+  else if (tier !== 'none') {
     piece = forced === 'claro' ? pickPiece('light', true) : forced === 'oscuro' ? pickPiece('dark', true) : forced === 'icono' ? pickPiece('dark', false) : pickPiece(probe.theme, probe.themeKnown);
     ({ stdout: inkOutput, banner } = mountBanner({ tier, piece, cell: probe.cell, stdout: output as NodeJS.WriteStream }));
   }
@@ -116,10 +120,13 @@ export async function runBannerScreens({
         if (banner?.exit) output.write(banner.exit);
         configureBanner(null);
       }
-      const reason = blocker ?? (forcedTier(tierEnv) === 'none' ? 'turned off' : 'no kitty graphics answer before DA1');
+      const forced = forcedTier(tierEnv);
+      const noImage = forced === 'blocks' || forced === 'ascii' ? 'forced' : imageBlocker(run) ?? 'no kitty graphics answer before DA1';
       const summary = piece && banner
         ? `banner: ${piece.name} (${piece.columns}x${piece.rows} cells) by ${tier}, theme ${probe.theme}${probe.themeKnown ? '' : ' (unknown)'}; ${banner.exit ? 'image deleted on exit' : 'line header as the last frame'}`
-        : `banner not shown: ${reason}; line header used`;
+        : tier === 'blocks' || tier === 'ascii'
+          ? `banner: ${tier} art (${MARK_COLUMNS}x${MARK_ROWS} cells) as text, no image: ${noImage}; line header as the last frame`
+          : `banner not shown: ${blocker ?? (forced === 'none' ? 'turned off' : 'unknown')}; line header used`;
       // A render error never throws from rerender: Ink's error boundary unmounts
       // and rejects waitUntilExit with it, so that is where it is read.
       void instance.waitUntilExit().then(
@@ -153,13 +160,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     process.exit(2);
   }
   const mode = argument('--mode');
-  if (mode !== undefined && mode !== 'placeholders' && mode !== 'cursor' && mode !== 'sixel' && mode !== 'off') {
-    console.error(`--mode expects placeholders, cursor, sixel or off, got ${JSON.stringify(mode)}`);
+  const modes = ['placeholders', 'cursor', 'sixel', 'blocks', 'ascii', 'off'] as const;
+  if (mode !== undefined && !(modes as readonly string[]).includes(mode)) {
+    console.error(`--mode expects ${modes.join(', ')}, got ${JSON.stringify(mode)}`);
     process.exit(2);
   }
   try {
     const { code, summary } = await runBannerScreens({
-      stepMs: Number(argument('--step-ms') ?? 1500), mode, piece: argument('--piece'), lang,
+      stepMs: Number(argument('--step-ms') ?? 1500), mode: mode as BannerScreensOptions['mode'], piece: argument('--piece'), lang,
       onReady: quit => { process.on('SIGINT', () => quit(130)); },
     });
     console.log(summary);

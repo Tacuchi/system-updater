@@ -8,6 +8,7 @@ import { getVersion } from '../lib/version.js';
 import { getPlatform } from '../lib/platform.js';
 import { bannerSnapshot, shownBanner, subscribeBanner, type BannerImage } from '../lib/banner.js';
 import { IMAGE_COLUMN, placeholderRows } from '../lib/terminal-image.js';
+import { markSegments } from '../lib/brand-mark.js';
 import type { Phase } from '../state/types.js';
 const steps: Partial<Record<Phase, number>> = { boot: 1, detecting: 1, scanning: 1, select: 2, confirm: 3, updating: 4 };
 export function StepHeader() {
@@ -16,9 +17,10 @@ export function StepHeader() {
 }
 const clip = (text: string, width: number) => text.length > width ? text.slice(0, Math.max(0, width - g.ellipsis.length)) + g.ellipsis : text;
 /**
- * The image, 3 rows tall and 2 columns in from the margin (IMAGE_COLUMN),
- * beside three text lines. Placeholder cells draw it as text; the cursor and
- * sixel tiers draw it over the same cells, left blank here, after each frame.
+ * The mark, 6 x 3 cells and 2 columns in from the margin (IMAGE_COLUMN),
+ * beside three text lines. Placeholder cells and the text forms draw it here;
+ * the cursor and sixel tiers draw it over the same cells, left blank here,
+ * after each frame.
  */
 function BrandBanner({ image }: { image: BannerImage }) {
   const { state, selfUpdate } = useMachine();
@@ -33,8 +35,7 @@ function BrandBanner({ image }: { image: BannerImage }) {
   const name = 'tacuchi updater';
   return <Box marginBottom={1}>
     <Box flexDirection="column" marginLeft={IMAGE_COLUMN - 1} width={image.columns} flexShrink={0}>
-      {(image.tier === 'placeholders' ? placeholderRows(image.id, image.columns, image.rows) : Array.from({ length: image.rows }, () => ' '.repeat(image.columns)))
-        .map((row, index) => <Text key={index}>{row}</Text>)}
+      <MarkCells image={image} />
     </Box>
     <Box flexDirection="column" marginLeft={2}>
       <Text><Text bold color={semantic.text}>{name}</Text><Text color={semantic.muted}>{clip(version, Math.max(0, textWidth - name.length))}</Text></Text>
@@ -43,7 +44,18 @@ function BrandBanner({ image }: { image: BannerImage }) {
     </Box>
   </Box>;
 }
-/** The one-line header: the fallback whenever the banner cannot be shown. */
+/** The mark's cells: block cells in the text token, the lime piece in the accent token, no colour under NO_COLOR. */
+function MarkCells({ image }: { image: BannerImage }) {
+  if (image.tier === 'blocks' || image.tier === 'ascii') {
+    const color = process.env['NO_COLOR'] === undefined;
+    return <>{markSegments(image.tier).map((row, index) => <Text key={index}>
+      {row.map((segment, at) => <Text key={at} color={color ? (segment.lime ? semantic.accentFill : semantic.text) : undefined}>{segment.text}</Text>)}
+    </Text>)}</>;
+  }
+  const rows = image.tier === 'placeholders' ? placeholderRows(image.id, image.columns, image.rows) : Array.from({ length: image.rows }, () => ' '.repeat(image.columns));
+  return <>{rows.map((row, index) => <Text key={index}>{row}</Text>)}</>;
+}
+/** The one-line header: the fallback whenever the mark does not fit or stdout is not a terminal. */
 function LineHeader() {
   const { state, selfUpdate } = useMachine();
   const width = Math.min(process.stdout.columns ?? 100, 100) - 2;

@@ -100,22 +100,22 @@ describe('banner start per tier', () => {
   const terminalRows = () => 30;
   it('placeholders: a random id in 16..255, the virtual placement, deleted on exit', () => {
     const banner = startBanner({ tier: 'placeholders', piece, cell: null, shown, terminalRows, random: () => 0.5 });
-    expect(banner.image).toEqual({ id: 136, columns: 8, rows: 3, tier: 'placeholders' });
+    expect(banner.image).toEqual({ id: 136, columns: 6, rows: 3, tier: 'placeholders' });
     expect(banner.start).toBe(transmitImage(136, piece));
     expect(banner.exit).toBe(deleteImage(136));
     expect(banner.after('\x1b[2J' + 'a')).toBe(transmitImage(136, piece));
   });
   it('cursor: the fixed id, data only, deleted on exit', () => {
     const banner = startBanner({ tier: 'cursor', piece, cell: null, shown, terminalRows });
-    expect(banner.image).toEqual({ id: 31313, columns: 8, rows: 3, tier: 'cursor' });
+    expect(banner.image).toEqual({ id: 31313, columns: 6, rows: 3, tier: 'cursor' });
     expect(banner.start).toBe(transmitData(31313, piece.png));
     expect(banner.exit).toBe(deleteImage(31313));
   });
   it('sixel: nothing to send or delete, the image scaled to the reported cell', () => {
     const banner = startBanner({ tier: 'sixel', piece, cell: { width: 9, height: 19 }, shown, terminalRows });
-    expect(banner.image).toEqual({ id: 0, columns: 8, rows: 3, tier: 'sixel' });
+    expect(banner.image).toEqual({ id: 0, columns: 6, rows: 3, tier: 'sixel' });
     expect([banner.start, banner.exit]).toEqual(['', '']);
-    expect(banner.after('a\n')).toBe(drawSixel(sixelImage(piece.bitmap, 8, 3, { width: 9, height: 19 }), 1));
+    expect(banner.after('a\n')).toBe(drawSixel(sixelImage(piece.bitmap, 6, 3, { width: 9, height: 19 }), 1));
   });
 });
 
@@ -156,7 +156,7 @@ describe('mounted banner', () => {
     const piece = pickPiece('dark', true);
     const { banner } = mountBanner({ tier: 'cursor', piece, cell: null, stdout: stream, exitEvents });
     expect(read()).toBe(transmitData(31313, piece.png));
-    expect(bannerSnapshot()).toEqual({ id: 31313, columns: 8, rows: 3, tier: 'cursor' });
+    expect(bannerSnapshot()).toEqual({ id: 31313, columns: 6, rows: 3, tier: 'cursor' });
     exitEvents.emit('exit');
     expect(read().endsWith(banner.exit)).toBe(true);
   });
