@@ -61,13 +61,28 @@ La pieza depende del fondo que informó la terminal:
 - Claro: `isotipo-terminal-claro`, 8 × 3 celdas.
 - Sin informe: `icono-terminal`, 6 × 3 celdas, con su propia ficha.
 
-Los tres PNG van dentro del paquete, en `src/lib/brand-images.ts`.
+Los tres PNG van dentro del paquete, en `src/lib/brand-images.ts`, junto a un mapa indexado de cada uno para sixel.
 `scripts/embed-brand-images.mjs` los regenera desde las piezas oficiales.
 
 Antes de abrir la interfaz, la app pregunta a la terminal con el protocolo de imágenes de kitty.
 Va en la misma espera de 150 ms que el tema; la respuesta cuenta solo si llega antes de DA1.
-La imagen se envía una vez y se dibuja con marcadores Unicode: cada celda es texto, así que sigue a cada redibujo.
+La técnica se elige al inicio, de la más específica a la más general:
+
+1. Marcadores Unicode: Ghostty, kitty y las terminales que se presentan como ellas, con respuesta `OK`.
+   La imagen se envía una vez y cada celda del hueco es texto, así que sigue a cada redibujo.
+2. Colocación por cursor: cualquier otra terminal que responde `OK`, como Warp.
+   Tras cada frame, la imagen se coloca sobre el hueco con un identificador fijo; colocarla otra vez la mueve, no la duplica.
+   Si el frame no muestra el banner o la cabecera quedó fuera de la pantalla, la colocación se quita.
+3. Sixel: la terminal anuncia sixel en DA1, como Windows Terminal 1.22 o posterior.
+   El mapa indexado se escala al tamaño de celda que informa la terminal y se dibuja otra vez tras cada frame.
+   En esta versión solo se activa con `TACUCHI_BANNER=sixel`.
+4. Ninguna: la cabecera de una línea.
+
+Los tres primeros niveles reservan las mismas celdas: el texto no se mueve de un nivel a otro.
+Ink borra la pantalla entera cuando un frame alcanza el alto de la terminal; ese borrado elimina las imágenes de kitty.
+La app lo detecta en los bytes que escribe Ink y vuelve a enviar la imagen.
 Al salir, también con Ctrl+C o una señal, el último frame lleva la cabecera de una línea y la imagen se borra.
+`TACUCHI_BANNER=off|placeholders|cursor|sixel` fuerza un nivel para pruebas o lo apaga; los respaldos siguen mandando.
 
 La cabecera de una línea es el respaldo: `tacuchi`, pieza, versión y paso actual.
 Se usa sin respuesta a tiempo, sin TTY, con `NO_COLOR`, en ASCII, dentro de tmux o screen,

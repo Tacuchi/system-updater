@@ -100,7 +100,7 @@ const size = (width: number, height: number) => {
   Object.defineProperty(process.stdout, 'columns', { configurable: true, value: width });
   Object.defineProperty(process.stdout, 'rows', { configurable: true, value: height });
 };
-const image = { id: 42, columns: 8, rows: 3 };
+const image = { id: 42, columns: 8, rows: 3, tier: 'placeholders' } as const;
 const PLACEHOLDER = '\u{10EEEE}';
 // The banner is drawn only when glyphs and colour are on; the suite also runs with TACUCHI_ASCII=1 and NO_COLOR=1.
 const bannerAllowed = !ASCII && process.env['NO_COLOR'] === undefined;
@@ -344,7 +344,7 @@ describe('hermetic screen frames', () => {
   it('uses the six-cell icon width when the theme was unknown', async () => {
     fixture.scenario = 'full'; fixture.language = 'en'; fixture.newer = false;
     size(80, 24);
-    configureBanner({ id: 200, columns: 6, rows: 3 });
+    configureBanner({ id: 200, columns: 6, rows: 3, tier: 'placeholders' });
     const handle = render(<App />);
     try {
       const frame = capture(handle, 'banner-icon');
@@ -354,6 +354,29 @@ describe('hermetic screen frames', () => {
       expect(lines[1]).toContain('looking for managers');
       expect(lines[2]).toContain('Step 1/4 · Detecting managers');
     } finally { handle.unmount(); }
+  });
+  it('reserves the same cells in every tier, so the text never moves', async () => {
+    fixture.scenario = 'full'; fixture.language = 'es';
+    size(100, 30);
+    const frames: Record<string, string[]> = {};
+    for (const tier of ['placeholders', 'cursor', 'sixel'] as const) {
+      configureBanner({ ...image, tier });
+      const handle = render(<App />);
+      try { frames[tier] = capture(handle, `banner-tier-${tier}`).split('\n'); } finally { handle.unmount(); }
+    }
+    if (!bannerAllowed) {
+      for (const lines of Object.values(frames)) expectLineHeader(lines.join('\n'));
+      return;
+    }
+    const placeholders = placeholderRows(image.id, image.columns, image.rows);
+    for (const tier of ['cursor', 'sixel'] as const) {
+      for (let row = 0; row < 3; row++) {
+        expect(frames[tier]![row]).toBe(frames['placeholders']![row]!.replace(placeholders[row]!, ' '.repeat(image.columns)));
+        expect(frames[tier]![row]!.startsWith(' '.repeat(2 + image.columns + 2))).toBe(true);
+      }
+      expect(frames[tier]!.join('\n')).not.toContain(PLACEHOLDER);
+    }
+    expect(frames['cursor']![0]).toMatch(/^ {12}tacuchi updater/);
   });
   for (const [name, width, height] of [['narrow', 59, 30], ['short', 100, 18]] as const) it(`keeps the one-line header in a ${name} terminal`, async () => {
     fixture.scenario = 'full'; fixture.language = 'es';

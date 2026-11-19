@@ -27,8 +27,29 @@ Algunos gestores ejecutan operaciones globales aunque selecciones paquetes; revi
 ## Pantallas y controles
 
 En una terminal que responde al protocolo de imágenes de kitty, la cabecera muestra el isotipo junto a tres líneas: nombre y versión, plataforma y gestores detectados, y paso.
+Ghostty y kitty dibujan la imagen como texto; Warp y las demás que responden la reciben colocada sobre la cabecera después de cada frame.
 En las demás terminales, sin color, en modo ASCII, dentro de tmux o screen, o en una ventana de menos de 60 columnas o 19 filas, la cabecera reúne marca, versión y paso en una sola línea.
 La salida redirigida nunca lleva imágenes.
+
+`TACUCHI_BANNER` elige la técnica de la imagen, para probarla o como salida de emergencia:
+
+| Valor | Efecto |
+|---|---|
+| `off` | Cabecera de una línea, sin preguntar a la terminal. |
+| `placeholders` | Marcadores Unicode, aunque la terminal no se presente como Ghostty o kitty. |
+| `cursor` | Colocación por cursor después de cada frame. |
+| `sixel` | Imagen sixel, para terminales que la anuncian, como Windows Terminal 1.22 o posterior. En esta versión es la única forma de activarla. |
+
+Un valor forzado no pasa por encima de los respaldos: sin TTY, con `NO_COLOR`, en ASCII, dentro de tmux o screen, o en una ventana chica, la cabecera sigue siendo de una línea.
+Cualquier otro valor se ignora.
+
+```sh
+TACUCHI_BANNER=off updater
+```
+
+```powershell
+$env:TACUCHI_BANNER='sixel'; updater
+```
 Las pistas muestran las teclas disponibles y pasan a varias líneas cuando falta ancho.
 El idioma configurado se aplica desde el inicio, incluida la ayuda de la CLI.
 

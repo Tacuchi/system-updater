@@ -2,15 +2,16 @@
  * Whether the header is the image banner, shared by the header, the screens
  * that size their lists by the terminal height, and every exit route.
  *
- * The entry point configures it once, after the terminal answered the kitty
- * query and the image was transmitted. Retiring it before Ink's last frame
- * leaves the one-line header in the scrollback, so no placeholder cell
+ * The entry point configures it once, after the terminal answered and the
+ * image was sent. Retiring it before Ink's last frame leaves the one-line
+ * header in the scrollback, so no placeholder cell and no reserved gap
  * outlives the image that the exit handler deletes.
  */
 import { ASCII } from './glyphs.js';
-import { BANNER_EXTRA_ROWS, bannerBlocker } from './terminal-image.js';
+import { BANNER_EXTRA_ROWS, bannerBlocker, type ImageTier } from './terminal-image.js';
 
-export interface BannerImage { id: number; columns: number; rows: number }
+/** The image the header leaves room for; only the placeholder tier draws it as text. */
+export interface BannerImage { id: number; columns: number; rows: number; tier: ImageTier }
 
 let image: BannerImage | null = null;
 let retired = false;

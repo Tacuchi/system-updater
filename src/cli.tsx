@@ -4,8 +4,9 @@ import { loadConfig } from './lib/config.js';
 import { setLanguage, t } from './i18n/index.js';
 import { setTerminalTheme } from './theme.js';
 import { probeTerminal } from './lib/terminal-theme.js';
-import { bannerBlocker, deleteImage, pickImageId, pickPiece, transmitImage } from './lib/terminal-image.js';
-import { configureBanner, retireBanner } from './lib/banner.js';
+import { bannerWanted, pickPiece, pickTier, sixelPossible } from './lib/terminal-image.js';
+import { retireBanner } from './lib/banner.js';
+import { mountBanner } from './lib/banner-output.js';
 import { ASCII } from './lib/glyphs.js';
 import { render } from 'ink';
 import { execaSync } from 'execa';
@@ -77,27 +78,27 @@ const sudoMode = process.platform === 'win32' ? elevated : isRoot || sudoRequest
 const nonInteractive =
   !process.stdin.isTTY || args.includes('--yes') || args.includes('-y') || args.includes('--all');
 
-// The graphics query only goes out when the banner could be drawn at all.
-const bannerWanted = !nonInteractive && bannerBlocker({
-  env: process.env, stdoutTTY: process.stdout.isTTY === true, ascii: ASCII,
+// The graphics queries only go out when the banner could be drawn at all;
+// TACUCHI_BANNER=off skips them too.
+const wanted = bannerWanted({
+  env: process.env, interactive: !nonInteractive, stdoutTTY: process.stdout.isTTY === true, ascii: ASCII,
   columns: Math.min(process.stdout.columns ?? 0, 100), rows: process.stdout.rows ?? 0,
-}) === null;
-const probe = await probeTerminal({ interactive: !nonInteractive, images: bannerWanted });
+});
+const probe = await probeTerminal({ interactive: !nonInteractive, images: wanted, cell: sixelPossible(process.env) });
 setTerminalTheme(probe.theme);
-if (probe.images) {
-  const piece = pickPiece(probe.theme, probe.themeKnown);
-  const id = pickImageId();
-  process.stdout.write(transmitImage(id, piece));
-  configureBanner({ id, columns: piece.columns, rows: piece.rows });
-  // Every route ends here, Ctrl+C and signals included: free the image so
-  // nothing of it stays in the terminal after the app quits.
-  process.on('exit', () => { process.stdout.write(deleteImage(id)); });
-}
+const tier = wanted ? pickTier({ env: process.env, images: probe.images, sixel: probe.sixel }) : 'none';
+// Ink writes through the mounted stream, which adds what the tier needs after
+// each frame. Every route out ends at the process 'exit' event, Ctrl+C and
+// signals included, and that is where the image is deleted.
+const inkStdout = tier === 'none' ? process.stdout : mountBanner({
+  tier, piece: pickPiece(probe.theme, probe.themeKnown), cell: probe.cell, stdout: process.stdout, exitEvents: process,
+}).stdout;
 
 const redirected = !process.stdout.isTTY;
 const lineOutput = redirected ? (line: string) => { process.stdout.write(line); } : undefined;
 // Ink still supplies the hook lifecycle; only the line writer reaches the pipe.
-const sink = redirected ? new Writable({ write(_chunk, _encoding, done) { done(); } }) : process.stdout;
+// The banner needs a TTY, so a redirected run never gets the wrapped stream.
+const sink = redirected ? new Writable({ write(_chunk, _encoding, done) { done(); } }) : inkStdout;
 const app = <App sudoMode={sudoMode} nonInteractive={nonInteractive} lineOutput={lineOutput} />;
 const { unmount: inkUnmount, rerender } = render(app, { exitOnCtrlC: false, stdout: sink as NodeJS.WriteStream });
 // Outside React, a signal can retire the banner and commit the line header synchronously.

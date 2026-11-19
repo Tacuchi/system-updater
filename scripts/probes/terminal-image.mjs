@@ -1,7 +1,7 @@
 // Kitty graphics probe for the header banner. Never runs the app or any package manager.
 //   node scripts/probes/terminal-image.mjs --fixtures   recorded answers and exact command bytes, no terminal
 //   node scripts/probes/terminal-image.mjs [--write f]  asks the current terminal (150 ms limit) and prints JSON (also to f)
-//   node scripts/probes/terminal-image.mjs --placement  shows, by eye, why the banner uses Unicode placeholders
+//   node scripts/probes/terminal-image.mjs --placement  shows, by eye, the ghost a new cursor placement per frame leaves
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';

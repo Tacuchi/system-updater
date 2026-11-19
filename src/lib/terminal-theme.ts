@@ -1,6 +1,7 @@
 import type { Readable, Writable } from 'node:stream';
 import type { TerminalTheme } from '../theme.js';
-import { KITTY_QUERY, answersImages } from './terminal-image.js';
+import { CELL_SIZE_QUERY, KITTY_QUERY, answersImages, cellSize, listsSixel } from './terminal-image.js';
+import type { CellSize } from './sixel.js';
 export const THEME_TIMEOUT_MS = 150;
 export function parseTerminalTheme(colorfgbg?: string, response = ''): TerminalTheme {
   const palette = colorfgbg?.split(';').at(-1);
@@ -15,7 +16,16 @@ export function parseTerminalTheme(colorfgbg?: string, response = ''): TerminalT
 }
 type Input = Readable & { isTTY?: boolean; isRaw?: boolean; setRawMode?: (raw: boolean) => unknown };
 type Output = Writable & { isTTY?: boolean };
-export interface TerminalProbe { theme: TerminalTheme; themeKnown: boolean; images: boolean }
+export interface TerminalProbe {
+  theme: TerminalTheme;
+  themeKnown: boolean;
+  /** An OK answer to the kitty graphics query before DA1. */
+  images: boolean;
+  /** The DA1 reply lists sixel. */
+  sixel: boolean;
+  /** The cell size in pixels, when asked for and answered before DA1. */
+  cell: CellSize | null;
+}
 /** True when COLORFGBG or an OSC 11 answer actually reported the background. */
 export function themeReported(colorfgbg?: string, response = ''): boolean {
   const palette = colorfgbg?.split(';').at(-1);
@@ -25,15 +35,16 @@ export function themeReported(colorfgbg?: string, response = ''): boolean {
 /**
  * One bounded round trip before Ink starts: the background colour (unless
  * COLORFGBG already gives it) and, when the banner is wanted, the kitty graphics
- * query. Both are answered before DA1, which ends the wait; without DA1 the
- * wait ends at THEME_TIMEOUT_MS.
+ * query and, for sixel, the cell size. All are answered before DA1, which ends
+ * the wait and also says whether sixel is supported; without DA1 the wait ends
+ * at THEME_TIMEOUT_MS.
  */
-export async function probeTerminal({ input = process.stdin, output = process.stdout, interactive, env = process.env, images = false }: {
-  input?: Input; output?: Output; interactive: boolean; env?: NodeJS.ProcessEnv; images?: boolean;
+export async function probeTerminal({ input = process.stdin, output = process.stdout, interactive, env = process.env, images = false, cell = false }: {
+  input?: Input; output?: Output; interactive: boolean; env?: NodeJS.ProcessEnv; images?: boolean; cell?: boolean;
 }): Promise<TerminalProbe> {
   const colorfgbg = env['COLORFGBG'];
-  if (!interactive || !input.isTTY || !output.isTTY || !input.setRawMode) return { theme: 'dark', themeKnown: false, images: false };
-  if (colorfgbg && !images) return { theme: parseTerminalTheme(colorfgbg), themeKnown: themeReported(colorfgbg), images: false };
+  if (!interactive || !input.isTTY || !output.isTTY || !input.setRawMode) return { theme: 'dark', themeKnown: false, images: false, sixel: false, cell: null };
+  if (colorfgbg && !images) return { theme: parseTerminalTheme(colorfgbg), themeKnown: themeReported(colorfgbg), images: false, sixel: false, cell: null };
   const wasRaw = input.isRaw === true;
   const wasPaused = input.isPaused();
   input.setRawMode(true);
@@ -47,7 +58,7 @@ export async function probeTerminal({ input = process.stdin, output = process.st
       };
       const timer = setTimeout(finish, THEME_TIMEOUT_MS);
       input.on('data', data);
-      output.write((colorfgbg ? '' : '\x1b]11;?\x07') + (images ? KITTY_QUERY : '') + '\x1b[c');
+      output.write((colorfgbg ? '' : '\x1b]11;?\x07') + (images ? KITTY_QUERY : '') + (images && cell ? CELL_SIZE_QUERY : '') + '\x1b[c');
     });
   } finally {
     input.setRawMode(wasRaw);
@@ -57,6 +68,8 @@ export async function probeTerminal({ input = process.stdin, output = process.st
     theme: parseTerminalTheme(colorfgbg, response),
     themeKnown: themeReported(colorfgbg, response),
     images: images && answersImages(response),
+    sixel: images && listsSixel(response),
+    cell: images && cell ? cellSize(response) : null,
   };
 }
 export async function detectTerminalTheme(options: {

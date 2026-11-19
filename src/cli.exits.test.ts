@@ -61,6 +61,21 @@ describe('CLI language and redirected text', () => {
     expect(output).toMatch(/Resumen|Summary/);
     expect(output).not.toMatch(/\x1b|Q salir|Q quit|Ctrl\+C/);
   });
+  for (const tier of ['placeholders', 'cursor', 'sixel']) it(`keeps image bytes out of redirected output even with TACUCHI_BANNER=${tier}`, async () => {
+    const previous = process.env['TACUCHI_BANNER'];
+    process.env['TACUCHI_BANNER'] = tier;
+    try {
+      const { child, exited } = launch(['--yes']);
+      let output = '';
+      child.stdout!.on('data', chunk => { output += chunk.toString(); });
+      await exited;
+      expect(output).toMatch(/Resumen|Summary/);
+      expect(output).not.toMatch(/\x1b/);
+    } finally {
+      if (previous === undefined) delete process.env['TACUCHI_BANNER'];
+      else process.env['TACUCHI_BANNER'] = previous;
+    }
+  });
 });
 
 beforeEach(() => {

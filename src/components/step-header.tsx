@@ -7,7 +7,7 @@ import { useMachine } from '../hooks/use-app-machine.js';
 import { getVersion } from '../lib/version.js';
 import { getPlatform } from '../lib/platform.js';
 import { bannerSnapshot, shownBanner, subscribeBanner, type BannerImage } from '../lib/banner.js';
-import { placeholderRows } from '../lib/terminal-image.js';
+import { IMAGE_COLUMN, placeholderRows } from '../lib/terminal-image.js';
 import type { Phase } from '../state/types.js';
 const steps: Partial<Record<Phase, number>> = { boot: 1, detecting: 1, scanning: 1, select: 2, confirm: 3, updating: 4 };
 export function StepHeader() {
@@ -15,7 +15,11 @@ export function StepHeader() {
   return banner ? <BrandBanner image={banner} /> : <LineHeader />;
 }
 const clip = (text: string, width: number) => text.length > width ? text.slice(0, Math.max(0, width - g.ellipsis.length)) + g.ellipsis : text;
-/** The image, 3 rows tall and 2 columns in from the margin, beside three text lines. */
+/**
+ * The image, 3 rows tall and 2 columns in from the margin (IMAGE_COLUMN),
+ * beside three text lines. Placeholder cells draw it as text; the cursor and
+ * sixel tiers draw it over the same cells, left blank here, after each frame.
+ */
 function BrandBanner({ image }: { image: BannerImage }) {
   const { state, selfUpdate } = useMachine();
   const textWidth = Math.min(process.stdout.columns ?? 100, 100) - 2 - 1 - image.columns - 2;
@@ -28,8 +32,9 @@ function BrandBanner({ image }: { image: BannerImage }) {
   const platform = t('banner', getPlatform()) + (managers ? ` ${g.separator} ${managers}` : '');
   const name = 'tacuchi updater';
   return <Box marginBottom={1}>
-    <Box flexDirection="column" marginLeft={1} width={image.columns} flexShrink={0}>
-      {placeholderRows(image.id, image.columns, image.rows).map((row, index) => <Text key={index}>{row}</Text>)}
+    <Box flexDirection="column" marginLeft={IMAGE_COLUMN - 1} width={image.columns} flexShrink={0}>
+      {(image.tier === 'placeholders' ? placeholderRows(image.id, image.columns, image.rows) : Array.from({ length: image.rows }, () => ' '.repeat(image.columns)))
+        .map((row, index) => <Text key={index}>{row}</Text>)}
     </Box>
     <Box flexDirection="column" marginLeft={2}>
       <Text><Text bold color={semantic.text}>{name}</Text><Text color={semantic.muted}>{clip(version, Math.max(0, textWidth - name.length))}</Text></Text>

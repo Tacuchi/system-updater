@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { bannerSnapshot, configureBanner, retireBanner, shownBanner, subscribeBanner } from './banner.js';
 import { ASCII } from './glyphs.js';
 
-const image = { id: 42, columns: 8, rows: 3 };
+const image = { id: 42, columns: 8, rows: 3, tier: 'placeholders' } as const;
 afterEach(() => configureBanner(null));
 
 describe('banner state', () => {
