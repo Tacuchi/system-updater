@@ -21,7 +21,10 @@ vi.mock('./managers/registry.js', () => ({
     if (fixture.scenario === 'failure') throw new Error('EACCES: permission denied');
     return [{ manager: {
       id: fixture.scenario === 'brew' ? 'brew' : 'npm', group: 'language', platforms: ['darwin', 'linux', 'win32'], requiresAdmin: false,
-      listOutdated: async () => fixture.scenario === 'empty' ? [] : [{ name: 'typescript', currentVersion: '5.6.3', newVersion: '5.7.2' }],
+      listOutdated: async () => fixture.scenario === 'empty' ? [] : [
+        { name: 'typescript', currentVersion: '5.6.3', newVersion: '5.7.2' },
+        ...(fixture.scenario === 'partial' ? [{ name: 'prettier', currentVersion: '3.3.0', newVersion: '3.4.0' }] : []),
+      ],
       async *upgrade() { throw new Error('Engine must be simulated'); },
     }, detection: { available: true, version: '10.0' } }];
   },
@@ -38,7 +41,10 @@ vi.mock('./lib/exec/engine.js', () => ({
     else await new Promise(resolve => setTimeout(resolve, 150));
     options.onEvent?.({ managerId, phase: 'done', result: {
       success: fixture.scenario !== 'partial', status: fixture.scenario === 'partial' ? 'partial' : 'success', managerId: 'npm', upgraded: 1, failed: fixture.scenario === 'partial' ? 1 : 0, errors: [],
-      packages: [{ name: 'typescript', outcome: 'upgraded', fromVersion: '5.6.3', toVersion: '5.7.2' }],
+      packages: [
+        { name: 'typescript', outcome: 'upgraded', fromVersion: '5.6.3', toVersion: '5.7.2' },
+        ...(fixture.scenario === 'partial' ? [{ name: 'prettier', outcome: 'failed' as const, failureKind: 'COMMAND_FAILED' as const }] : []),
+      ],
     } });
   },
 }));
@@ -165,19 +171,41 @@ describe('hermetic screen frames', () => {
       expect(handle.lastFrame()).toContain('Espacio marcar');
     } finally { handle.unmount(); }
   });
-  it('never marks a partially failed manager as successful', async () => {
-    fixture.scenario = 'partial'; fixture.language = 'es';
-    const handle = render(<App nonInteractive />);
+  for (const language of ['es', 'en'] as const) it(`never marks a partially failed manager as successful on screen in ${language}`, async () => {
+    fixture.scenario = 'partial'; fixture.language = language;
+    const handle = render(<App />);
     try {
-      await waitFor(handle, 'CON ERRORES');
-      const row = handle.lastFrame()!.split('\n').find(line => line.includes('Node NPM'))!;
-      expect(row.trim().startsWith(g.partial)).toBe(true);
+      await waitFor(handle, '5.7.2');
+      handle.stdin.write('a');
+      await waitFor(handle, language === 'es' ? '2 de 2 marcados' : '2 of 2 marked');
+      handle.stdin.write('\r');
+      await waitFor(handle, language === 'es' ? 'Se ejecutará' : 'Will run');
+      handle.stdin.write('\r');
+      await waitFor(handle, language === 'es' ? 'CON ERRORES' : 'WITH ERRORS');
+      const row = handle.lastFrame()!.split('\n').find(line => line.includes('Node NPM'));
+      expect(row).toBeDefined();
+      expect(row!.trimStart().startsWith(g.partial)).toBe(true);
     } finally { handle.unmount(); }
   });
-  it('writes plain redirected results without CI, cursor controls or key hints', async () => {
+  for (const language of ['es', 'en'] as const) it(`reports partial failures in redirected output in ${language}`, async () => {
+    fixture.scenario = 'partial'; fixture.language = language;
+    const exitCode = process.exitCode;
+    let output = '';
+    const handle = render(<App nonInteractive lineOutput={line => { output += line; }} />);
+    try {
+      const deadline = Date.now() + 5000;
+      const summary = language === 'es' ? 'Resumen:' : 'Summary:';
+      while (!output.includes(summary) && Date.now() < deadline) await pause();
+      const resultLines = output.split('\n').filter(line => /^Node NPM: (?:PARCIAL|PARTIAL)\b/.test(line));
+      expect(resultLines).toEqual([language === 'es' ? 'Node NPM: PARCIAL 1 actualizado, 1 fallido' : 'Node NPM: PARTIAL 1 upgraded, 1 failed']);
+      expect(output.split('\n').find(line => line.startsWith(summary))).toBe(language === 'es' ? 'Resumen: 1 actualizado · 1 fallido'.replace('·', g.separator) : 'Summary: 1 upgraded · 1 failed'.replace('·', g.separator));
+      expect(output).not.toMatch(/Node NPM: OK|\x1b|Q salir|Q quit/);
+      expect(process.exitCode).toBe(1);
+    } finally { handle.unmount(); process.exitCode = exitCode; }
+  });
+  it('writes plain redirected results without cursor controls or key hints', async () => {
     fixture.scenario = 'full';
     fixture.language = 'es';
-    const priorCI = process.env['CI']; delete process.env['CI'];
     let output = '';
     const handle = render(<App nonInteractive lineOutput={line => { output += line; }} />);
     try {
@@ -189,7 +217,7 @@ describe('hermetic screen frames', () => {
       expect(output.split('\n').filter(line => line.startsWith('Node NPM: OK'))).toHaveLength(1);
       expect(output).not.toMatch(/\x1b|Q salir|Ctrl\+C|Espacio/);
       writeFileSync(join(outputDirectory(), 'non-tty.txt'), output);
-    } finally { handle.unmount(); if (priorCI === undefined) delete process.env['CI']; else process.env['CI'] = priorCI; }
+    } finally { handle.unmount(); }
   });
   it('keeps running while Q/Esc asks, returns with N, then confirms cancellation', async () => {
     fixture.hold = true; fixture.aborted = false; fixture.language = 'es'; fixture.scenario = 'full';
