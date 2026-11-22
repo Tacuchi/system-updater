@@ -2,6 +2,7 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
+    "feedback_links": false,
     "title": "Contexto de system-updater",
     "locale": "es",
     "output": "docs/architecture/context.html",
@@ -42,6 +43,7 @@
     },
     {
       "id": "updater",
+      "href": "containers.html",
       "type": "backend",
       "label": "system-updater",
       "sublabel": "Detectar · confirmar · verificar",

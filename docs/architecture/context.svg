@@ -134,19 +134,23 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
   
 svg { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', 'Noto Sans Mono CJK SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', monospace; }
-:root, [data-theme="dark"] { --bg: #020617; --grid: #1e293b; --canvas-dot: rgba(148, 163, 184, 0.16); --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #94a3b8; --arrow-emphasis: #34d399; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; }
-[data-theme="light"] { --bg: #f4f5f7; --grid: #e9edf2; --canvas-dot: #e2e7ec; --text: #111827; --text-muted: #5b6474; --text-dim: #9aa3b2; --text-faint: #6b7280; --panel: #ffffff; --panel-border: #e5e7eb; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #64748b; --arrow-emphasis: #059669; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; }
-[data-preset="signal-flow"][data-theme="dark"] { --bg: #030711; --grid: #15233a; --panel: rgba(6, 14, 28, 0.78); --panel-border: #1d3350; --lane-fill: rgba(9, 22, 40, 0.5); --lane-stroke: #2c4564; --text: #f5fbff; --text-muted: #9eb0c7; --text-dim: #52667f; --text-faint: #7890ad; --mask: #07101e; --frontend-fill: rgba(6, 182, 212, 0.14); --frontend-stroke: #67e8f9; --backend-fill: rgba(16, 185, 129, 0.14); --backend-stroke: #5eead4; --database-fill: rgba(139, 92, 246, 0.16); --database-stroke: #c4b5fd; --cloud-fill: rgba(245, 158, 11, 0.13); --cloud-stroke: #fcd34d; --security-fill: rgba(244, 63, 94, 0.13); --security-stroke: #fda4af; --messagebus-fill: rgba(249, 115, 22, 0.13); --messagebus-stroke: #fdba74; --external-fill: rgba(71, 85, 105, 0.24); --external-stroke: #a5b4c7; --arrow: #7890ad; --arrow-emphasis: #2dd4bf; --toolbar-bg: rgba(7, 16, 30, 0.86); --toolbar-border: #29415f; --toolbar-menu-bg: #07101e; }
-[data-preset="signal-flow"][data-theme="light"] { --bg: #f4f9fc; --grid: #d4e5ee; --panel: rgba(255, 255, 255, 0.82); --panel-border: #bfd5e2; --lane-fill: rgba(232, 243, 248, 0.62); --lane-stroke: #a9c5d5; --text: #102638; --text-muted: #587287; --text-dim: #8aa2b4; --text-faint: #668397; --mask: #ffffff; --frontend-fill: rgba(6, 182, 212, 0.09); --frontend-stroke: #0789a1; --backend-fill: rgba(5, 150, 105, 0.09); --backend-stroke: #087f69; --database-fill: rgba(124, 58, 237, 0.09); --database-stroke: #7254c7; --cloud-fill: rgba(217, 119, 6, 0.08); --cloud-stroke: #b9670b; --security-fill: rgba(225, 29, 72, 0.08); --security-stroke: #c53a59; --messagebus-fill: rgba(234, 88, 12, 0.08); --messagebus-stroke: #c65f27; --external-fill: rgba(100, 116, 139, 0.1); --external-stroke: #607a8c; --arrow: #7b97aa; --arrow-emphasis: #0d9488; }
-[data-preset="blueprint"][data-theme="dark"] { --bg: #06131f; --grid: #17425a; --panel: rgba(7, 27, 43, 0.9); --panel-border: #27627f; --lane-fill: rgba(10, 43, 66, 0.36); --lane-stroke: #34799a; --text: #e3f6ff; --text-muted: #91b8ca; --text-dim: #557e92; --text-faint: #739caf; --mask: #0a2031; --frontend-fill: rgba(26, 157, 193, 0.14); --frontend-stroke: #66d9ef; --backend-fill: rgba(31, 155, 124, 0.13); --backend-stroke: #69dfbd; --database-fill: rgba(120, 105, 196, 0.14); --database-stroke: #b4a8ff; --cloud-fill: rgba(197, 145, 43, 0.13); --cloud-stroke: #ffd166; --security-fill: rgba(199, 76, 104, 0.13); --security-stroke: #ff8da1; --messagebus-fill: rgba(207, 112, 49, 0.13); --messagebus-stroke: #ffad66; --external-fill: rgba(84, 119, 139, 0.18); --external-stroke: #a7cad9; --arrow: #78a3b7; --arrow-emphasis: #64dfc1; --toolbar-bg: rgba(7, 28, 45, 0.92); --toolbar-border: #34799a; --toolbar-text: #d8f3ff; --toolbar-hover: rgba(18, 58, 83, 0.95); --toolbar-menu-bg: #0a2031; }
-[data-preset="blueprint"][data-theme="light"] { --bg: #edf7fa; --grid: #b5d5e1; --panel: rgba(249, 253, 255, 0.94); --panel-border: #78aabd; --lane-fill: rgba(210, 232, 240, 0.42); --lane-stroke: #83b2c4; --text: #123344; --text-muted: #4e7486; --text-dim: #86a6b4; --text-faint: #668c9d; --mask: #f9fdff; --frontend-fill: rgba(8, 145, 178, 0.08); --frontend-stroke: #087f9c; --backend-fill: rgba(5, 128, 101, 0.08); --backend-stroke: #08755f; --database-fill: rgba(100, 75, 180, 0.08); --database-stroke: #6757a8; --cloud-fill: rgba(181, 120, 15, 0.08); --cloud-stroke: #a86609; --security-fill: rgba(190, 48, 80, 0.07); --security-stroke: #b32f50; --messagebus-fill: rgba(196, 81, 22, 0.07); --messagebus-stroke: #b65120; --external-fill: rgba(79, 112, 128, 0.08); --external-stroke: #506f7e; --arrow: #6d93a5; --arrow-emphasis: #087f69; --toolbar-bg: rgba(247, 252, 254, 0.94); --toolbar-border: #8ab5c5; --toolbar-text: #294f61; --toolbar-hover: #ffffff; --toolbar-menu-bg: #f9fdff; }
-[data-preset="editorial"][data-theme="dark"] { --bg: #181611; --grid: #39342a; --panel: rgba(35, 31, 24, 0.96); --panel-border: #625a4a; --lane-fill: rgba(52, 46, 35, 0.46); --lane-stroke: #726957; --text: #f4eddf; --text-muted: #b9ae9b; --text-dim: #776e60; --text-faint: #9d917e; --mask: #231f18; --frontend-fill: rgba(43, 133, 142, 0.16); --frontend-stroke: #7fc6c7; --backend-fill: rgba(63, 132, 92, 0.16); --backend-stroke: #8fc29e; --database-fill: rgba(117, 91, 141, 0.17); --database-stroke: #c0a4d0; --cloud-fill: rgba(170, 119, 49, 0.16); --cloud-stroke: #d8ad68; --security-fill: rgba(157, 69, 65, 0.17); --security-stroke: #df9085; --messagebus-fill: rgba(174, 79, 42, 0.16); --messagebus-stroke: #df946f; --external-fill: rgba(126, 115, 96, 0.18); --external-stroke: #b8ad99; --arrow: #948978; --arrow-emphasis: #dd6b3d; --toolbar-bg: rgba(35, 31, 24, 0.92); --toolbar-border: #625a4a; --toolbar-text: #eee5d5; --toolbar-hover: #302a20; --toolbar-menu-bg: #231f18; }
-[data-preset="editorial"][data-theme="light"] { --bg: #f2eee5; --grid: #d8d0c2; --panel: rgba(251, 248, 241, 0.97); --panel-border: #c4b9a6; --lane-fill: rgba(229, 221, 207, 0.42); --lane-stroke: #b8aa94; --text: #242018; --text-muted: #6f6658; --text-dim: #a09788; --text-faint: #817767; --mask: #fbf8f1; --frontend-fill: rgba(31, 117, 126, 0.09); --frontend-stroke: #287e84; --backend-fill: rgba(42, 119, 75, 0.09); --backend-stroke: #397b53; --database-fill: rgba(105, 75, 130, 0.09); --database-stroke: #765d86; --cloud-fill: rgba(157, 103, 31, 0.1); --cloud-stroke: #9a671f; --security-fill: rgba(153, 58, 52, 0.09); --security-stroke: #9e463f; --messagebus-fill: rgba(182, 70, 27, 0.09); --messagebus-stroke: #ad4b25; --external-fill: rgba(101, 91, 75, 0.09); --external-stroke: #746b5e; --arrow: #8a806f; --arrow-emphasis: #bb4c23; --toolbar-bg: rgba(251, 248, 241, 0.94); --toolbar-border: #c4b9a6; --toolbar-text: #40392f; --toolbar-hover: #fffdf8; --toolbar-menu-bg: #fbf8f1; }
+:root, [data-theme="dark"] { color-scheme: dark; --bg: #020617; --grid: #1e293b; --canvas-dot: rgba(148, 163, 184, 0.16); --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #94a3b8; --arrow-emphasis: #34d399; --edge-label: var(--arrow); --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; }
+[data-theme="light"] { color-scheme: light; --bg: #f4f5f7; --grid: #e9edf2; --canvas-dot: #e2e7ec; --text: #111827; --text-muted: #5b6474; --text-dim: #9aa3b2; --text-faint: #6b7280; --panel: #ffffff; --panel-border: #e5e7eb; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #64748b; --arrow-emphasis: #059669; --edge-label: var(--text-muted); --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --reader-accent: #077f9c; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; }
+[data-preset="signal-flow"][data-theme="dark"] { --bg: #030711; --grid: #15233a; --panel: rgba(6, 14, 28, 0.78); --panel-border: #1d3350; --lane-fill: rgba(9, 22, 40, 0.5); --lane-stroke: #2c4564; --text: #f5fbff; --text-muted: #9eb0c7; --text-dim: #52667f; --text-faint: #7890ad; --mask: #07101e; --frontend-fill: rgba(6, 182, 212, 0.14); --frontend-stroke: #67e8f9; --backend-fill: rgba(16, 185, 129, 0.14); --backend-stroke: #5eead4; --database-fill: rgba(139, 92, 246, 0.16); --database-stroke: #c4b5fd; --cloud-fill: rgba(245, 158, 11, 0.13); --cloud-stroke: #fcd34d; --security-fill: rgba(244, 63, 94, 0.13); --security-stroke: #fda4af; --messagebus-fill: rgba(249, 115, 22, 0.13); --messagebus-stroke: #fdba74; --external-fill: rgba(71, 85, 105, 0.24); --external-stroke: #a5b4c7; --arrow: #7890ad; --arrow-emphasis: #2dd4bf; --edge-label: var(--arrow); --toolbar-bg: rgba(7, 16, 30, 0.86); --toolbar-border: #29415f; --toolbar-menu-bg: #07101e; }
+[data-preset="signal-flow"][data-theme="light"] { --bg: #f4f9fc; --grid: #d4e5ee; --panel: rgba(255, 255, 255, 0.82); --panel-border: #bfd5e2; --lane-fill: rgba(232, 243, 248, 0.62); --lane-stroke: #a9c5d5; --text: #102638; --text-muted: #587287; --text-dim: #8aa2b4; --text-faint: #5d778a; --mask: #ffffff; --frontend-fill: rgba(6, 182, 212, 0.09); --frontend-stroke: #0789a1; --reader-accent: #067e95; --backend-fill: rgba(5, 150, 105, 0.09); --backend-stroke: #087f69; --database-fill: rgba(124, 58, 237, 0.09); --database-stroke: #7254c7; --cloud-fill: rgba(217, 119, 6, 0.08); --cloud-stroke: #b9670b; --security-fill: rgba(225, 29, 72, 0.08); --security-stroke: #c53a59; --messagebus-fill: rgba(234, 88, 12, 0.08); --messagebus-stroke: #c65f27; --external-fill: rgba(100, 116, 139, 0.1); --external-stroke: #607a8c; --arrow: #7b97aa; --arrow-emphasis: #0d9488; --edge-label: var(--text-muted); }
+[data-preset="blueprint"][data-theme="dark"] { --bg: #06131f; --grid: #17425a; --panel: rgba(7, 27, 43, 0.9); --panel-border: #27627f; --lane-fill: rgba(10, 43, 66, 0.36); --lane-stroke: #34799a; --text: #e3f6ff; --text-muted: #91b8ca; --text-dim: #557e92; --text-faint: #739caf; --mask: #0a2031; --frontend-fill: rgba(26, 157, 193, 0.14); --frontend-stroke: #66d9ef; --backend-fill: rgba(31, 155, 124, 0.13); --backend-stroke: #69dfbd; --database-fill: rgba(120, 105, 196, 0.14); --database-stroke: #b4a8ff; --cloud-fill: rgba(197, 145, 43, 0.13); --cloud-stroke: #ffd166; --security-fill: rgba(199, 76, 104, 0.13); --security-stroke: #ff8da1; --messagebus-fill: rgba(207, 112, 49, 0.13); --messagebus-stroke: #ffad66; --external-fill: rgba(84, 119, 139, 0.18); --external-stroke: #a7cad9; --arrow: #78a3b7; --arrow-emphasis: #64dfc1; --edge-label: var(--arrow); --toolbar-bg: rgba(7, 28, 45, 0.92); --toolbar-border: #34799a; --toolbar-text: #d8f3ff; --toolbar-hover: rgba(18, 58, 83, 0.95); --toolbar-menu-bg: #0a2031; }
+[data-preset="blueprint"][data-theme="light"] { --bg: #edf7fa; --grid: #b5d5e1; --panel: rgba(249, 253, 255, 0.94); --panel-border: #78aabd; --lane-fill: rgba(210, 232, 240, 0.42); --lane-stroke: #83b2c4; --text: #123344; --text-muted: #4e7486; --text-dim: #86a6b4; --text-faint: #577786; --mask: #f9fdff; --frontend-fill: rgba(8, 145, 178, 0.08); --frontend-stroke: #087f9c; --backend-fill: rgba(5, 128, 101, 0.08); --backend-stroke: #08755f; --database-fill: rgba(100, 75, 180, 0.08); --database-stroke: #6757a8; --cloud-fill: rgba(181, 120, 15, 0.08); --cloud-stroke: #a86609; --security-fill: rgba(190, 48, 80, 0.07); --security-stroke: #b32f50; --messagebus-fill: rgba(196, 81, 22, 0.07); --messagebus-stroke: #b65120; --external-fill: rgba(79, 112, 128, 0.08); --external-stroke: #506f7e; --arrow: #6d93a5; --arrow-emphasis: #087f69; --edge-label: var(--text-muted); --toolbar-bg: rgba(247, 252, 254, 0.94); --toolbar-border: #8ab5c5; --toolbar-text: #294f61; --toolbar-hover: #ffffff; --toolbar-menu-bg: #f9fdff; }
+[data-preset="editorial"][data-theme="dark"] { --bg: #181611; --grid: #39342a; --panel: rgba(35, 31, 24, 0.96); --panel-border: #625a4a; --lane-fill: rgba(52, 46, 35, 0.46); --lane-stroke: #726957; --text: #f4eddf; --text-muted: #b9ae9b; --text-dim: #776e60; --text-faint: #9d917e; --mask: #231f18; --frontend-fill: rgba(43, 133, 142, 0.16); --frontend-stroke: #7fc6c7; --backend-fill: rgba(63, 132, 92, 0.16); --backend-stroke: #8fc29e; --database-fill: rgba(117, 91, 141, 0.17); --database-stroke: #c0a4d0; --cloud-fill: rgba(170, 119, 49, 0.16); --cloud-stroke: #d8ad68; --security-fill: rgba(157, 69, 65, 0.17); --security-stroke: #df9085; --messagebus-fill: rgba(174, 79, 42, 0.16); --messagebus-stroke: #df946f; --external-fill: rgba(126, 115, 96, 0.18); --external-stroke: #b8ad99; --arrow: #948978; --arrow-emphasis: #dd6b3d; --edge-label: var(--arrow); --toolbar-bg: rgba(35, 31, 24, 0.92); --toolbar-border: #625a4a; --toolbar-text: #eee5d5; --toolbar-hover: #302a20; --toolbar-menu-bg: #231f18; }
+[data-preset="editorial"][data-theme="light"] { --bg: #f2eee5; --grid: #d8d0c2; --panel: rgba(251, 248, 241, 0.97); --panel-border: #c4b9a6; --lane-fill: rgba(229, 221, 207, 0.42); --lane-stroke: #b8aa94; --text: #242018; --text-muted: #6f6658; --text-dim: #a09788; --text-faint: #796f60; --mask: #fbf8f1; --frontend-fill: rgba(31, 117, 126, 0.09); --frontend-stroke: #287e84; --reader-accent: #267a80; --backend-fill: rgba(42, 119, 75, 0.09); --backend-stroke: #397b53; --database-fill: rgba(105, 75, 130, 0.09); --database-stroke: #765d86; --cloud-fill: rgba(157, 103, 31, 0.1); --cloud-stroke: #9a671f; --security-fill: rgba(153, 58, 52, 0.09); --security-stroke: #9e463f; --messagebus-fill: rgba(182, 70, 27, 0.09); --messagebus-stroke: #ad4b25; --external-fill: rgba(101, 91, 75, 0.09); --external-stroke: #746b5e; --arrow: #8a806f; --arrow-emphasis: #bb4c23; --edge-label: var(--text-muted); --toolbar-bg: rgba(251, 248, 241, 0.94); --toolbar-border: #c4b9a6; --toolbar-text: #40392f; --toolbar-hover: #fffdf8; --toolbar-menu-bg: #fbf8f1; }
 svg { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", monospace; width: 100%; min-width: min(900px, 100%); display: block; transform-origin: 0px 0px; transition: transform 0.18s; }
 @keyframes archify-lens-in { 
   0% { opacity: 0; transform: translateY(5px) scale(0.985); }
   100% { opacity: 1; transform: translateY(0px) scale(1); }
 }
+svg [data-node-id][data-node-drilldowns] { cursor: pointer; }
+svg a.archify-drilldown-link { text-decoration: none; color: inherit; cursor: pointer; }
+svg .archify-drilldown-mark-disc { fill: color-mix(in srgb, var(--backend-stroke) 88%, var(--panel)); stroke: color-mix(in srgb, var(--backend-stroke) 55%, var(--toolbar-border)); stroke-width: 1; }
+svg .archify-drilldown-mark-arrow { stroke: var(--panel); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 @keyframes archify-guide-in { 
   0% { opacity: 0; transform: translateY(-5px) scale(0.985); }
   100% { opacity: 1; transform: translateY(0px) scale(1); }
@@ -184,10 +188,11 @@ svg { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consol
 .t-security { fill: var(--security-stroke); }
 .t-messagebus { fill: var(--messagebus-stroke); }
 .t-external { fill: var(--external-stroke); }
-.t-edge-default { fill: var(--arrow); }
+.t-edge-default { fill: var(--edge-label); }
 .t-edge-emphasis { fill: var(--arrow-emphasis); }
 .t-edge-security { fill: var(--security-stroke); }
 .t-edge-dashed { fill: var(--database-stroke); }
+svg[data-preset="classic"] .c-grid { stroke: transparent; }
 svg .semantic-sigil { fill: none; stroke: currentcolor; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; opacity: 0.76; pointer-events: none; }
 svg .semantic-sigil &gt; * { vector-effect: non-scaling-stroke; }
 svg .semantic-sigil .sigil-fill { fill: currentcolor; stroke: none; }
@@ -215,6 +220,35 @@ svg[data-focus-active] [data-focus-match] [data-detail-anchor], svg[data-reach-a
 .m-emphasis { fill: var(--arrow-emphasis); }
 .m-security { fill: var(--security-stroke); }
 .m-dashed { fill: var(--database-stroke); }
+.c-change-swatch-added { fill: var(--backend-fill); stroke: var(--backend-stroke); }
+.c-change-swatch-modified { fill: var(--cloud-fill); stroke: var(--cloud-stroke); }
+.c-change-swatch-removed { fill: var(--security-fill); stroke: var(--security-stroke); }
+.c-change-badge-added { fill: color-mix(in srgb, var(--backend-stroke) 18%, var(--mask)); stroke: var(--backend-stroke); }
+.c-change-badge-modified { fill: color-mix(in srgb, var(--cloud-stroke) 18%, var(--mask)); stroke: var(--cloud-stroke); }
+.c-change-badge-removed { fill: color-mix(in srgb, var(--security-stroke) 18%, var(--mask)); stroke: var(--security-stroke); }
+.c-change-swatch-removed { stroke-dasharray: 3, 2; }
+.c-change-swatch-unchanged { fill: var(--mask); stroke: var(--text-dim); }
+.t-change-added, .t-change-badge-added { fill: var(--backend-stroke); }
+.t-change-modified, .t-change-badge-modified { fill: var(--cloud-stroke); }
+.t-change-removed, .t-change-badge-removed { fill: var(--security-stroke); }
+.m-change-added { fill: var(--backend-stroke); }
+.m-change-modified { fill: var(--cloud-stroke); }
+.m-change-removed { fill: var(--security-stroke); }
+svg [data-change="added"] &gt; :is(rect, circle, ellipse, polygon, path)[class^="c-"]:not(.c-mask) { stroke: var(--backend-stroke); stroke-width: 2.4; }
+svg [data-change="modified"] &gt; :is(rect, circle, ellipse, polygon, path)[class^="c-"]:not(.c-mask) { stroke: var(--cloud-stroke); stroke-width: 2.4; }
+svg [data-change="removed"] &gt; :is(rect, circle, ellipse, polygon, path)[class^="c-"]:not(.c-mask) { stroke: var(--security-stroke); stroke-width: 1.6; stroke-dasharray: 5, 4; }
+svg rect[data-change="added"][data-graph-role], svg [data-change="added"] &gt; rect.c-lane-wash, svg [data-change="added"] &gt; rect.c-lane-rule { stroke: var(--backend-stroke); stroke-width: 2; stroke-dasharray: none; }
+svg rect[data-change="modified"][data-graph-role], svg [data-change="modified"] &gt; rect.c-lane-wash, svg [data-change="modified"] &gt; rect.c-lane-rule { stroke: var(--cloud-stroke); stroke-width: 2; stroke-dasharray: none; }
+svg rect[data-change="removed"][data-graph-role], svg [data-change="removed"] &gt; rect.c-lane-wash, svg [data-change="removed"] &gt; rect.c-lane-rule { stroke: var(--security-stroke); stroke-width: 1.4; stroke-dasharray: 5, 4; }
+svg path[data-change="added"][data-edge-from], svg [data-change="added"][data-edge-from] &gt; path { stroke: var(--backend-stroke); stroke-width: 2.4; }
+svg path[data-change="modified"][data-edge-from], svg [data-change="modified"][data-edge-from] &gt; path { stroke: var(--cloud-stroke); stroke-width: 2.4; }
+svg path[data-change="removed"][data-edge-from], svg [data-change="removed"][data-edge-from] &gt; path { stroke: var(--security-stroke); stroke-width: 1.6; stroke-dasharray: 5, 4; }
+svg [data-change="removed"], svg text[data-change="removed"] { opacity: 0.62; }
+svg [data-change="removed"] &gt; text[data-node-label], svg [data-change="removed"][data-graph-role] &gt; text, svg [data-change="removed"][data-edge-from] text, svg text[data-change="removed"], svg [data-er-row][data-change="removed"] &gt; text, svg [data-class-row][data-change="removed"] &gt; text { text-decoration: line-through; }
+svg [data-emphasis] &gt; :is(rect, circle, ellipse, polygon, path)[class^="c-"]:not(.c-mask), svg path[data-emphasis][data-edge-from], svg [data-emphasis][data-edge-from] &gt; path { stroke-width: 3.2; }
+svg [data-emphasis] &gt; text[data-node-label] { font-weight: 800; }
+svg [data-change-context="subdued"] { opacity: 0.48; }
+svg [data-change-context="subdued"] &gt; :is(rect, circle, ellipse, polygon, path)[class^="c-"]:not(.c-mask) { stroke-dasharray: none; }
 svg [data-node-id] { cursor: pointer; transition: opacity 0.18s, fill-opacity 0.18s, stroke-opacity 0.18s, filter 0.18s; }
 svg [data-edge-from], svg [data-graph-role="automatic-crossover-underlay"] { transition: opacity 0.18s, filter 0.18s; }
 svg [data-node-id]:hover, svg [data-node-id]:focus-visible { filter: drop-shadow(0 0 7px var(--frontend-stroke)); outline: none; }
@@ -360,9 +394,8 @@ svg[data-preset="editorial"] { --flow-halo-peak: 0.07; --flow-glow-peak: 0.28; -
   55%, 100% { box-shadow: transparent 0px 0px 0px 0.32rem; }
 }
 @keyframes archify-intent-trace-flow { 
-  0% { opacity: 0.28; stroke-dashoffset: 0; }
-  12%, 78% { opacity: 0.94; }
-  100% { opacity: 0; stroke-dashoffset: -1; }
+  0% { opacity: 0.94; stroke-dashoffset: 0; }
+  100% { opacity: 0.94; stroke-dashoffset: -1; }
 }
 @keyframes archify-route-probe-flow { 
   0% { stroke-dashoffset: 0; opacity: 0.96; }
@@ -494,10 +527,10 @@ svg[data-node-ui] .phase-chip { stroke: var(--lane-stroke); stroke-width: 0.75px
 svg[data-node-ui] g[data-edge-from] &gt; rect.c-mask { rx: 7px; stroke: var(--lane-stroke); stroke-width: 0.75px; }
 svg[data-node-ui][data-preset="blueprint"] :is([data-graph-role="structural-frame-label-mask"], g[data-edge-from] &gt; rect.c-mask, .phase-chip) { rx: 2px; }
 svg[data-node-ui][data-preset="editorial"] :is([data-graph-role="structural-frame-label-mask"], g[data-edge-from] &gt; rect.c-mask, .phase-chip) { rx: 3px; }
-:root, svg { --bg: #020617; --grid: #1e293b; --canvas-dot: rgba(148, 163, 184, 0.16); --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #94a3b8; --arrow-emphasis: #34d399; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; }
-@media (prefers-color-scheme: light) { :root, svg { --bg: #f4f5f7; --grid: #e9edf2; --canvas-dot: #e2e7ec; --text: #111827; --text-muted: #5b6474; --text-dim: #9aa3b2; --text-faint: #6b7280; --panel: #ffffff; --panel-border: #e5e7eb; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #64748b; --arrow-emphasis: #059669; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; } }
-svg[data-theme="light"] { --bg: #f4f5f7; --grid: #e9edf2; --canvas-dot: #e2e7ec; --text: #111827; --text-muted: #5b6474; --text-dim: #9aa3b2; --text-faint: #6b7280; --panel: #ffffff; --panel-border: #e5e7eb; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #64748b; --arrow-emphasis: #059669; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; }
-svg[data-theme="dark"] { --bg: #020617; --grid: #1e293b; --canvas-dot: rgba(148, 163, 184, 0.16); --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #94a3b8; --arrow-emphasis: #34d399; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; }
+:root, svg { --bg: #020617; --grid: #1e293b; --canvas-dot: rgba(148, 163, 184, 0.16); --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #94a3b8; --arrow-emphasis: #34d399; --edge-label: #94a3b8; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; --reader-accent: ; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; }
+@media (prefers-color-scheme: light) { :root, svg { --bg: #f4f5f7; --grid: #e9edf2; --canvas-dot: #e2e7ec; --text: #111827; --text-muted: #5b6474; --text-dim: #9aa3b2; --text-faint: #6b7280; --panel: #ffffff; --panel-border: #e5e7eb; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #64748b; --arrow-emphasis: #059669; --edge-label: #5b6474; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; --reader-accent: #077f9c; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; } }
+svg[data-theme="light"] { --bg: #f4f5f7; --grid: #e9edf2; --canvas-dot: #e2e7ec; --text: #111827; --text-muted: #5b6474; --text-dim: #9aa3b2; --text-faint: #6b7280; --panel: #ffffff; --panel-border: #e5e7eb; --lane-fill: rgba(248, 250, 252, 0.65); --lane-stroke: #cbd5e1; --arrow: #64748b; --arrow-emphasis: #059669; --edge-label: #5b6474; --mask: #ffffff; --frontend-fill: rgba(34, 211, 238, 0.15); --frontend-stroke: #0891b2; --backend-fill: rgba(52, 211, 153, 0.18); --backend-stroke: #059669; --database-fill: rgba(167, 139, 250, 0.2); --database-stroke: #7c3aed; --cloud-fill: rgba(251, 191, 36, 0.18); --cloud-stroke: #d97706; --security-fill: rgba(251, 113, 133, 0.15); --security-stroke: #e11d48; --messagebus-fill: rgba(251, 146, 60, 0.15); --messagebus-stroke: #ea580c; --external-fill: rgba(148, 163, 184, 0.18); --external-stroke: #64748b; --toolbar-bg: rgba(255, 255, 255, 0.92); --toolbar-border: #cbd5e1; --toolbar-text: #334155; --toolbar-hover: #ffffff; --toolbar-menu-bg: #ffffff; --reader-accent: #077f9c; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; }
+svg[data-theme="dark"] { --bg: #020617; --grid: #1e293b; --canvas-dot: rgba(148, 163, 184, 0.16); --text: #ffffff; --text-muted: #94a3b8; --text-dim: #475569; --text-faint: #7d8da1; --panel: rgba(15, 23, 42, 0.5); --panel-border: #1e293b; --lane-fill: rgba(15, 23, 42, 0.22); --lane-stroke: #334155; --arrow: #94a3b8; --arrow-emphasis: #34d399; --edge-label: #94a3b8; --mask: #0f172a; --frontend-fill: rgba(8, 51, 68, 0.4); --frontend-stroke: #22d3ee; --backend-fill: rgba(6, 78, 59, 0.4); --backend-stroke: #34d399; --database-fill: rgba(76, 29, 149, 0.4); --database-stroke: #a78bfa; --cloud-fill: rgba(120, 53, 15, 0.3); --cloud-stroke: #fbbf24; --security-fill: rgba(136, 19, 55, 0.4); --security-stroke: #fb7185; --messagebus-fill: rgba(251, 146, 60, 0.3); --messagebus-stroke: #fb923c; --external-fill: rgba(30, 41, 59, 0.5); --external-stroke: #94a3b8; --toolbar-bg: rgba(15, 23, 42, 0.8); --toolbar-border: #334155; --toolbar-text: #e2e8f0; --toolbar-hover: rgba(15, 23, 42, 0.95); --toolbar-menu-bg: #0f172a; --reader-accent: ; --flow-cycle: ; --flow-halo-peak: ; --flow-glow-peak: ; --flow-tail-peak: ; --flow-head-peak: ; --flow-wake-peak: ; --flow-ripple-peak: ; --flow-peak: ; }
 rect.c-bg-rect { fill: var(--bg); }
 </style><rect x="0" y="0" width="1140" height="698" class="c-bg-rect"/><metadata id="archify-software-notices">NOTICE
 Archify
@@ -510,7 +543,7 @@ The separately versioned DeepSeek Harness adapter remains MIT; its bundled
 Skill retains the license of the immutable source selected in release.json.
 
 Code and contributions received under the MIT License through pre-transition
-commit 25cf37080fc8b1dbe758a4efc3935b55f3327083 remain available under their
+commit 82c7e0f089a02a4d514714adf37dc2061682da5f remain available under their
 original terms. Previously published releases keep their existing licenses. The complete historical MIT
 copyright and permission notice is preserved in LICENSE-MIT. This transition
 does not revoke existing MIT grants or assert a new patent grant on behalf
@@ -833,7 +866,38 @@ SVG when a page is built; delivered pages contain no Pele code.
 Brand names, logos, and trademarks remain the property of their respective
 owners. This notice records provenance and known terms; it does not grant rights
 that Archify does not hold, and it does not state that every packaged mark has
-been cleared for every commercial, promotional, or redistributive use.</metadata>
+been cleared for every commercial, promotional, or redistributive use.
+
+## Story HTML parser
+
+The Node story scanner and builder include parse5 7.3.0 (MIT) and entities
+6.0.1 (BSD-2-Clause), bundled into `story/vendor/html-parser.mjs`. The parser is
+not embedded in generated HTML. Pinned sources, rebuild instructions and the
+complete licenses are in `story/vendor/`.
+
+## Code Analysis external diagnostics
+
+The Code Analysis module includes the unmodified
+[OASIS SARIF 2.1.0 schema](https://github.com/oasis-tcs/sarif-spec/blob/1742a253eb654bf8a4ed7c60eaef7412b2c23553/sarif-2.1/schema/sarif-schema-2.1.0.json)
+from revision `1742a253`. Its repository content is governed by the
+[OASIS license terms and policies](https://github.com/oasis-tcs/sarif-spec/blob/1742a253eb654bf8a4ed7c60eaef7412b2c23553/LICENSE.md),
+including RF on RAND Terms Mode. The original terms are preserved in
+`modules/code-analysis/import/vendor/OASIS-LICENSE.md` in the packaged Skill.
+
+The line-context fingerprint algorithm is adapted from
+[github/codeql-action](https://github.com/github/codeql-action/blob/592d162ba3b2f5a3411d2cbf01df9f82c492f269/src/fingerprints.ts),
+revision `592d162b`, copyright (c) 2020 GitHub, under the MIT License.
+The complete license is preserved in
+`modules/code-analysis/import/vendor/CODEQL-LICENSE.txt` in the packaged Skill.
+
+## Code Analysis Atlas 3D
+
+The Atlas 3D view includes the unmodified minified build of
+[three.js](https://github.com/mrdoob/three.js) r128 (`three@0.128.0` on npm,
+`build/three.min.js`), copyright 2010-2021 three.js authors, under the MIT
+License. It is embedded in the analysis page and runs only when Atlas 3D is
+opened. The complete license is preserved in
+`modules/code-analysis/overlay/vendor/THREE-LICENSE.txt` in the packaged Skill.</metadata>
         <title id="archify-diagram-title">Contexto de system-updater</title>
         <desc id="archify-diagram-description">Un diagrama de arquitectura generado por Archify.</desc>
         <!-- Definitions -->
@@ -909,20 +973,26 @@ been cleared for every commercial, promotional, or redistributive use.</metadata
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" x="135" y="288" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Persona operadora</text>
+          <text data-node-label="" x="135" y="288" class="t-primary" font-size="14" font-weight="600" text-anchor="middle">Persona operadora</text>
         <text x="135" y="304" class="t-muted" font-size="9" text-anchor="middle">Teclado o salida por líneas</text>
         </g>
 
-        <g id="node-updater" data-node-id="updater" data-node-label="system-updater" tabindex="0" role="button" aria-label="Enfocar system-updater, Detectar · confirmar · verificar, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Detectar · confirmar · verificar" data-node-context="Componente de arquitectura">
+<a class="archify-drilldown-link" data-archify-drilldown="1" href="containers.html" aria-label="system-updater">
+                <g id="node-updater" data-node-id="updater" data-node-label="system-updater" tabindex="0" role="button" aria-label="Enfocar system-updater, Detectar · confirmar · verificar, Componente de arquitectura" aria-pressed="false" data-node-kind="backend" data-node-sublabel="Detectar · confirmar · verificar" data-node-context="Componente de arquitectura" data-node-drilldowns="[{&quot;href&quot;:&quot;containers.html&quot;,&quot;label&quot;:&quot;system-updater&quot;}]">
           <title>system-updater · Detectar · confirmar · verificar · Componente de arquitectura</title>
           <rect x="420" y="180" width="270" height="220" rx="8" class="c-mask"/>
           <rect x="420" y="180" width="270" height="220" rx="8" class="c-backend" data-animate="node" style="--step: 1; --flow-node-name: archify-relay-node-1;" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(426 186) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" x="555" y="288" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">system-updater</text>
-        <text x="555" y="304" class="t-muted" font-size="9" text-anchor="middle">Detectar · confirmar · verificar</text>
+          <text data-node-label="" x="555" y="288" class="t-primary" font-size="14" font-weight="600" text-anchor="middle">system-updater</text>
+        <text x="555" y="304" class="t-muted" font-size="10.5" text-anchor="middle">Detectar · confirmar · verificar</text>
+          <g class="archify-drilldown-mark" transform="translate(679 389)" aria-hidden="true">
+          <circle r="6" class="archify-drilldown-mark-disc"/>
+          <path d="M-1.8 -1.6 L2.4 0 L-1.8 1.6" fill="none" class="archify-drilldown-mark-arrow"/>
         </g>
+        </g>
+        </a>
 
         <g id="node-gestores" data-node-id="gestores" data-node-label="Gestores del sistema" tabindex="0" role="button" aria-label="Enfocar Gestores del sistema, 27 descriptores · filtro por SO, Componente de arquitectura" aria-pressed="false" data-node-kind="external" data-node-sublabel="27 descriptores · filtro por SO" data-node-context="Componente de arquitectura">
           <title>Gestores del sistema · 27 descriptores · filtro por SO · Componente de arquitectura</title>
@@ -932,8 +1002,8 @@ been cleared for every commercial, promotional, or redistributive use.</metadata
             <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
-          <text data-node-label="" x="990" y="288" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Gestores del sistema</text>
-        <text x="990" y="304" class="t-muted" font-size="9" text-anchor="middle">27 descriptores · filtro por SO</text>
+          <text data-node-label="" x="990" y="288" class="t-primary" font-size="14" font-weight="600" text-anchor="middle">Gestores del sistema</text>
+        <text x="990" y="304" class="t-muted" font-size="10.5" text-anchor="middle">27 descriptores · filtro por SO</text>
         </g>
 
         <g id="node-npm" data-node-id="npm" data-node-label="Registro npm" tabindex="0" role="button" aria-label="Enfocar Registro npm, Versión del propio updater, Componente de arquitectura" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="Versión del propio updater" data-node-context="Componente de arquitectura">
@@ -943,7 +1013,7 @@ been cleared for every commercial, promotional, or redistributive use.</metadata
           <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(451 16) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" x="555" y="43" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Registro npm</text>
+          <text data-node-label="" x="555" y="43" class="t-primary" font-size="14" font-weight="600" text-anchor="middle">Registro npm</text>
         <text x="555" y="59" class="t-muted" font-size="9" text-anchor="middle">Versión del propio updater</text>
         </g>
 
@@ -954,26 +1024,26 @@ been cleared for every commercial, promotional, or redistributive use.</metadata
           <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(446 556) scale(0.6875)">
             <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
           </g>
-          <text data-node-label="" x="555" y="588" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Versiones Go y Flutter</text>
-        <text x="555" y="604" class="t-muted" font-size="9" text-anchor="middle">go.dev · manifiesto de Flutter</text>
+          <text data-node-label="" x="555" y="588" class="t-primary" font-size="14" font-weight="600" text-anchor="middle">Versiones Go y Flutter</text>
+        <text x="555" y="604" class="t-muted" font-size="10.5" text-anchor="middle">go.dev · manifiesto de Flutter</text>
         </g>
 
         <!-- Connection labels -->
         <g data-edge-from="persona" data-edge-to="updater" data-edge-label="Teclado / argumentos" data-edge-key="0" data-edge-id="iniciar">
           <rect x="272" y="270" width="106" height="14" rx="3" class="c-mask"/>
-          <text x="325" y="280" class="t-edge-default" font-size="8" text-anchor="middle">Teclado / argumentos</text>
+          <text x="325" y="280" class="t-edge-default" font-size="10" font-weight="500" textLength="102" lengthAdjust="spacingAndGlyphs" text-anchor="middle">Teclado / argumentos</text>
         </g>
         <g data-edge-from="updater" data-edge-to="gestores" data-edge-label="Detectar / actualizar" data-edge-key="1" data-edge-id="comandos">
           <rect x="729.6" y="270" width="110.8" height="14" rx="3" class="c-mask"/>
-          <text x="785" y="280" class="t-edge-default" font-size="8" text-anchor="middle">Detectar / actualizar</text>
+          <text x="785" y="280" class="t-edge-default" font-size="10" font-weight="500" textLength="106.8" lengthAdjust="spacingAndGlyphs" text-anchor="middle">Detectar / actualizar</text>
         </g>
         <g data-edge-from="updater" data-edge-to="npm" data-edge-label="HTTPS · selfCheck" data-edge-key="2" data-edge-id="propia-version">
           <rect x="509.2" y="160" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="555" y="170" class="t-edge-default" font-size="8" text-anchor="middle">HTTPS · selfCheck</text>
+          <text x="555" y="170" class="t-edge-default" font-size="10" font-weight="500" textLength="87.6" lengthAdjust="spacingAndGlyphs" text-anchor="middle">HTTPS · selfCheck</text>
         </g>
         <g data-edge-from="updater" data-edge-to="sdk" data-edge-label="HTTPS · SDK detectado" data-edge-key="3" data-edge-id="versiones-sdk">
           <rect x="438.20000000000005" y="468" width="110.8" height="14" rx="3" class="c-mask"/>
-          <text x="493.6" y="478" class="t-edge-default" font-size="8" text-anchor="middle">HTTPS · SDK detectado</text>
+          <text x="493.6" y="478" class="t-edge-default" font-size="10" font-weight="500" textLength="106.8" lengthAdjust="spacingAndGlyphs" text-anchor="middle">HTTPS · SDK detectado</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
